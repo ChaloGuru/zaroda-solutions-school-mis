@@ -1,4 +1,5 @@
 import { Facebook, Twitter, Linkedin, Mail, Phone, MapPin, MessageCircle } from 'lucide-react';
+import zarodaLogo from '@/assets/zaroda-logo.png';
 
 const Footer = () => {
   const links = {
@@ -21,10 +22,11 @@ const Footer = () => {
           {/* Brand column */}
           <div className="lg:col-span-2 space-y-6">
             <div className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-lg bg-primary-foreground flex items-center justify-center text-primary font-bold text-xl">
-                Z
-              </div>
-              <span className="font-bold text-xl">Zaroda Solutions</span>
+              <img 
+                src={zarodaLogo} 
+                alt="Zaroda Solutions" 
+                className="h-16 w-auto"
+              />
             </div>
             <p className="text-primary-foreground/80 max-w-sm leading-relaxed">
               Empowering educational institutions with intelligent management solutions. 
