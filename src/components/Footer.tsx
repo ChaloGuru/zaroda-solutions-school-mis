@@ -1,11 +1,10 @@
-import { Facebook, Twitter, Linkedin, Mail, Phone, MapPin } from 'lucide-react';
+import { Facebook, Twitter, Linkedin, Mail, Phone, MapPin, MessageCircle } from 'lucide-react';
 
 const Footer = () => {
   const links = {
     solutions: ['Multi-School Management', 'Billing & Payments', 'Parent Portal', 'Grade Tracking'],
-    company: ['About Us', 'Careers', 'Blog', 'Press'],
     support: ['Help Center', 'Documentation', 'API Reference', 'Contact Us'],
-    legal: ['Privacy Policy', 'Terms of Service', 'Cookie Policy', 'GDPR'],
+    legal: ['Privacy Policy', 'Terms of Service', 'Cookie Policy'],
   };
 
   const socialLinks = [
@@ -40,11 +39,20 @@ const Footer = () => {
                 hello@zaroda.com
               </a>
               <a
-                href="tel:+254700000000"
+                href="tel:+254724282065"
                 className="flex items-center gap-3 text-primary-foreground/80 hover:text-primary-foreground transition-colors"
               >
                 <Phone size={18} />
-                +254 700 000 000
+                +254 724 282 065
+              </a>
+              <a
+                href="https://wa.me/254724282065"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 text-primary-foreground/80 hover:text-primary-foreground transition-colors"
+              >
+                <MessageCircle size={18} />
+                WhatsApp Support
               </a>
               <div className="flex items-center gap-3 text-primary-foreground/80">
                 <MapPin size={18} />
@@ -101,6 +109,15 @@ const Footer = () => {
               ))}
             </ul>
           </div>
+        </div>
+      </div>
+
+      {/* Quote bar */}
+      <div className="border-t border-primary-foreground/10 bg-primary-foreground/5">
+        <div className="container-max px-4 sm:px-6 lg:px-8 py-4">
+          <p className="text-center text-primary-foreground/70 text-sm italic">
+            "Zaroda Solutions wishes you deep peace, great prosperity and many happy days spent engaged in a worthy course."
+          </p>
         </div>
       </div>
 
