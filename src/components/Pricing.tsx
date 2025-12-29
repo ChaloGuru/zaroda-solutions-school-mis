@@ -65,6 +65,14 @@ const Pricing = () => {
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Pay per learner, per year. Prices in KSH. Scale as your institution grows.
           </p>
+          <div className="mt-6 inline-flex items-center gap-2 px-6 py-3 rounded-full bg-teal/10 border border-teal/20">
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-teal"></span>
+            </span>
+            <span className="text-teal font-semibold">14-Day Free Trial</span>
+            <span className="text-muted-foreground">— No credit card required</span>
+          </div>
         </div>
 
         {/* Pricing Cards */}
