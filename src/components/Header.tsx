@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Menu, X } from 'lucide-react';
+import zarodaLogo from '@/assets/zaroda-logo.png';
 
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -33,12 +34,11 @@ const Header = () => {
         <div className="flex items-center justify-between h-16 sm:h-20">
           {/* Logo */}
           <a href="#" className="flex items-center gap-2 group">
-            <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold text-xl transition-transform group-hover:scale-105">
-              Z
-            </div>
-            <span className="font-bold text-xl text-foreground">
-              Zaroda<span className="text-primary">.</span>
-            </span>
+            <img 
+              src={zarodaLogo} 
+              alt="Zaroda Solutions" 
+              className="h-12 w-auto transition-transform group-hover:scale-105"
+            />
           </a>
 
           {/* Desktop Navigation */}
