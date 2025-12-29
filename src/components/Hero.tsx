@@ -22,14 +22,14 @@ const Hero = () => {
             </div>
 
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight animate-fade-up animation-delay-100">
-              Empowering Education Through{' '}
-              <span className="text-primary">Intelligent Management</span>
+              Smart. Simple.{' '}
+              <span className="text-primary">School Management.</span>
             </h1>
 
             <p className="text-lg sm:text-xl text-muted-foreground max-w-xl animate-fade-up animation-delay-200">
-              Zaroda Solutions streamlines every aspect of school administration—from 
-              admissions to alumni tracking—with a powerful, multi-tenant platform 
-              built for modern education.
+              Empowering every school with digital tools for real learning. Zaroda Solutions 
+              simplifies school life through technology—making administration faster, 
+              communication stronger, and education smarter.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 animate-fade-up animation-delay-300">
