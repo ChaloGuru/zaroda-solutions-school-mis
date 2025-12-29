@@ -4,6 +4,7 @@ import TrustBar from '@/components/TrustBar';
 import Features from '@/components/Features';
 import MultiTenant from '@/components/MultiTenant';
 import Testimonials from '@/components/Testimonials';
+import Pricing from '@/components/Pricing';
 import Footer from '@/components/Footer';
 
 const Index = () => {
@@ -16,6 +17,7 @@ const Index = () => {
         <Features />
         <MultiTenant />
         <Testimonials />
+        <Pricing />
       </main>
       <Footer />
     </div>
