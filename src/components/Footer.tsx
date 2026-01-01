@@ -34,11 +34,11 @@ const Footer = () => {
             </p>
             <div className="space-y-3">
               <a
-                href="mailto:hello@zaroda.com"
+                href="mailto:info@zarodasolutions.co.ke"
                 className="flex items-center gap-3 text-primary-foreground/80 hover:text-primary-foreground transition-colors"
               >
                 <Mail size={18} />
-                hello@zaroda.com
+                info@zarodasolutions.co.ke
               </a>
               <a
                 href="tel:+254724282065"
