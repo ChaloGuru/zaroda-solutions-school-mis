@@ -1,4 +1,4 @@
-import { Building2, CreditCard, MessageCircle } from 'lucide-react';
+import { Building2, CreditCard, MessageCircle, Calendar } from 'lucide-react';
 
 const Features = () => {
   const features = [
@@ -22,6 +22,13 @@ const Features = () => {
       description:
         'Real-time communication and grade tracking. Keep parents engaged with their child\'s academic journey.',
       color: 'accent',
+    },
+    {
+      icon: Calendar,
+      title: 'Timetable Generation',
+      description:
+        'Automatically generate and manage class timetables. Avoid conflicts and optimize teacher schedules effortlessly.',
+      color: 'primary',
     },
   ];
 

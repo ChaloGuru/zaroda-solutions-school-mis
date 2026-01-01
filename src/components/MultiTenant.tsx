@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Building, Users, Globe, Shield } from 'lucide-react';
-
+import zarodaLogo from '@/assets/zaroda-logo.png';
 const MultiTenant = () => {
   const benefits = [
     {
@@ -80,9 +80,7 @@ const MultiTenant = () => {
               {/* Mock dashboard header */}
               <div className="flex items-center justify-between mb-6 pb-4 border-b border-border">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
-                    Z
-                  </div>
+                  <img src={zarodaLogo} alt="Zaroda" className="h-8 w-auto" />
                   <span className="font-semibold">Zaroda Dashboard</span>
                 </div>
                 <div className="flex gap-2">
