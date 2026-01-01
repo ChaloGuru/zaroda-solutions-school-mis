@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Building, Users, Globe, Shield } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import zarodaLogo from '@/assets/zaroda-logo.png';
 const MultiTenant = () => {
   const benefits = [
@@ -132,9 +133,12 @@ const MultiTenant = () => {
               </div>
 
               {/* Add school button */}
-              <button className="w-full mt-4 py-3 border-2 border-dashed border-border rounded-xl text-muted-foreground hover:border-primary hover:text-primary transition-colors font-medium">
+              <Link 
+                to="/signup"
+                className="block w-full mt-4 py-3 border-2 border-dashed border-border rounded-xl text-muted-foreground hover:border-primary hover:text-primary transition-colors font-medium text-center"
+              >
                 + Add New School
-              </button>
+              </Link>
             </div>
           </div>
         </div>

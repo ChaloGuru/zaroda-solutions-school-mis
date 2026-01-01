@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Menu, X } from 'lucide-react';
 import zarodaLogo from '@/assets/zaroda-logo.png';
@@ -57,11 +58,11 @@ const Header = () => {
 
           {/* Desktop CTA */}
           <div className="hidden lg:flex items-center gap-3">
-            <Button variant="login" size="default">
-              Login
+            <Button asChild variant="login" size="default">
+              <Link to="/login">Login</Link>
             </Button>
-            <Button variant="signup" size="default">
-              Sign Up
+            <Button asChild variant="signup" size="default">
+              <Link to="/signup">Sign Up</Link>
             </Button>
           </div>
 
@@ -89,11 +90,11 @@ const Header = () => {
                 </a>
               ))}
               <div className="flex gap-3 pt-4">
-                <Button variant="login" size="default" className="flex-1">
-                  Login
+                <Button asChild variant="login" size="default" className="flex-1">
+                  <Link to="/login">Login</Link>
                 </Button>
-                <Button variant="signup" size="default" className="flex-1">
-                  Sign Up
+                <Button asChild variant="signup" size="default" className="flex-1">
+                  <Link to="/signup">Sign Up</Link>
                 </Button>
               </div>
             </nav>
