@@ -60,6 +60,12 @@ export default {
           light: "hsl(var(--blue-light))",
           DEFAULT: "hsl(var(--blue))",
         },
+        kenya: {
+          black: "hsl(var(--kenya-black))",
+          red: "hsl(var(--kenya-red))",
+          green: "hsl(var(--kenya-green))",
+          white: "hsl(var(--kenya-white))",
+        },
       },
       fontFamily: {
         sans: ['DM Sans', 'system-ui', 'sans-serif'],

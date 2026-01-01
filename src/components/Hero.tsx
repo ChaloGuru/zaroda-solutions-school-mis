@@ -5,20 +5,27 @@ import heroImage from '@/assets/hero-classroom.jpg';
 const Hero = () => {
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden pt-20">
+      {/* Kenya flag stripe accent at top */}
+      <div className="absolute top-0 left-0 right-0 h-1 flex">
+        <div className="flex-1 bg-kenya-black" />
+        <div className="flex-1 bg-kenya-red" />
+        <div className="flex-1 bg-kenya-green" />
+      </div>
+      
       {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-maroon-light via-background to-teal-light opacity-50" />
       
       {/* Decorative elements */}
       <div className="absolute top-20 right-10 w-72 h-72 bg-primary/5 rounded-full blur-3xl" />
-      <div className="absolute bottom-20 left-10 w-96 h-96 bg-secondary/5 rounded-full blur-3xl" />
+      <div className="absolute bottom-20 left-10 w-96 h-96 bg-kenya-green/10 rounded-full blur-3xl" />
 
       <div className="container-max section-padding relative z-10">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           {/* Content */}
           <div className="space-y-8">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full text-primary font-medium text-sm animate-fade-up">
-              <span className="w-2 h-2 bg-primary rounded-full animate-pulse-slow" />
-              Trusted by 500+ Schools Nationwide
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-kenya-green/10 rounded-full text-kenya-green font-medium text-sm animate-fade-up border border-kenya-green/20">
+              <span className="w-2 h-2 bg-kenya-green rounded-full animate-pulse-slow" />
+              🇰🇪 Trusted by 500+ Schools in Kenya
             </div>
 
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight animate-fade-up animation-delay-100">
@@ -79,7 +86,7 @@ const Hero = () => {
             <div className="relative rounded-2xl overflow-hidden shadow-card">
               <img
                 src={heroImage}
-                alt="Modern classroom with students using tablets"
+                alt="Kenyan students in a classroom raising their hands"
                 className="w-full h-auto object-cover"
               />
               {/* Overlay stats card */}
