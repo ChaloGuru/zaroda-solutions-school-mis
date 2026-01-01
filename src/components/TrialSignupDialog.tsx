@@ -9,10 +9,16 @@ import { Sparkles, School, User, Mail, Phone, MapPin } from 'lucide-react';
 
 interface TrialSignupDialogProps {
   trigger?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-const TrialSignupDialog = ({ trigger }: TrialSignupDialogProps) => {
-  const [open, setOpen] = useState(false);
+const TrialSignupDialog = ({ trigger, open: controlledOpen, onOpenChange }: TrialSignupDialogProps) => {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = isControlled ? (onOpenChange || (() => {})) : setInternalOpen;
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
@@ -57,14 +63,11 @@ const TrialSignupDialog = ({ trigger }: TrialSignupDialogProps) => {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button variant="teal" size="lg" className="gap-2">
-            <Sparkles size={18} />
-            Start Free Trial
-          </Button>
-        )}
-      </DialogTrigger>
+      {trigger && (
+        <DialogTrigger asChild>
+          {trigger}
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-center flex items-center justify-center gap-2">
