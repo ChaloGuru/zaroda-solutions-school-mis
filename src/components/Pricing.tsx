@@ -2,43 +2,25 @@ import { Check, Users, GraduationCap, BookOpen, School, Sparkles } from 'lucide-
 import { Button } from '@/components/ui/button';
 import TrialSignupDialog from './TrialSignupDialog';
 const Pricing = () => {
-  const pricingTiers = [
+  const schoolLevels = [
     {
       level: 'ECDE Level',
       icon: Users,
       description: 'Early childhood development education centers',
-      tiers: [
-        { range: '1-100', price: 500 },
-        { range: '101-200', price: 1000 },
-        { range: '201-300', price: 1500 },
-        { range: '301-400', price: 2000 },
-        { range: '401+', price: 2500 },
-      ],
+      examples: ['PP1', 'PP2', 'Nursery'],
     },
     {
       level: 'Primary School',
       icon: BookOpen,
       description: 'Primary level educational institutions',
       popular: true,
-      tiers: [
-        { range: '1-300', price: 500 },
-        { range: '301-600', price: 1500 },
-        { range: '601-900', price: 2000 },
-        { range: '901-1200', price: 2500 },
-        { range: '1201+', price: 3000 },
-      ],
+      examples: ['Grade 1-6', 'Class 1-6'],
     },
     {
       level: 'Junior School',
       icon: GraduationCap,
       description: 'Junior secondary school level',
-      tiers: [
-        { range: '1-100', price: 500 },
-        { range: '101-200', price: 1500 },
-        { range: '201-300', price: 2000 },
-        { range: '301-400', price: 2500 },
-        { range: '401+', price: 3000 },
-      ],
+      examples: ['Grade 7-9', 'JSS'],
     },
   ];
 
@@ -62,10 +44,10 @@ const Pricing = () => {
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-4">
             Affordable Plans for Every School
           </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Pay per learner, per year. Prices in KSH. Scale as your institution grows.
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-6">
+            Pay per stream at <span className="text-primary font-bold">KSH 2,088/-</span> annually. Maximum 80 learners per stream.
           </p>
-          <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-teal/10 border border-teal/20">
               <span className="relative flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal opacity-75"></span>
@@ -78,17 +60,46 @@ const Pricing = () => {
           </div>
         </div>
 
-        {/* Pricing Cards */}
+        {/* Pricing Highlight */}
+        <div className="bg-gradient-to-r from-primary/10 via-teal/10 to-blue/10 rounded-2xl p-8 lg:p-12 border border-border mb-16 animate-fade-up">
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-primary text-primary-foreground mb-6">
+              <Sparkles size={40} />
+            </div>
+            <h3 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
+              KSH 2,088<span className="text-xl font-normal text-muted-foreground">/stream/year</span>
+            </h3>
+            <p className="text-lg text-muted-foreground max-w-xl mx-auto mb-6">
+              Simple, transparent pricing. Each class teacher pays <span className="text-primary font-semibold">KSH 2,088</span> for their stream annually. Maximum 80 learners per stream.
+            </p>
+            <div className="flex flex-wrap justify-center gap-3 mb-8">
+              {features.map((feature) => (
+                <div key={feature} className="flex items-center gap-2 px-4 py-2 rounded-full bg-card border border-border">
+                  <Check size={16} className="text-teal flex-shrink-0" />
+                  <span className="text-sm text-muted-foreground">{feature}</span>
+                </div>
+              ))}
+            </div>
+            <TrialSignupDialog />
+          </div>
+        </div>
+
+        {/* School Levels */}
+        <div className="text-center mb-8">
+          <h3 className="text-2xl font-bold text-foreground mb-2">Works for All School Levels</h3>
+          <p className="text-muted-foreground">ECDE, Primary, and Junior schools are managed separately</p>
+        </div>
+        
         <div className="grid md:grid-cols-3 gap-6 lg:gap-8 mb-16">
-          {pricingTiers.map((tier, index) => (
+          {schoolLevels.map((level, index) => (
             <div
-              key={tier.level}
+              key={level.level}
               className={`relative bg-card rounded-2xl p-6 lg:p-8 shadow-soft transition-all duration-300 hover:shadow-xl hover:-translate-y-1 animate-fade-up ${
-                tier.popular ? 'ring-2 ring-primary' : 'border border-border'
+                level.popular ? 'ring-2 ring-primary' : 'border border-border'
               }`}
               style={{ animationDelay: `${index * 100}ms` }}
             >
-              {tier.popular && (
+              {level.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                   <span className="px-4 py-1 rounded-full bg-primary text-primary-foreground text-sm font-medium">
                     Most Popular
@@ -98,36 +109,38 @@ const Pricing = () => {
 
               <div className="flex items-center gap-3 mb-4">
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                  tier.popular ? 'bg-primary text-primary-foreground' : 'bg-teal/10 text-teal'
+                  level.popular ? 'bg-primary text-primary-foreground' : 'bg-teal/10 text-teal'
                 }`}>
-                  <tier.icon size={24} />
+                  <level.icon size={24} />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-foreground">{tier.level}</h3>
-                  <p className="text-sm text-muted-foreground">{tier.description}</p>
+                  <h3 className="text-xl font-bold text-foreground">{level.level}</h3>
+                  <p className="text-sm text-muted-foreground">{level.description}</p>
                 </div>
               </div>
 
-              {/* Price Tiers */}
-              <div className="space-y-3 mb-6">
-                {tier.tiers.map((t) => (
-                  <div
-                    key={t.range}
-                    className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50"
-                  >
-                    <span className="text-muted-foreground font-medium">
-                      {t.range} learners
+              {/* Price Display */}
+              <div className="text-center py-6 mb-4 rounded-xl bg-muted/50">
+                <span className="text-3xl font-bold text-foreground">KSH 2,088</span>
+                <span className="text-muted-foreground">/stream/yr</span>
+                <p className="text-sm text-muted-foreground mt-1">Max 80 learners per stream</p>
+              </div>
+
+              {/* Examples */}
+              <div className="mb-6">
+                <p className="text-sm text-muted-foreground mb-2">Includes:</p>
+                <div className="flex flex-wrap gap-2">
+                  {level.examples.map((example) => (
+                    <span key={example} className="px-3 py-1 rounded-full bg-muted text-sm text-muted-foreground">
+                      {example}
                     </span>
-                    <span className="text-foreground font-bold">
-                      KSH {t.price.toLocaleString()}/yr
-                    </span>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
 
               {/* Features */}
               <div className="space-y-2 mb-6">
-                {features.slice(0, tier.popular ? 6 : 4).map((feature) => (
+                {features.slice(0, level.popular ? 6 : 4).map((feature) => (
                   <div key={feature} className="flex items-center gap-2 text-sm">
                     <Check size={16} className="text-teal flex-shrink-0" />
                     <span className="text-muted-foreground">{feature}</span>
@@ -136,7 +149,7 @@ const Pricing = () => {
               </div>
 
               <Button
-                variant={tier.popular ? 'hero' : 'heroOutline'}
+                variant={level.popular ? 'hero' : 'heroOutline'}
                 className="w-full"
               >
                 Get Started
@@ -145,7 +158,7 @@ const Pricing = () => {
           ))}
         </div>
 
-        {/* Individual Teacher Plan */}
+        {/* Multi-Stream Discount Note */}
         <div className="bg-gradient-to-r from-primary/5 via-teal/5 to-blue/5 rounded-2xl p-8 lg:p-12 border border-border animate-fade-up">
           <div className="flex flex-col lg:flex-row items-center gap-8">
             <div className="flex-shrink-0">
@@ -155,17 +168,16 @@ const Pricing = () => {
             </div>
             <div className="flex-1 text-center lg:text-left">
               <h3 className="text-2xl font-bold text-foreground mb-2">
-                Individual Teacher Plan
+                Whole School Subscription
               </h3>
               <p className="text-muted-foreground max-w-2xl">
-                Are you a class teacher in a school that hasn't adopted the system yet? 
-                Subscribe individually at <span className="text-primary font-bold">KSH 300/= per stream annually</span> and 
-                manage your single stream efficiently.
+                Schools with multiple streams benefit from centralized management. 
+                Contact us for custom pricing on <span className="text-primary font-bold">10+ streams</span>.
               </p>
             </div>
             <div className="flex-shrink-0">
               <Button variant="teal" size="lg">
-                Subscribe Now
+                Contact Sales
               </Button>
             </div>
           </div>
