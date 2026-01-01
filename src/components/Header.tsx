@@ -38,7 +38,7 @@ const Header = () => {
             <img 
               src={zarodaLogo} 
               alt="Zaroda Solutions" 
-              className="h-12 w-auto transition-transform group-hover:scale-105"
+              className="h-16 sm:h-20 w-auto transition-transform group-hover:scale-105"
             />
           </a>
 
