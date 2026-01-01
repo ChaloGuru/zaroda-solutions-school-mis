@@ -1,5 +1,6 @@
 import { Check, Users, GraduationCap, BookOpen, School, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
 import TrialSignupDialog from './TrialSignupDialog';
 const Pricing = () => {
   const schoolLevels = [
@@ -149,10 +150,11 @@ const Pricing = () => {
               </div>
 
               <Button
+                asChild
                 variant={level.popular ? 'hero' : 'heroOutline'}
                 className="w-full"
               >
-                Get Started
+                <Link to="/signup">Get Started</Link>
               </Button>
             </div>
           ))}
@@ -176,8 +178,8 @@ const Pricing = () => {
               </p>
             </div>
             <div className="flex-shrink-0">
-              <Button variant="teal" size="lg">
-                Contact Sales
+              <Button asChild variant="teal" size="lg">
+                <Link to="/contact">Contact Sales</Link>
               </Button>
             </div>
           </div>

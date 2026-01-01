@@ -45,7 +45,7 @@ const AboutUs = () => {
             About Us
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6">
-            Empowering Kenya's <span className="text-primary">Public Schools</span>
+            Empowering Kenya's <span className="text-primary">Schools</span>
           </h2>
         </div>
 
