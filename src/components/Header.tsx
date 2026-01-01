@@ -17,6 +17,7 @@ const Header = () => {
 
   const navLinks = [
     { name: 'Solutions', href: '#features' },
+    { name: 'About Us', href: '#about' },
     { name: 'Multi-Tenant', href: '#multi-tenant' },
     { name: 'Testimonials', href: '#testimonials' },
     { name: 'Pricing', href: '#pricing' },

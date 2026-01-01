@@ -2,6 +2,7 @@ import Header from '@/components/Header';
 import Hero from '@/components/Hero';
 import TrustBar from '@/components/TrustBar';
 import Features from '@/components/Features';
+import AboutUs from '@/components/AboutUs';
 import Profiles from '@/components/Profiles';
 import AskAI from '@/components/AskAI';
 import MultiTenant from '@/components/MultiTenant';
@@ -17,6 +18,7 @@ const Index = () => {
         <Hero />
         <TrustBar />
         <Features />
+        <AboutUs />
         <Profiles />
         <AskAI />
         <MultiTenant />
