@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Play } from 'lucide-react';
 import heroImage from '@/assets/hero-classroom.jpg';
@@ -40,9 +41,11 @@ const Hero = () => {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 animate-fade-up animation-delay-300">
-              <Button variant="hero" size="xl">
-                Get Started
-                <ArrowRight className="ml-2" size={20} />
+              <Button asChild variant="hero" size="xl">
+                <Link to="/signup">
+                  Get Started
+                  <ArrowRight className="ml-2" size={20} />
+                </Link>
               </Button>
               <Button variant="outline" size="xl" className="group">
                 <Play className="mr-2 group-hover:scale-110 transition-transform" size={20} />

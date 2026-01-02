@@ -3,13 +3,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Mail, Lock } from 'lucide-react';
+import { ArrowLeft, Mail, Lock, Hash } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import zarodaLogo from '@/assets/zaroda-logo.png';
 
 const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
+    schoolCode: '',
     email: '',
     password: '',
   });
@@ -61,6 +62,23 @@ const Login = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <Label htmlFor="schoolCode">School Code</Label>
+              <div className="relative">
+                <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+                <Input
+                  id="schoolCode"
+                  name="schoolCode"
+                  type="text"
+                  placeholder="Enter your school code"
+                  value={formData.schoolCode}
+                  onChange={handleChange}
+                  className="pl-10"
+                  required
+                />
+              </div>
+            </div>
+
             <div>
               <Label htmlFor="email">Email Address</Label>
               <div className="relative">
