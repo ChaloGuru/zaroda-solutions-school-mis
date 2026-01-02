@@ -1,30 +1,30 @@
-import { Building2, CreditCard, MessageCircle, Calendar, FileSpreadsheet, BookOpen } from 'lucide-react';
+import { Building2, CreditCard, Users, Clock, FileBarChart, Video } from 'lucide-react';
 
 const Features = () => {
   const features = [
     {
-      icon: FileSpreadsheet,
+      icon: FileBarChart,
       title: 'Automatic Results Generation',
       description:
         'Class termly summative reports are automatically generated when subject teachers upload scores. The report is instantly generated.',
       color: 'primary',
     },
     {
-      icon: BookOpen,
+      icon: Video,
       title: 'Learning Resources',
       description:
         'Get access to video links topically arranged for seamless integration of ICT in learning.',
       color: 'secondary',
     },
     {
-      icon: Calendar,
+      icon: Clock,
       title: 'Timetable Generation',
       description:
         'Automatically generate and manage class timetables. Avoid conflicts and optimize teacher schedules effortlessly.',
       color: 'accent',
     },
     {
-      icon: MessageCircle,
+      icon: Users,
       title: 'Parent-Teacher Portal',
       description:
         'Real-time communication and grade tracking. Keep parents engaged with their child\'s academic journey.',
