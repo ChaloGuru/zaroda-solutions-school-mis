@@ -1,12 +1,33 @@
-import { Building2, CreditCard, MessageCircle, Calendar } from 'lucide-react';
+import { Building2, CreditCard, MessageCircle, Calendar, FileSpreadsheet, BookOpen } from 'lucide-react';
 
 const Features = () => {
   const features = [
     {
-      icon: Building2,
-      title: 'Multi-School Sync',
+      icon: FileSpreadsheet,
+      title: 'Automatic Results Generation',
       description:
-        'Manage multiple branches from one login. Centralize operations while maintaining individual school autonomy.',
+        'Class termly summative reports are automatically generated when subject teachers upload scores. The report is instantly generated.',
+      color: 'primary',
+    },
+    {
+      icon: BookOpen,
+      title: 'Learning Resources',
+      description:
+        'Get access to video links topically arranged for seamless integration of ICT in learning.',
+      color: 'secondary',
+    },
+    {
+      icon: Calendar,
+      title: 'Timetable Generation',
+      description:
+        'Automatically generate and manage class timetables. Avoid conflicts and optimize teacher schedules effortlessly.',
+      color: 'accent',
+    },
+    {
+      icon: MessageCircle,
+      title: 'Parent-Teacher Portal',
+      description:
+        'Real-time communication and grade tracking. Keep parents engaged with their child\'s academic journey.',
       color: 'primary',
     },
     {
@@ -17,18 +38,11 @@ const Features = () => {
       color: 'secondary',
     },
     {
-      icon: MessageCircle,
-      title: 'Parent-Teacher Portal',
+      icon: Building2,
+      title: 'Multi-School Sync',
       description:
-        'Real-time communication and grade tracking. Keep parents engaged with their child\'s academic journey.',
+        'Manage multiple branches from one login. Centralize operations while maintaining individual school autonomy.',
       color: 'accent',
-    },
-    {
-      icon: Calendar,
-      title: 'Timetable Generation',
-      description:
-        'Automatically generate and manage class timetables. Avoid conflicts and optimize teacher schedules effortlessly.',
-      color: 'primary',
     },
   ];
 
@@ -41,7 +55,7 @@ const Features = () => {
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6">
             Everything You Need to{' '}
-            <span className="text-primary">Run Your School</span>
+            <span className="text-primary">Manage Your Learners</span>
           </h2>
           <p className="text-lg text-muted-foreground">
             From admissions to alumni management, Zaroda provides a comprehensive 
