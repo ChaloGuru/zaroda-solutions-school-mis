@@ -16,12 +16,12 @@ const AboutUs = () => {
     {
       icon: DollarSign,
       title: 'Affordability',
-      description: 'Built to fit the budgets of public institutions while providing premium value.',
+      description: 'Built to fit the budgets of both public and private institutions while providing premium value.',
     },
     {
       icon: Heart,
       title: 'Inclusivity',
-      description: 'Designed for ECDE teachers, primary teachers, junior school staff, BOM members, parents, and zonal/sub-county officers.',
+      description: 'Designed for ECDE, Primary and Junior school teachers.',
     },
     {
       icon: FileCheck,
@@ -60,8 +60,8 @@ const AboutUs = () => {
             </h3>
             <p className="text-muted-foreground leading-relaxed">
               To provide a simple, affordable, and reliable digital management system that enhances accountability, 
-              improves learning delivery, and supports the administrative needs of Kenya's public ECDE, Primary, 
-              and Junior schools.
+              improves learning delivery, and supports the administrative needs of Kenya's public and private ECDE, 
+              Primary, and Junior schools.
             </p>
           </div>
 
@@ -117,7 +117,7 @@ const AboutUs = () => {
                 <strong className="text-foreground">Zaroda Solutions</strong> was built to bridge this gap.
               </p>
               <p>
-                Built with the realities of public schools in mind, Zaroda Solutions offers an easy-to-use, 
+                Built with the realities of Kenyan schools in mind, Zaroda Solutions offers an easy-to-use, 
                 affordable, and dependable digital platform that helps schools manage attendance, assessments, 
                 communication, finances, and reporting—all in one place.
               </p>
@@ -126,8 +126,7 @@ const AboutUs = () => {
                 transparently, and efficiently.
               </p>
               <p className="text-foreground font-semibold text-center pt-4">
-                Our goal is simple: To support Kenya's education system by giving schools digital tools 
-                that improve learning outcomes and strengthen community trust.
+                Zaroda Solutions supports the entire ecosystem around learners—because education is a shared responsibility.
               </p>
             </div>
           </div>
@@ -139,8 +138,7 @@ const AboutUs = () => {
             Our <span className="text-primary">Promise</span>
           </h3>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            To simplify the work of school administrators and teachers—so they can focus more on teaching 
-            and supporting learners.
+            To simplify the work of school administrators and teachers—so they can focus on the core mandate: Facilitate learning.
           </p>
         </div>
 

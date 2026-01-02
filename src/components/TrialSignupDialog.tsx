@@ -4,8 +4,26 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Sparkles, School, User, Mail, Phone, MapPin } from 'lucide-react';
+
+const counties = [
+  'Baringo', 'Bomet', 'Bungoma', 'Busia', 'Elgeyo-Marakwet', 'Embu', 'Garissa', 
+  'Homa Bay', 'Isiolo', 'Kajiado', 'Kakamega', 'Kericho', 'Kiambu', 'Kilifi', 
+  'Kirinyaga', 'Kisii', 'Kisumu', 'Kitui', 'Kwale', 'Laikipia', 'Lamu', 'Machakos', 
+  'Makueni', 'Mandera', 'Marsabit', 'Meru', 'Migori', 'Mombasa', 'Murang\'a', 
+  'Nairobi', 'Nakuru', 'Nandi', 'Narok', 'Nyamira', 'Nyandarua', 'Nyeri', 
+  'Samburu', 'Siaya', 'Taita-Taveta', 'Tana River', 'Tharaka-Nithi', 'Trans-Nzoia', 
+  'Turkana', 'Uasin Gishu', 'Vihiga', 'Wajir', 'West Pokot'
+];
+
+const schoolCategories = [
+  { id: 'all', label: 'All (ECDE, Primary & Junior School)' },
+  { id: 'ecde', label: 'ECDE' },
+  { id: 'primary', label: 'Primary' },
+  { id: 'junior', label: 'Junior School' },
+];
 
 interface TrialSignupDialogProps {
   trigger?: React.ReactNode;
@@ -20,20 +38,51 @@ const TrialSignupDialog = ({ trigger, open: controlledOpen, onOpenChange }: Tria
   const setOpen = isControlled ? (onOpenChange || (() => {})) : setInternalOpen;
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
     schoolName: '',
+    schoolCode: '',
     schoolType: '',
-    schoolLevel: '',
     contactName: '',
     email: '',
     phone: '',
     county: '',
+    subCounty: '',
+    zone: '',
   });
+
+  const handleCategoryChange = (categoryId: string, checked: boolean) => {
+    if (categoryId === 'all') {
+      if (checked) {
+        setSelectedCategories(['all']);
+      } else {
+        setSelectedCategories([]);
+      }
+    } else {
+      let newCategories = selectedCategories.filter(c => c !== 'all');
+      if (checked) {
+        newCategories = [...newCategories, categoryId];
+      } else {
+        newCategories = newCategories.filter(c => c !== categoryId);
+      }
+      setSelectedCategories(newCategories);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (selectedCategories.length === 0) {
+      toast({
+        title: "Category required",
+        description: "Please select at least one school category.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     // Simulate form submission
@@ -48,13 +97,16 @@ const TrialSignupDialog = ({ trigger, open: controlledOpen, onOpenChange }: Tria
     setIsSubmitting(false);
     setFormData({
       schoolName: '',
+      schoolCode: '',
       schoolType: '',
-      schoolLevel: '',
       contactName: '',
       email: '',
       phone: '',
       county: '',
+      subCounty: '',
+      zone: '',
     });
+    setSelectedCategories([]);
   };
 
   const handleChange = (field: string, value: string) => {
@@ -101,6 +153,18 @@ const TrialSignupDialog = ({ trigger, open: controlledOpen, onOpenChange }: Tria
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
+                <Label htmlFor="schoolCode">School Code *</Label>
+                <Input
+                  id="schoolCode"
+                  placeholder="e.g., 12345"
+                  value={formData.schoolCode}
+                  onChange={(e) => handleChange('schoolCode', e.target.value)}
+                  required
+                  maxLength={20}
+                />
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="schoolType">School Type *</Label>
                 <Select
                   value={formData.schoolType}
@@ -116,23 +180,23 @@ const TrialSignupDialog = ({ trigger, open: controlledOpen, onOpenChange }: Tria
                   </SelectContent>
                 </Select>
               </div>
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="schoolLevel">School Level *</Label>
-                <Select
-                  value={formData.schoolLevel}
-                  onValueChange={(value) => handleChange('schoolLevel', value)}
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select level" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ecde">ECDE</SelectItem>
-                    <SelectItem value="primary">Primary</SelectItem>
-                    <SelectItem value="junior">Junior School</SelectItem>
-                  </SelectContent>
-                </Select>
+            <div className="space-y-2">
+              <Label>School Category * (Select one or more)</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {schoolCategories.map((category) => (
+                  <div key={category.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`trial-${category.id}`}
+                      checked={selectedCategories.includes(category.id)}
+                      onCheckedChange={(checked) => handleCategoryChange(category.id, checked as boolean)}
+                    />
+                    <Label htmlFor={`trial-${category.id}`} className="text-sm font-normal cursor-pointer">
+                      {category.label}
+                    </Label>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -141,14 +205,48 @@ const TrialSignupDialog = ({ trigger, open: controlledOpen, onOpenChange }: Tria
                 <MapPin size={14} />
                 County *
               </Label>
-              <Input
-                id="county"
-                placeholder="e.g., Nairobi"
+              <Select
                 value={formData.county}
-                onChange={(e) => handleChange('county', e.target.value)}
+                onValueChange={(value) => handleChange('county', value)}
                 required
-                maxLength={50}
-              />
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select county" />
+                </SelectTrigger>
+                <SelectContent>
+                  {counties.map((county) => (
+                    <SelectItem key={county} value={county.toLowerCase()}>
+                      {county}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="subCounty">Sub-County *</Label>
+                <Input
+                  id="subCounty"
+                  placeholder="e.g., Westlands"
+                  value={formData.subCounty}
+                  onChange={(e) => handleChange('subCounty', e.target.value)}
+                  required
+                  maxLength={50}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="zone">Zone *</Label>
+                <Input
+                  id="zone"
+                  placeholder="e.g., Parklands Zone"
+                  value={formData.zone}
+                  onChange={(e) => handleChange('zone', e.target.value)}
+                  required
+                  maxLength={50}
+                />
+              </div>
             </div>
           </div>
 

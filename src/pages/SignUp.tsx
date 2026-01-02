@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, School, User, Mail, Phone, MapPin, Lock } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ArrowLeft, School, User, Mail, Phone, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import zarodaLogo from '@/assets/zaroda-logo.png';
 
@@ -18,10 +19,18 @@ const counties = [
   'Turkana', 'Uasin Gishu', 'Vihiga', 'Wajir', 'West Pokot'
 ];
 
+const schoolCategories = [
+  { id: 'all', label: 'All (ECDE, Primary & Junior School)' },
+  { id: 'ecde', label: 'ECDE' },
+  { id: 'primary', label: 'Primary' },
+  { id: 'junior', label: 'Junior School' },
+];
+
 const SignUp = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     schoolName: '',
+    schoolCode: '',
     contactName: '',
     email: '',
     phone: '',
@@ -32,6 +41,7 @@ const SignUp = () => {
     zone: '',
     schoolType: '',
   });
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -43,6 +53,24 @@ const SignUp = () => {
     setFormData({ ...formData, [name]: value });
   };
 
+  const handleCategoryChange = (categoryId: string, checked: boolean) => {
+    if (categoryId === 'all') {
+      if (checked) {
+        setSelectedCategories(['all']);
+      } else {
+        setSelectedCategories([]);
+      }
+    } else {
+      let newCategories = selectedCategories.filter(c => c !== 'all');
+      if (checked) {
+        newCategories = [...newCategories, categoryId];
+      } else {
+        newCategories = newCategories.filter(c => c !== categoryId);
+      }
+      setSelectedCategories(newCategories);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -50,6 +78,15 @@ const SignUp = () => {
       toast({
         title: "Password mismatch",
         description: "Passwords do not match. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (selectedCategories.length === 0) {
+      toast({
+        title: "Category required",
+        description: "Please select at least one school category.",
         variant: "destructive",
       });
       return;
@@ -115,17 +152,46 @@ const SignUp = () => {
                 </div>
 
                 <div>
+                  <Label htmlFor="schoolCode">School Code *</Label>
+                  <Input
+                    id="schoolCode"
+                    name="schoolCode"
+                    placeholder="e.g., 12345"
+                    value={formData.schoolCode}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+
+                <div>
                   <Label htmlFor="schoolType">School Type *</Label>
                   <Select onValueChange={(value) => handleSelectChange('schoolType', value)} required>
                     <SelectTrigger>
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ecde">ECDE</SelectItem>
-                      <SelectItem value="primary">Primary School</SelectItem>
-                      <SelectItem value="junior">Junior School</SelectItem>
+                      <SelectItem value="public">Public</SelectItem>
+                      <SelectItem value="private">Private</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <Label>School Category * (Select one or more)</Label>
+                  <div className="grid grid-cols-2 gap-3 mt-2">
+                    {schoolCategories.map((category) => (
+                      <div key={category.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={category.id}
+                          checked={selectedCategories.includes(category.id)}
+                          onCheckedChange={(checked) => handleCategoryChange(category.id, checked as boolean)}
+                        />
+                        <Label htmlFor={category.id} className="text-sm font-normal cursor-pointer">
+                          {category.label}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div>
