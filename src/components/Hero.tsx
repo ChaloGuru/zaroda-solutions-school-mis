@@ -13,6 +13,13 @@ const Hero = () => {
         <div className="flex-1 bg-kenya-green" />
       </div>
       
+      {/* ZARODA SOLUTIONS text below navbar */}
+      <div className="absolute top-20 left-0 right-0 text-center py-3">
+        <h2 className="text-2xl sm:text-3xl font-bold text-primary tracking-widest">
+          ZARODA SOLUTIONS
+        </h2>
+      </div>
+      
       {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-maroon-light via-background to-teal-light opacity-50" />
       
