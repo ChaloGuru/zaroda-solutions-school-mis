@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { ArrowLeft, School, User, Mail, Phone, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import zarodaLogo from '@/assets/zaroda-logo.png';
 
 const counties = [
@@ -93,17 +94,84 @@ const SignUp = () => {
     }
 
     setIsSubmitting(true);
-    
-    // Simulate submission
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    toast({
-      title: "Account created successfully!",
-      description: "Welcome to Zaroda Solutions. You can now log in.",
-    });
-    
-    setIsSubmitting(false);
-    navigate('/login');
+
+    try {
+      // First, create the school record
+      const { data: schoolData, error: schoolError } = await supabase
+        .from('schools')
+        .insert({
+          school_code: formData.schoolCode,
+          name: formData.schoolName,
+          school_type: formData.schoolType,
+          county: formData.county,
+          sub_county: formData.subCounty,
+          zone: formData.zone,
+          categories: selectedCategories.includes('all') 
+            ? ['ecde', 'primary', 'junior'] 
+            : selectedCategories,
+          contact_name: formData.contactName,
+          contact_email: formData.email,
+          contact_phone: formData.phone,
+        })
+        .select()
+        .single();
+
+      if (schoolError) {
+        if (schoolError.code === '23505') {
+          toast({
+            title: "School already exists",
+            description: "A school with this code is already registered.",
+            variant: "destructive",
+          });
+        } else {
+          throw schoolError;
+        }
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Then sign up the user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          emailRedirectTo: window.location.origin,
+          data: {
+            full_name: formData.contactName,
+          },
+        },
+      });
+
+      if (authError) {
+        // Delete the school if auth fails
+        await supabase.from('schools').delete().eq('id', schoolData.id);
+        throw authError;
+      }
+
+      // Link profile to school
+      if (authData.user) {
+        await supabase
+          .from('profiles')
+          .update({ school_id: schoolData.id })
+          .eq('user_id', authData.user.id);
+      }
+
+      toast({
+        title: "Account created successfully!",
+        description: "Welcome to Zaroda Solutions. You can now log in.",
+      });
+      
+      navigate('/login');
+    } catch (error: any) {
+      console.error('Signup error:', error);
+      toast({
+        title: "Error creating account",
+        description: error.message || "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
