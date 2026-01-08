@@ -60,7 +60,7 @@ const Login = () => {
         description: "Welcome back to Zaroda Solutions.",
       });
       
-      navigate('/');
+      navigate('/dashboard');
     } catch (error: any) {
       console.error('Login error:', error);
       toast({
