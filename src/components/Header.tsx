@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, LayoutDashboard } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 import zarodaLogo from '@/assets/zaroda-logo.png';
 
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { user, loading } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -58,12 +60,25 @@ const Header = () => {
 
           {/* Desktop CTA */}
           <div className="hidden lg:flex items-center gap-3">
-            <Button asChild variant="login" size="default">
-              <Link to="/login">Login</Link>
-            </Button>
-            <Button asChild variant="signup" size="default">
-              <Link to="/signup">Sign Up</Link>
-            </Button>
+            {!loading && (
+              user ? (
+                <Button asChild variant="hero" size="default">
+                  <Link to="/dashboard">
+                    <LayoutDashboard size={18} className="mr-2" />
+                    Dashboard
+                  </Link>
+                </Button>
+              ) : (
+                <>
+                  <Button asChild variant="login" size="default">
+                    <Link to="/login">Login</Link>
+                  </Button>
+                  <Button asChild variant="signup" size="default">
+                    <Link to="/signup">Sign Up</Link>
+                  </Button>
+                </>
+              )
+            )}
           </div>
 
           {/* Mobile Menu Toggle */}
@@ -90,12 +105,25 @@ const Header = () => {
                 </a>
               ))}
               <div className="flex gap-3 pt-4">
-                <Button asChild variant="login" size="default" className="flex-1">
-                  <Link to="/login">Login</Link>
-                </Button>
-                <Button asChild variant="signup" size="default" className="flex-1">
-                  <Link to="/signup">Sign Up</Link>
-                </Button>
+                {!loading && (
+                  user ? (
+                    <Button asChild variant="hero" size="default" className="flex-1">
+                      <Link to="/dashboard">
+                        <LayoutDashboard size={18} className="mr-2" />
+                        Dashboard
+                      </Link>
+                    </Button>
+                  ) : (
+                    <>
+                      <Button asChild variant="login" size="default" className="flex-1">
+                        <Link to="/login">Login</Link>
+                      </Button>
+                      <Button asChild variant="signup" size="default" className="flex-1">
+                        <Link to="/signup">Sign Up</Link>
+                      </Button>
+                    </>
+                  )
+                )}
               </div>
             </nav>
           </div>
