@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Mail, Lock, Hash } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import zarodaLogo from '@/assets/zaroda-logo.png';
 
 const Login = () => {
@@ -25,16 +26,51 @@ const Login = () => {
     e.preventDefault();
     setIsSubmitting(true);
     
-    // Simulate login
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+      // Sign in the user
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (error) throw error;
+
+      // Verify user is associated with the school code
+      if (data.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('school_id, schools(school_code)')
+          .eq('user_id', data.user.id)
+          .maybeSingle();
+
+        if (profile?.schools && (profile.schools as { school_code: string }).school_code !== formData.schoolCode) {
+          await supabase.auth.signOut();
+          toast({
+            title: "Invalid school code",
+            description: "The school code doesn't match your account.",
+            variant: "destructive",
+          });
+          setIsSubmitting(false);
+          return;
+        }
+      }
     
-    toast({
-      title: "Login successful!",
-      description: "Welcome back to Zaroda Solutions.",
-    });
-    
-    setIsSubmitting(false);
-    navigate('/');
+      toast({
+        title: "Login successful!",
+        description: "Welcome back to Zaroda Solutions.",
+      });
+      
+      navigate('/');
+    } catch (error: any) {
+      console.error('Login error:', error);
+      toast({
+        title: "Login failed",
+        description: error.message || "Invalid email or password.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
