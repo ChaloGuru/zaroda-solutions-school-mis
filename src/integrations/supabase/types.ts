@@ -14,6 +14,193 @@ export type Database = {
   }
   public: {
     Tables: {
+      election_candidates: {
+        Row: {
+          created_at: string
+          grade: string | null
+          id: string
+          manifesto: string | null
+          photo_url: string | null
+          position_id: string
+          stream: string | null
+          student_id: string | null
+          student_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          grade?: string | null
+          id?: string
+          manifesto?: string | null
+          photo_url?: string | null
+          position_id: string
+          stream?: string | null
+          student_id?: string | null
+          student_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          grade?: string | null
+          id?: string
+          manifesto?: string | null
+          photo_url?: string | null
+          position_id?: string
+          stream?: string | null
+          student_id?: string | null
+          student_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "election_candidates_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "election_positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      election_positions: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_default: boolean | null
+          max_candidates: number | null
+          name: string
+          school_id: string
+          scope: Database["public"]["Enums"]["election_scope"]
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          max_candidates?: number | null
+          name: string
+          school_id: string
+          scope?: Database["public"]["Enums"]["election_scope"]
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          max_candidates?: number | null
+          name?: string
+          school_id?: string
+          scope?: Database["public"]["Enums"]["election_scope"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "election_positions_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      election_votes: {
+        Row: {
+          candidate_id: string
+          election_id: string
+          id: string
+          position_id: string
+          voted_at: string
+          voter_identifier: string
+        }
+        Insert: {
+          candidate_id: string
+          election_id: string
+          id?: string
+          position_id: string
+          voted_at?: string
+          voter_identifier: string
+        }
+        Update: {
+          candidate_id?: string
+          election_id?: string
+          id?: string
+          position_id?: string
+          voted_at?: string
+          voter_identifier?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "election_votes_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "election_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "election_votes_election_id_fkey"
+            columns: ["election_id"]
+            isOneToOne: false
+            referencedRelation: "elections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "election_votes_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "election_positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      elections: {
+        Row: {
+          created_at: string
+          description: string | null
+          end_date: string
+          id: string
+          is_active: boolean | null
+          school_id: string
+          start_date: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          end_date: string
+          id?: string
+          is_active?: boolean | null
+          school_id: string
+          start_date: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          end_date?: string
+          id?: string
+          is_active?: boolean | null
+          school_id?: string
+          start_date?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "elections_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -133,6 +320,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "school_admin" | "teacher" | "parent" | "student"
+      election_scope: "stream" | "category" | "whole_school"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -261,6 +449,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "school_admin", "teacher", "parent", "student"],
+      election_scope: ["stream", "category", "whole_school"],
     },
   },
 } as const

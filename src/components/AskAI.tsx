@@ -1,12 +1,145 @@
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Bot, Sparkles, MessageSquare, Zap } from 'lucide-react';
+import { Bot, Sparkles, MessageSquare, Zap, Send } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 
 const AskAI = () => {
+  const [inputValue, setInputValue] = useState('');
+  const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([
+    { role: 'assistant', content: "Hello! I'm your AI assistant. Ask me anything about your school data - like student counts, fee payments, or demographics. For example: 'How many grade 9 girls are 14 years old?' or 'How many parents do I have at primary level?'" }
+  ]);
+  const [isLoading, setIsLoading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
+  const { toast } = useToast();
+
   const capabilities = [
     { icon: MessageSquare, text: 'Instant answers about student records' },
     { icon: Zap, text: 'Quick report generation' },
     { icon: Sparkles, text: 'Smart insights & analytics' },
   ];
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const handleTryAI = () => {
+    inputRef.current?.focus();
+  };
+
+  const handleSendMessage = async () => {
+    if (!inputValue.trim()) return;
+    
+    if (!user) {
+      toast({
+        title: "Login Required",
+        description: "Please login to use the AI assistant with your school data.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const userMessage = inputValue.trim();
+    setInputValue('');
+    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ask-ai`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ 
+          messages: [...messages, { role: 'user', content: userMessage }],
+          schoolId: user ? 'demo' : null 
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          throw new Error('Rate limit exceeded. Please try again later.');
+        }
+        if (response.status === 402) {
+          throw new Error('Service temporarily unavailable. Please try again later.');
+        }
+        throw new Error('Failed to get AI response');
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let assistantMessage = '';
+
+      if (reader) {
+        let textBuffer = '';
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          textBuffer += decoder.decode(value, { stream: true });
+          
+          let newlineIndex: number;
+          while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
+            let line = textBuffer.slice(0, newlineIndex);
+            textBuffer = textBuffer.slice(newlineIndex + 1);
+            
+            if (line.endsWith('\r')) line = line.slice(0, -1);
+            if (line.startsWith(':') || line.trim() === '') continue;
+            if (!line.startsWith('data: ')) continue;
+            
+            const jsonStr = line.slice(6).trim();
+            if (jsonStr === '[DONE]') break;
+            
+            try {
+              const parsed = JSON.parse(jsonStr);
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) {
+                assistantMessage += content;
+                setMessages(prev => {
+                  const last = prev[prev.length - 1];
+                  if (last?.role === 'assistant' && prev.length > 1 && prev[prev.length - 2]?.role === 'user') {
+                    return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantMessage } : m);
+                  }
+                  return [...prev, { role: 'assistant', content: assistantMessage }];
+                });
+              }
+            } catch {
+              textBuffer = line + '\n' + textBuffer;
+              break;
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('AI error:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to get response from AI",
+        variant: "destructive",
+      });
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: "I'm sorry, I couldn't process that request. Please try again or contact support if the issue persists." 
+      }]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
 
   return (
     <section id="ai" className="section-padding bg-gradient-to-br from-secondary/5 via-background to-accent/5">
@@ -44,7 +177,7 @@ const AskAI = () => {
               ))}
             </ul>
 
-            <Button variant="teal" size="lg">
+            <Button variant="teal" size="lg" onClick={handleTryAI}>
               <Bot className="mr-2" size={20} />
               Try Ask AI
             </Button>
@@ -66,46 +199,53 @@ const AskAI = () => {
               </div>
 
               {/* Chat messages */}
-              <div className="p-6 space-y-4 bg-background/50">
-                {/* User message */}
-                <div className="flex justify-end">
-                  <div className="bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-4 py-3 max-w-[80%]">
-                    <p className="text-sm">How many students paid fees this month?</p>
+              <div className="p-6 space-y-4 bg-background/50 h-64 overflow-y-auto">
+                {messages.map((message, index) => (
+                  <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`rounded-2xl px-4 py-3 max-w-[80%] ${
+                      message.role === 'user' 
+                        ? 'bg-primary text-primary-foreground rounded-tr-sm' 
+                        : 'bg-muted rounded-tl-sm'
+                    }`}>
+                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    </div>
                   </div>
-                </div>
-
-                {/* AI response */}
-                <div className="flex justify-start">
-                  <div className="bg-muted rounded-2xl rounded-tl-sm px-4 py-3 max-w-[80%]">
-                    <p className="text-sm">
-                      This month, <strong>847 students</strong> have completed fee payments, 
-                      representing <strong>92%</strong> of enrolled students. Would you like 
-                      a detailed breakdown by class?
-                    </p>
+                ))}
+                
+                {isLoading && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <div className="flex gap-1">
+                      <span className="w-2 h-2 bg-secondary rounded-full animate-pulse" />
+                      <span className="w-2 h-2 bg-secondary rounded-full animate-pulse animation-delay-100" />
+                      <span className="w-2 h-2 bg-secondary rounded-full animate-pulse animation-delay-200" />
+                    </div>
+                    <span className="text-xs">AI is thinking...</span>
                   </div>
-                </div>
-
-                {/* Typing indicator */}
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <div className="flex gap-1">
-                    <span className="w-2 h-2 bg-secondary rounded-full animate-pulse" />
-                    <span className="w-2 h-2 bg-secondary rounded-full animate-pulse animation-delay-100" />
-                    <span className="w-2 h-2 bg-secondary rounded-full animate-pulse animation-delay-200" />
-                  </div>
-                  <span className="text-xs">AI is thinking...</span>
-                </div>
+                )}
+                <div ref={messagesEndRef} />
               </div>
 
               {/* Input area */}
               <div className="px-6 py-4 border-t border-border bg-card">
                 <div className="flex items-center gap-3">
                   <input
+                    ref={inputRef}
                     type="text"
-                    placeholder="Ask anything about your school..."
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="How many grade 9 girls are 14 years old?"
                     className="flex-1 bg-muted rounded-full px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-secondary/30"
+                    disabled={isLoading}
                   />
-                  <Button size="sm" variant="teal" className="rounded-full">
-                    <Sparkles size={16} />
+                  <Button 
+                    size="sm" 
+                    variant="teal" 
+                    className="rounded-full"
+                    onClick={handleSendMessage}
+                    disabled={isLoading || !inputValue.trim()}
+                  >
+                    <Send size={16} />
                   </Button>
                 </div>
               </div>

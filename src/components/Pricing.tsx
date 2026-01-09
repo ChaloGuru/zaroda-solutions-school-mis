@@ -2,6 +2,7 @@ import { Check, Users, GraduationCap, BookOpen, School, Sparkles } from 'lucide-
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import TrialSignupDialog from './TrialSignupDialog';
+
 const Pricing = () => {
   const schoolLevels = [
     {
@@ -71,7 +72,7 @@ const Pricing = () => {
               KSH 2,088<span className="text-xl font-normal text-muted-foreground">/stream/year</span>
             </h3>
             <p className="text-lg text-muted-foreground max-w-xl mx-auto mb-6">
-              Simple, transparent pricing. Each class teacher pays <span className="text-primary font-semibold">KSH 2,088</span> for their stream annually. Maximum 80 learners per stream.
+              Class teacher can subscribe the stream at <span className="text-primary font-semibold">KSH 2,088/-</span> per year or HOI can subscribe a school category e.g JS, Primary, ECDE or whole school at <span className="text-primary font-semibold">KSH 2,088/-</span> per stream per year. Maximum 80 learners per stream.
             </p>
             <div className="flex flex-wrap justify-center gap-3 mb-8">
               {features.map((feature) => (
@@ -174,7 +175,7 @@ const Pricing = () => {
               </h3>
               <p className="text-muted-foreground max-w-2xl">
                 Schools with multiple streams benefit from centralized management. 
-                Contact us for custom pricing on <span className="text-primary font-bold">10+ streams</span>.
+                Contact us for custom pricing on <span className="text-primary font-bold">10+ streams</span>. Maximum 80 learners per stream.
               </p>
             </div>
             <div className="flex-shrink-0">
