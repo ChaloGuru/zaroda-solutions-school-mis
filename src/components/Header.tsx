@@ -1,9 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Menu, X, LayoutDashboard } from 'lucide-react';
+import { Menu, X, LayoutDashboard, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import zarodaLogo from '@/assets/zaroda-logo.png';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -22,6 +28,14 @@ const Header = () => {
     { name: 'Solutions', href: '#features' },
     { name: 'About Us', href: '#about' },
     { name: 'Multi-Tenant', href: '#multi-tenant' },
+    { name: 'Sports', href: '#sports', isDropdown: true, items: [
+      { name: 'Athletics', href: '#athletics' },
+      { name: 'Ball Games', href: '#ball-games' },
+      { name: 'Music', href: '#music' },
+      { name: 'Other Activities', href: '#activities' },
+    ]},
+    { name: 'Elections', href: '/elections' },
+    { name: 'Finance', href: '#pricing' },
     { name: 'Testimonials', href: '#testimonials' },
     { name: 'Pricing', href: '#pricing' },
   ];
@@ -35,26 +49,53 @@ const Header = () => {
       }`}
     >
       <div className="container-max section-padding !py-0">
-        <div className="flex items-center justify-between h-16 sm:h-20">
-          {/* Logo */}
+        <div className="flex items-center justify-between h-20 sm:h-24">
+          {/* Logo - Made larger and removed white background */}
           <a href="#" className="flex items-center gap-2 group">
             <img 
               src={zarodaLogo} 
               alt="Zaroda Solutions" 
-              className="h-16 sm:h-20 w-auto transition-transform group-hover:scale-105"
+              className="h-20 sm:h-24 w-auto transition-transform group-hover:scale-105 object-contain"
+              style={{ mixBlendMode: 'multiply' }}
             />
           </a>
 
           {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-8">
+          <nav className="hidden lg:flex items-center gap-6">
             {navLinks.map((link) => (
-              <a
-                key={link.name}
-                href={link.href}
-                className="text-muted-foreground hover:text-primary transition-colors font-medium"
-              >
-                {link.name}
-              </a>
+              link.isDropdown ? (
+                <DropdownMenu key={link.name}>
+                  <DropdownMenuTrigger className="flex items-center gap-1 text-muted-foreground hover:text-primary transition-colors font-medium">
+                    {link.name}
+                    <ChevronDown size={16} />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    {link.items?.map((item) => (
+                      <DropdownMenuItem key={item.name} asChild>
+                        <a href={item.href} className="cursor-pointer">
+                          {item.name}
+                        </a>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : link.href.startsWith('/') ? (
+                <Link
+                  key={link.name}
+                  to={link.href}
+                  className="text-muted-foreground hover:text-primary transition-colors font-medium"
+                >
+                  {link.name}
+                </Link>
+              ) : (
+                <a
+                  key={link.name}
+                  href={link.href}
+                  className="text-muted-foreground hover:text-primary transition-colors font-medium"
+                >
+                  {link.name}
+                </a>
+              )
             ))}
           </nav>
 
@@ -95,14 +136,41 @@ const Header = () => {
           <div className="lg:hidden py-4 border-t border-border animate-fade-up">
             <nav className="flex flex-col gap-4">
               {navLinks.map((link) => (
-                <a
-                  key={link.name}
-                  href={link.href}
-                  className="text-muted-foreground hover:text-primary transition-colors font-medium py-2"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  {link.name}
-                </a>
+                link.isDropdown ? (
+                  <div key={link.name} className="space-y-2">
+                    <span className="text-muted-foreground font-medium py-2">{link.name}</span>
+                    <div className="pl-4 space-y-2">
+                      {link.items?.map((item) => (
+                        <a
+                          key={item.name}
+                          href={item.href}
+                          className="block text-muted-foreground hover:text-primary transition-colors py-1"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          {item.name}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                ) : link.href.startsWith('/') ? (
+                  <Link
+                    key={link.name}
+                    to={link.href}
+                    className="text-muted-foreground hover:text-primary transition-colors font-medium py-2"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {link.name}
+                  </Link>
+                ) : (
+                  <a
+                    key={link.name}
+                    href={link.href}
+                    className="text-muted-foreground hover:text-primary transition-colors font-medium py-2"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {link.name}
+                  </a>
+                )
               ))}
               <div className="flex gap-3 pt-4">
                 {!loading && (

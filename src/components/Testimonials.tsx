@@ -5,24 +5,21 @@ const Testimonials = () => {
   const testimonials = [
     {
       quote:
-        "Zaroda has transformed how we manage our 15 schools across the region. What used to take days now takes hours. The multi-tenant feature alone saved us countless hours of administrative work.",
-      author: 'Dr. Margaret Ochieng',
-      role: 'Principal, Sunrise Academy Network',
-      image: null,
+        "Zaroda has transformed how we manage our schools across the region. What used to take days now takes hours. The multi-tenant feature alone saved us countless hours of administrative work.",
+      author: 'School Administrator',
+      role: '',
     },
     {
       quote:
-        "The parent portal has dramatically improved our communication with families. We've seen a 40% increase in parent engagement since implementing Zaroda.",
-      author: 'James Mwangi',
-      role: 'Director, Valley View Schools',
-      image: null,
+        "The parent portal has dramatically improved our communication with families. We've seen a significant increase in parent engagement since implementing this system.",
+      author: 'Head Teacher',
+      role: '',
     },
     {
       quote:
         "From fee collection to grade management, everything is now automated. Our teachers can focus on what they do best—teaching.",
-      author: 'Sarah Kimani',
-      role: 'Head Teacher, Metro Learning Center',
-      image: null,
+      author: 'School Director',
+      role: '',
     },
   ];
 
@@ -67,9 +64,11 @@ const Testimonials = () => {
                   <div className="font-bold text-lg">
                     {testimonials[current].author}
                   </div>
-                  <div className="text-muted-foreground">
-                    {testimonials[current].role}
-                  </div>
+                  {testimonials[current].role && (
+                    <div className="text-muted-foreground">
+                      {testimonials[current].role}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
