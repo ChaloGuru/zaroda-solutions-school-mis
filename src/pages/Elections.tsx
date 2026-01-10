@@ -10,8 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Vote, Users, Trophy, Plus, Printer, ChevronRight, BarChart3 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Vote, Users, Trophy, Plus, Printer, ChevronRight, BarChart3, ArrowLeft } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 
 interface Position {
   id: string;
@@ -53,6 +53,7 @@ const defaultPositions = [
 const Elections = () => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [positions, setPositions] = useState<Position[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [elections, setElections] = useState<Election[]>([]);
@@ -229,6 +230,14 @@ const Elections = () => {
         <Header />
         <main className="pt-24 pb-16">
           <div className="container-max section-padding text-center">
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate('/')} 
+              className="mb-6"
+            >
+              <ArrowLeft className="mr-2" size={18} />
+              Back to Home
+            </Button>
             <Vote className="w-16 h-16 text-primary mx-auto mb-6" />
             <h1 className="text-4xl font-bold mb-4">School Elections</h1>
             <p className="text-muted-foreground mb-8 max-w-2xl mx-auto">
@@ -279,6 +288,16 @@ const Elections = () => {
       <Header />
       <main className="pt-24 pb-16">
         <div className="container-max section-padding">
+          {/* Back Button */}
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate('/')} 
+            className="mb-6"
+          >
+            <ArrowLeft className="mr-2" size={18} />
+            Back to Home
+          </Button>
+
           <div className="flex justify-between items-center mb-8">
             <div>
               <h1 className="text-3xl font-bold">School Elections</h1>
