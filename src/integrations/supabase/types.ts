@@ -287,6 +287,310 @@ export type Database = {
         }
         Relationships: []
       }
+      sports_events: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          event_date: string | null
+          event_type: string
+          id: string
+          name: string
+          school_id: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          event_date?: string | null
+          event_type: string
+          id?: string
+          name: string
+          school_id: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          event_date?: string | null
+          event_type?: string
+          id?: string
+          name?: string
+          school_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sports_events_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sports_matches: {
+        Row: {
+          away_score: number | null
+          away_team_id: string | null
+          away_team_name: string | null
+          created_at: string
+          event_id: string
+          home_score: number | null
+          home_team_id: string | null
+          home_team_name: string | null
+          id: string
+          match_date: string | null
+          notes: string | null
+          status: string | null
+          updated_at: string
+          venue: string | null
+        }
+        Insert: {
+          away_score?: number | null
+          away_team_id?: string | null
+          away_team_name?: string | null
+          created_at?: string
+          event_id: string
+          home_score?: number | null
+          home_team_id?: string | null
+          home_team_name?: string | null
+          id?: string
+          match_date?: string | null
+          notes?: string | null
+          status?: string | null
+          updated_at?: string
+          venue?: string | null
+        }
+        Update: {
+          away_score?: number | null
+          away_team_id?: string | null
+          away_team_name?: string | null
+          created_at?: string
+          event_id?: string
+          home_score?: number | null
+          home_team_id?: string | null
+          home_team_name?: string | null
+          id?: string
+          match_date?: string | null
+          notes?: string | null
+          status?: string | null
+          updated_at?: string
+          venue?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sports_matches_away_team_id_fkey"
+            columns: ["away_team_id"]
+            isOneToOne: false
+            referencedRelation: "sports_teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sports_matches_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "sports_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sports_matches_home_team_id_fkey"
+            columns: ["home_team_id"]
+            isOneToOne: false
+            referencedRelation: "sports_teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sports_participants: {
+        Row: {
+          admission_number: string | null
+          created_at: string
+          date_of_birth: string | null
+          gender: string | null
+          grade: string | null
+          id: string
+          school_id: string
+          stream: string | null
+          student_name: string
+          updated_at: string
+        }
+        Insert: {
+          admission_number?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          gender?: string | null
+          grade?: string | null
+          id?: string
+          school_id: string
+          stream?: string | null
+          student_name: string
+          updated_at?: string
+        }
+        Update: {
+          admission_number?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          gender?: string | null
+          grade?: string | null
+          id?: string
+          school_id?: string
+          stream?: string | null
+          student_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sports_participants_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sports_performances: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          is_best: boolean | null
+          notes: string | null
+          participant_id: string
+          performance_numeric: number | null
+          performance_value: string
+          position: number | null
+          recorded_at: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          is_best?: boolean | null
+          notes?: string | null
+          participant_id: string
+          performance_numeric?: number | null
+          performance_value: string
+          position?: number | null
+          recorded_at?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          is_best?: boolean | null
+          notes?: string | null
+          participant_id?: string
+          performance_numeric?: number | null
+          performance_value?: string
+          position?: number | null
+          recorded_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sports_performances_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "sports_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sports_performances_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "sports_participants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sports_team_members: {
+        Row: {
+          created_at: string
+          id: string
+          is_captain: boolean | null
+          jersey_number: number | null
+          participant_id: string
+          position: string | null
+          team_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_captain?: boolean | null
+          jersey_number?: number | null
+          participant_id: string
+          position?: string | null
+          team_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_captain?: boolean | null
+          jersey_number?: number | null
+          participant_id?: string
+          position?: string | null
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sports_team_members_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "sports_participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sports_team_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "sports_teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sports_teams: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          name: string
+          school_id: string
+          sport: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          school_id: string
+          sport: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          school_id?: string
+          sport?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sports_teams_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
