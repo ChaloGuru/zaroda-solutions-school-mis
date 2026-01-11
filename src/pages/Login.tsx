@@ -7,6 +7,7 @@ import { ArrowLeft, Mail, Lock, Hash } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import zarodaLogo from '@/assets/zaroda-logo.png';
+import { loginSchema, mapAuthError } from '@/lib/validation';
 
 const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -24,16 +25,37 @@ const Login = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate form data
+    const validationResult = loginSchema.safeParse(formData);
+    if (!validationResult.success) {
+      const firstError = validationResult.error.errors[0];
+      toast({
+        title: "Validation Error",
+        description: firstError.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     
     try {
       // Sign in the user
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: formData.email,
+        email: formData.email.trim().toLowerCase(),
         password: formData.password,
       });
 
-      if (error) throw error;
+      if (error) {
+        toast({
+          title: "Login failed",
+          description: mapAuthError(error),
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
 
       // Verify user is associated with the school code
       if (data.user) {
@@ -43,10 +65,10 @@ const Login = () => {
           .eq('user_id', data.user.id)
           .maybeSingle();
 
-        if (profile?.schools && (profile.schools as { school_code: string }).school_code !== formData.schoolCode) {
+        if (profile?.schools && (profile.schools as { school_code: string }).school_code !== formData.schoolCode.trim()) {
           await supabase.auth.signOut();
           toast({
-            title: "Invalid school code",
+            title: "Login failed",
             description: "The school code doesn't match your account.",
             variant: "destructive",
           });
@@ -62,10 +84,9 @@ const Login = () => {
       
       navigate('/dashboard');
     } catch (error: any) {
-      console.error('Login error:', error);
       toast({
         title: "Login failed",
-        description: error.message || "Invalid email or password.",
+        description: mapAuthError(error),
         variant: "destructive",
       });
     } finally {

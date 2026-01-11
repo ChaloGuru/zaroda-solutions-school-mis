@@ -9,6 +9,7 @@ import { ArrowLeft, School, User, Mail, Phone, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import zarodaLogo from '@/assets/zaroda-logo.png';
+import { signUpSchema, mapAuthError } from '@/lib/validation';
 
 const counties = [
   'Baringo', 'Bomet', 'Bungoma', 'Busia', 'Elgeyo-Marakwet', 'Embu', 'Garissa', 
@@ -75,19 +76,17 @@ const SignUp = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (formData.password !== formData.confirmPassword) {
-      toast({
-        title: "Password mismatch",
-        description: "Passwords do not match. Please try again.",
-        variant: "destructive",
-      });
-      return;
-    }
+    // Validate all form data using zod schema
+    const validationResult = signUpSchema.safeParse({
+      ...formData,
+      selectedCategories,
+    });
 
-    if (selectedCategories.length === 0) {
+    if (!validationResult.success) {
+      const firstError = validationResult.error.errors[0];
       toast({
-        title: "Category required",
-        description: "Please select at least one school category.",
+        title: "Validation Error",
+        description: firstError.message,
         variant: "destructive",
       });
       return;
@@ -100,44 +99,41 @@ const SignUp = () => {
       const { data: schoolData, error: schoolError } = await supabase
         .from('schools')
         .insert({
-          school_code: formData.schoolCode,
-          name: formData.schoolName,
+          school_code: formData.schoolCode.trim(),
+          name: formData.schoolName.trim(),
           school_type: formData.schoolType,
           county: formData.county,
-          sub_county: formData.subCounty,
-          zone: formData.zone,
+          sub_county: formData.subCounty.trim(),
+          zone: formData.zone.trim(),
           categories: selectedCategories.includes('all') 
             ? ['ecde', 'primary', 'junior'] 
             : selectedCategories,
-          contact_name: formData.contactName,
-          contact_email: formData.email,
-          contact_phone: formData.phone,
+          contact_name: formData.contactName.trim(),
+          contact_email: formData.email.trim().toLowerCase(),
+          contact_phone: formData.phone.trim(),
         })
         .select()
         .single();
 
       if (schoolError) {
-        if (schoolError.code === '23505') {
-          toast({
-            title: "School already exists",
-            description: "A school with this code is already registered.",
-            variant: "destructive",
-          });
-        } else {
-          throw schoolError;
-        }
+        toast({
+          title: "Registration failed",
+          description: mapAuthError(schoolError),
+          variant: "destructive",
+        });
         setIsSubmitting(false);
         return;
       }
 
       // Then sign up the user
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
+        email: formData.email.trim().toLowerCase(),
         password: formData.password,
         options: {
           emailRedirectTo: window.location.origin,
           data: {
-            full_name: formData.contactName,
+            full_name: formData.contactName.trim(),
+            school_id: schoolData.id,
           },
         },
       });
@@ -145,7 +141,13 @@ const SignUp = () => {
       if (authError) {
         // Delete the school if auth fails
         await supabase.from('schools').delete().eq('id', schoolData.id);
-        throw authError;
+        toast({
+          title: "Registration failed",
+          description: mapAuthError(authError),
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
       }
 
       // Link profile to school
@@ -163,10 +165,9 @@ const SignUp = () => {
       
       navigate('/login');
     } catch (error: any) {
-      console.error('Signup error:', error);
       toast({
-        title: "Error creating account",
-        description: error.message || "Something went wrong. Please try again.",
+        title: "Registration failed",
+        description: mapAuthError(error),
         variant: "destructive",
       });
     } finally {
