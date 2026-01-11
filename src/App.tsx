@@ -11,6 +11,8 @@ import Dashboard from "./pages/Dashboard";
 import Contact from "./pages/Contact";
 import Elections from "./pages/Elections";
 import Sports from "./pages/Sports";
+import SuperAdmin from "./pages/SuperAdmin";
+import SuperAdminLogin from "./pages/SuperAdminLogin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +32,8 @@ const App = () => (
             <Route path="/contact" element={<Contact />} />
             <Route path="/elections" element={<Elections />} />
             <Route path="/sports" element={<Sports />} />
+            <Route path="/admin-login" element={<SuperAdminLogin />} />
+            <Route path="/super-admin" element={<SuperAdmin />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

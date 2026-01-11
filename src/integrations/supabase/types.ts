@@ -251,6 +251,7 @@ export type Database = {
           name: string
           school_code: string
           school_type: string | null
+          status: string | null
           sub_county: string | null
           updated_at: string
           zone: string | null
@@ -266,6 +267,7 @@ export type Database = {
           name: string
           school_code: string
           school_type?: string | null
+          status?: string | null
           sub_county?: string | null
           updated_at?: string
           zone?: string | null
@@ -281,6 +283,7 @@ export type Database = {
           name?: string
           school_code?: string
           school_type?: string | null
+          status?: string | null
           sub_county?: string | null
           updated_at?: string
           zone?: string | null
