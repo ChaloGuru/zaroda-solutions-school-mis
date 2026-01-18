@@ -139,23 +139,6 @@ const Hero = () => {
                   />
                 ))}
               </div>
-              {/* Overlay stats card */}
-              <div className="absolute bottom-16 left-6 right-6 bg-background/90 backdrop-blur-md rounded-xl p-4 shadow-soft">
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div>
-                    <div className="text-2xl font-bold text-primary">500+</div>
-                    <div className="text-xs text-muted-foreground">Schools</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-secondary">1M+</div>
-                    <div className="text-xs text-muted-foreground">Students</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-accent">99.9%</div>
-                    <div className="text-xs text-muted-foreground">Uptime</div>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>

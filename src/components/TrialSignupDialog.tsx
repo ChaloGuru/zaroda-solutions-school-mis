@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Sparkles, School, User, Mail, Phone, MapPin } from 'lucide-react';
 
@@ -18,12 +17,6 @@ const counties = [
   'Turkana', 'Uasin Gishu', 'Vihiga', 'Wajir', 'West Pokot'
 ];
 
-const schoolCategories = [
-  { id: 'all', label: 'All (ECDE, Primary & Junior School)' },
-  { id: 'ecde', label: 'ECDE' },
-  { id: 'primary', label: 'Primary' },
-  { id: 'junior', label: 'Junior School' },
-];
 
 interface TrialSignupDialogProps {
   trigger?: React.ReactNode;
@@ -38,7 +31,7 @@ const TrialSignupDialog = ({ trigger, open: controlledOpen, onOpenChange }: Tria
   const setOpen = isControlled ? (onOpenChange || (() => {})) : setInternalOpen;
   
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -53,35 +46,9 @@ const TrialSignupDialog = ({ trigger, open: controlledOpen, onOpenChange }: Tria
     zone: '',
   });
 
-  const handleCategoryChange = (categoryId: string, checked: boolean) => {
-    if (categoryId === 'all') {
-      if (checked) {
-        setSelectedCategories(['all']);
-      } else {
-        setSelectedCategories([]);
-      }
-    } else {
-      let newCategories = selectedCategories.filter(c => c !== 'all');
-      if (checked) {
-        newCategories = [...newCategories, categoryId];
-      } else {
-        newCategories = newCategories.filter(c => c !== categoryId);
-      }
-      setSelectedCategories(newCategories);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (selectedCategories.length === 0) {
-      toast({
-        title: "Category required",
-        description: "Please select at least one school category.",
-        variant: "destructive",
-      });
-      return;
-    }
 
     setIsSubmitting(true);
 
@@ -106,7 +73,7 @@ const TrialSignupDialog = ({ trigger, open: controlledOpen, onOpenChange }: Tria
       subCounty: '',
       zone: '',
     });
-    setSelectedCategories([]);
+    
   };
 
   const handleChange = (field: string, value: string) => {
@@ -182,23 +149,6 @@ const TrialSignupDialog = ({ trigger, open: controlledOpen, onOpenChange }: Tria
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>School Category * (Select one or more)</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {schoolCategories.map((category) => (
-                  <div key={category.id} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`trial-${category.id}`}
-                      checked={selectedCategories.includes(category.id)}
-                      onCheckedChange={(checked) => handleCategoryChange(category.id, checked as boolean)}
-                    />
-                    <Label htmlFor={`trial-${category.id}`} className="text-sm font-normal cursor-pointer">
-                      {category.label}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            </div>
 
             <div className="space-y-2">
               <Label htmlFor="county" className="flex items-center gap-1">

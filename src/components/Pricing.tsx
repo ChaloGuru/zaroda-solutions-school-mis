@@ -1,4 +1,4 @@
-import { Check, Users, GraduationCap, BookOpen, School, Sparkles } from 'lucide-react';
+import { Check, Users, GraduationCap, BookOpen, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import TrialSignupDialog from './TrialSignupDialog';
@@ -72,7 +72,7 @@ const Pricing = () => {
               KSH 2,088<span className="text-xl font-normal text-muted-foreground">/stream/year</span>
             </h3>
             <p className="text-lg text-muted-foreground max-w-xl mx-auto mb-6">
-              Class teacher can subscribe the stream at <span className="text-primary font-semibold">KSH 2,088/-</span> per year or HOI can subscribe a school category e.g JS, Primary, ECDE or whole school at <span className="text-primary font-semibold">KSH 2,088/-</span> per stream per year. Maximum 80 learners per stream.
+              Class teacher can subscribe the stream at <span className="text-primary font-semibold">KSH 2,088/-</span> per year or HOI can subscribe a school category e.g JS, Primary, ECDE at <span className="text-primary font-semibold">KSH 2,088/-</span> per stream per year. Maximum 80 learners per stream.
             </p>
             <div className="flex flex-wrap justify-center gap-3 mb-8">
               {features.map((feature) => (
@@ -161,30 +161,6 @@ const Pricing = () => {
           ))}
         </div>
 
-        {/* Multi-Stream Discount Note */}
-        <div className="bg-gradient-to-r from-primary/5 via-teal/5 to-blue/5 rounded-2xl p-8 lg:p-12 border border-border animate-fade-up">
-          <div className="flex flex-col lg:flex-row items-center gap-8">
-            <div className="flex-shrink-0">
-              <div className="w-16 h-16 rounded-2xl bg-teal/10 flex items-center justify-center">
-                <School size={32} className="text-teal" />
-              </div>
-            </div>
-            <div className="flex-1 text-center lg:text-left">
-              <h3 className="text-2xl font-bold text-foreground mb-2">
-                Whole School Subscription
-              </h3>
-              <p className="text-muted-foreground max-w-2xl">
-                Schools with multiple streams benefit from centralized management. 
-                Contact us for custom pricing on <span className="text-primary font-bold">10+ streams</span>. Maximum 80 learners per stream.
-              </p>
-            </div>
-            <div className="flex-shrink-0">
-              <Button asChild variant="teal" size="lg">
-                <Link to="/contact">Contact Sales</Link>
-              </Button>
-            </div>
-          </div>
-        </div>
       </div>
     </section>
   );
