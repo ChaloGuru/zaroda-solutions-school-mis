@@ -41,7 +41,7 @@ export const signUpSchema = z.object({
     .min(8, 'Password must be at least 8 characters')
     .max(72, 'Password must be less than 72 characters'),
   confirmPassword: z.string(),
-  selectedCategories: z.array(z.string()).min(1, 'Please select at least one school category'),
+  
 }).refine((data) => data.password === data.confirmPassword, {
   message: 'Passwords do not match',
   path: ['confirmPassword'],

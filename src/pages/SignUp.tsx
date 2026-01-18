@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import { ArrowLeft, School, User, Mail, Phone, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,12 +20,6 @@ const counties = [
   'Turkana', 'Uasin Gishu', 'Vihiga', 'Wajir', 'West Pokot'
 ];
 
-const schoolCategories = [
-  { id: 'all', label: 'All (ECDE, Primary & Junior School)' },
-  { id: 'ecde', label: 'ECDE' },
-  { id: 'primary', label: 'Primary' },
-  { id: 'junior', label: 'Junior School' },
-];
 
 const SignUp = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -43,7 +36,7 @@ const SignUp = () => {
     zone: '',
     schoolType: '',
   });
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -55,23 +48,6 @@ const SignUp = () => {
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleCategoryChange = (categoryId: string, checked: boolean) => {
-    if (categoryId === 'all') {
-      if (checked) {
-        setSelectedCategories(['all']);
-      } else {
-        setSelectedCategories([]);
-      }
-    } else {
-      let newCategories = selectedCategories.filter(c => c !== 'all');
-      if (checked) {
-        newCategories = [...newCategories, categoryId];
-      } else {
-        newCategories = newCategories.filter(c => c !== categoryId);
-      }
-      setSelectedCategories(newCategories);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,7 +55,6 @@ const SignUp = () => {
     // Validate all form data using zod schema
     const validationResult = signUpSchema.safeParse({
       ...formData,
-      selectedCategories,
     });
 
     if (!validationResult.success) {
@@ -105,9 +80,6 @@ const SignUp = () => {
           county: formData.county,
           sub_county: formData.subCounty.trim(),
           zone: formData.zone.trim(),
-          categories: selectedCategories.includes('all') 
-            ? ['ecde', 'primary', 'junior'] 
-            : selectedCategories,
           contact_name: formData.contactName.trim(),
           contact_email: formData.email.trim().toLowerCase(),
           contact_phone: formData.phone.trim(),
@@ -245,23 +217,6 @@ const SignUp = () => {
                   </Select>
                 </div>
 
-                <div className="md:col-span-2">
-                  <Label>School Category * (Select one or more)</Label>
-                  <div className="grid grid-cols-2 gap-3 mt-2">
-                    {schoolCategories.map((category) => (
-                      <div key={category.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={category.id}
-                          checked={selectedCategories.includes(category.id)}
-                          onCheckedChange={(checked) => handleCategoryChange(category.id, checked as boolean)}
-                        />
-                        <Label htmlFor={category.id} className="text-sm font-normal cursor-pointer">
-                          {category.label}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
 
                 <div>
                   <Label htmlFor="county">County *</Label>

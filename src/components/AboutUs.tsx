@@ -74,7 +74,7 @@ const AboutUs = () => {
             </h3>
             <p className="text-muted-foreground leading-relaxed">
               To be the leading digital platform enabling efficient, transparent, and data-driven management 
-              in public schools across Kenya.
+              in public and private schools across Kenya.
             </p>
           </div>
         </div>
