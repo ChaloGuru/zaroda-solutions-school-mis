@@ -47,7 +47,7 @@ const Pricing = () => {
             Affordable Plans for Every School
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-6">
-            Pay per stream at <span className="text-primary font-bold">KSH 2,088/-</span> annually. Maximum 80 learners per stream.
+            Pay per stream at <span className="text-primary font-bold">KSH 2,150/-</span> annually. Maximum 80 learners per stream.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-teal/10 border border-teal/20">
@@ -69,10 +69,10 @@ const Pricing = () => {
               <Sparkles size={40} />
             </div>
             <h3 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
-              KSH 2,088<span className="text-xl font-normal text-muted-foreground">/stream/year</span>
+              KSH 2,150<span className="text-xl font-normal text-muted-foreground">/stream/year</span>
             </h3>
             <p className="text-lg text-muted-foreground max-w-xl mx-auto mb-6">
-              Class teacher can subscribe the stream at <span className="text-primary font-semibold">KSH 2,088/-</span> per year or HOI can subscribe a school category e.g JS, Primary, ECDE at <span className="text-primary font-semibold">KSH 2,088/-</span> per stream per year. Maximum 80 learners per stream.
+              Class teacher can subscribe the stream at <span className="text-primary font-semibold">KSH 2,150/-</span> per year or HOI can subscribe a school category e.g JS, Primary, ECDE at <span className="text-primary font-semibold">KSH 2,150/-</span> per stream per year. Maximum 80 learners per stream.
             </p>
             <div className="flex flex-wrap justify-center gap-3 mb-8">
               {features.map((feature) => (
@@ -123,7 +123,7 @@ const Pricing = () => {
 
               {/* Price Display */}
               <div className="text-center py-6 mb-4 rounded-xl bg-muted/50">
-                <span className="text-3xl font-bold text-foreground">KSH 2,088</span>
+                <span className="text-3xl font-bold text-foreground">KSH 2,150</span>
                 <span className="text-muted-foreground">/stream/yr</span>
                 <p className="text-sm text-muted-foreground mt-1">Max 80 learners per stream</p>
               </div>

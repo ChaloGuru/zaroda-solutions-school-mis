@@ -38,7 +38,7 @@ const Footer = () => {
                 className="flex items-center gap-3 text-primary-foreground/80 hover:text-primary-foreground transition-colors"
               >
                 <Mail size={18} />
-                info@zarodasolutions.co.ke
+                oduorongo@gmail.com
               </a>
               <a
                 href="tel:+254724282065"

@@ -48,6 +48,22 @@ const AboutUs = () => {
             Empowering Kenya's <span className="text-primary">Schools</span>
           </h2>
         </div>
+        {/* Motto */}
+        <div className="text-center mb-16">
+          <div className="relative inline-block">
+            <div className="absolute inset-0 bg-gradient-to-r from-kenya-green via-kenya-red to-kenya-black blur-xl opacity-20"></div>
+            <div className="relative bg-gradient-to-r from-kenya-green via-kenya-red to-kenya-black p-1 rounded-2xl">
+              <div className="bg-background px-8 py-6 rounded-2xl">
+                <div className="text-sm font-medium text-muted-foreground mb-2 tracking-wider uppercase">
+                  Our Motto
+                </div>
+                <h3 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-kenya-green via-kenya-red to-kenya-black bg-clip-text text-transparent">
+                  Empowering schools with technology
+                </h3>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Mission & Vision */}
         <div className="grid md:grid-cols-2 gap-8 mb-16">
@@ -114,7 +130,7 @@ const AboutUs = () => {
                 inconsistent channels for updates.
               </p>
               <p>
-                <strong className="text-foreground">Zaroda Solutions</strong> was built to bridge this gap.
+                <strong className="text-foreground">Zaroda Solutions</strong> is built to bridge this gap.
               </p>
               <p>
                 Built with the realities of Kenyan schools in mind, Zaroda Solutions offers an easy-to-use, 
@@ -157,7 +173,7 @@ const AboutUs = () => {
               </div>
               <div>
                 <div className="text-sm text-muted-foreground">Email</div>
-                <div className="font-medium">info@zarodasolutions.co.ke</div>
+                <div className="font-medium">oduorongo@gmail.com</div>
               </div>
             </a>
 

@@ -13,7 +13,7 @@ const Profiles = () => {
       icon: GraduationCap,
       title: 'Teachers',
       description: 'Streamlined tools for attendance, grading, and communication.',
-      features: ['Grade management', 'Attendance tracking', 'Lesson planning'],
+      features: ['Grade management', 'Attendance tracking', 'Automated assessment books '],
       color: 'secondary',
     },
     {
