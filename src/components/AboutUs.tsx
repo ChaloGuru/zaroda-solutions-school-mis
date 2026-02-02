@@ -173,7 +173,7 @@ const AboutUs = () => {
               </div>
               <div>
                 <div className="text-sm text-muted-foreground">Email</div>
-                <div className="font-medium">oduorongo@gmail.com</div>
+                <div className="font-medium">info@zarodasolutions.co.ke</div>
               </div>
             </a>
 
