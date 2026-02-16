@@ -4,6 +4,9 @@ import { Bot, Sparkles, MessageSquare, Zap, Send } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 
+// TODO: Replace with Replit backend API
+const API_BASE = 'https://your-replit.replit.dev/api';
+
 const AskAI = () => {
   const [inputValue, setInputValue] = useState('');
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([
@@ -51,73 +54,20 @@ const AskAI = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ask-ai`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({ 
-          messages: [...messages, { role: 'user', content: userMessage }],
-          schoolId: user ? 'demo' : null 
-        }),
-      });
-
-      if (!response.ok) {
-        if (response.status === 429) {
-          throw new Error('Rate limit exceeded. Please try again later.');
-        }
-        if (response.status === 402) {
-          throw new Error('Service temporarily unavailable. Please try again later.');
-        }
-        throw new Error('Failed to get AI response');
-      }
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let assistantMessage = '';
-
-      if (reader) {
-        let textBuffer = '';
-        
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          
-          textBuffer += decoder.decode(value, { stream: true });
-          
-          let newlineIndex: number;
-          while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
-            let line = textBuffer.slice(0, newlineIndex);
-            textBuffer = textBuffer.slice(newlineIndex + 1);
-            
-            if (line.endsWith('\r')) line = line.slice(0, -1);
-            if (line.startsWith(':') || line.trim() === '') continue;
-            if (!line.startsWith('data: ')) continue;
-            
-            const jsonStr = line.slice(6).trim();
-            if (jsonStr === '[DONE]') break;
-            
-            try {
-              const parsed = JSON.parse(jsonStr);
-              const content = parsed.choices?.[0]?.delta?.content;
-              if (content) {
-                assistantMessage += content;
-                setMessages(prev => {
-                  const last = prev[prev.length - 1];
-                  if (last?.role === 'assistant' && prev.length > 1 && prev[prev.length - 2]?.role === 'user') {
-                    return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantMessage } : m);
-                  }
-                  return [...prev, { role: 'assistant', content: assistantMessage }];
-                });
-              }
-            } catch {
-              textBuffer = line + '\n' + textBuffer;
-              break;
-            }
-          }
-        }
-      }
+      // TODO: Replace with fetch(`${API_BASE}/ask-ai`)
+      // const response = await fetch(`${API_BASE}/ask-ai`, {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({
+      //     messages: [...messages, { role: 'user', content: userMessage }],
+      //     schoolId: user?.id
+      //   })
+      // });
+      
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: 'AI assistant is not connected yet. Please connect to Replit backend to enable this feature.' 
+      }]);
     } catch (error) {
       console.error('AI error:', error);
       toast({

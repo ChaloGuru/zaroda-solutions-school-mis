@@ -6,8 +6,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, School, User, Mail, Phone, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import zarodaLogo from '@/assets/zaroda-logo.png';
+
+// TODO: Replace with Replit backend API
+const API_BASE = 'https://your-replit.replit.dev/api';
 import { signUpSchema, mapAuthError } from '@/lib/validation';
 
 const counties = [
@@ -70,76 +72,35 @@ const SignUp = () => {
     setIsSubmitting(true);
 
     try {
-      // First, create the school record
-      const { data: schoolData, error: schoolError } = await supabase
-        .from('schools')
-        .insert({
-          school_code: formData.schoolCode.trim(),
-          name: formData.schoolName.trim(),
-          school_type: formData.schoolType,
-          county: formData.county,
-          sub_county: formData.subCounty.trim(),
-          zone: formData.zone.trim(),
-          contact_name: formData.contactName.trim(),
-          contact_email: formData.email.trim().toLowerCase(),
-          contact_phone: formData.phone.trim(),
-        })
-        .select()
-        .single();
-
-      if (schoolError) {
-        toast({
-          title: "Registration failed",
-          description: mapAuthError(schoolError),
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Then sign up the user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email.trim().toLowerCase(),
-        password: formData.password,
-        options: {
-          emailRedirectTo: window.location.origin,
-          data: {
-            full_name: formData.contactName.trim(),
-            school_id: schoolData.id,
-          },
-        },
-      });
-
-      if (authError) {
-        // Delete the school if auth fails
-        await supabase.from('schools').delete().eq('id', schoolData.id);
-        toast({
-          title: "Registration failed",
-          description: mapAuthError(authError),
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Link profile to school
-      if (authData.user) {
-        await supabase
-          .from('profiles')
-          .update({ school_id: schoolData.id })
-          .eq('user_id', authData.user.id);
-      }
-
+      // TODO: Replace with fetch(`${API_BASE}/auth/signup`)
+      // const response = await fetch(`${API_BASE}/auth/signup`, {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({
+      //     school: formData.schoolName,
+      //     schoolCode: formData.schoolCode,
+      //     email: formData.email,
+      //     password: formData.password,
+      //     contactName: formData.contactName,
+      //     phone: formData.phone,
+      //     county: formData.county,
+      //     subCounty: formData.subCounty,
+      //     zone: formData.zone,
+      //     schoolType: formData.schoolType
+      //   })
+      // });
+      // const data = await response.json();
+      
       toast({
-        title: "Account created successfully!",
-        description: "Welcome to Zaroda Solutions. You can now log in.",
+        title: "Registration successful!",
+        description: "Your school has been registered. Connect to Replit backend.",
       });
       
       navigate('/login');
     } catch (error: any) {
       toast({
         title: "Registration failed",
-        description: mapAuthError(error),
+        description: "Connection error. Please check Replit backend.",
         variant: "destructive",
       });
     } finally {

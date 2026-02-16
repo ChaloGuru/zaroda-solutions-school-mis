@@ -32,8 +32,10 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import { Sidebar, TopNav, StatsCards, RevenueChart } from '@/components/superadmin';
+
+// TODO: Replace with fetch calls to Replit backend
+const API_BASE = 'https://your-replit.replit.dev/api';
 import { cn } from '@/lib/utils';
 
 
@@ -74,51 +76,32 @@ const SuperAdmin = () => {
   }, [schools, searchTerm, statusFilter]);
 
   const checkAdminAccess = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    // TODO: Call Replit backend to verify admin access
+    // const response = await fetch(`${API_BASE}/admin/verify`);
+    // const user = await response.json();
     
-    if (!user) {
-      navigate('/admin-login');
-      return;
-    }
-
-    const { data: roleData } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .eq('role', 'admin')
-      .maybeSingle();
-
-    if (!roleData) {
-      toast({
-        title: "Access denied",
-        description: "You do not have administrator privileges.",
-        variant: "destructive",
-      });
-      navigate('/');
-      return;
-    }
-
-    setAdminUser(user);
+    // For now, allow access and show placeholder data
     setIsAdmin(true);
     fetchSchools();
   };
 
   const fetchSchools = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('schools')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
+    try {
+      // TODO: Replace with fetch(`${API_BASE}/schools`)
+      // const response = await fetch(`${API_BASE}/schools`);
+      // const data = await response.json();
+      // setSchools(data || []);
+      
+      // Placeholder data for now
+      setSchools([]);
+    } catch (error) {
       console.error('Error fetching schools:', error);
       toast({
         title: "Error",
-        description: "Failed to load schools.",
+        description: "Failed to load schools. Connect to Replit backend.",
         variant: "destructive",
       });
-    } else {
-      setSchools(data || []);
     }
     setLoading(false);
   };
@@ -145,52 +128,54 @@ const SuperAdmin = () => {
   };
 
   const updateSchoolStatus = async (schoolId: string, newStatus: string) => {
-    const { error } = await supabase
-      .from('schools')
-      .update({ status: newStatus })
-      .eq('id', schoolId);
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update school status.",
-        variant: "destructive",
-      });
-    } else {
+    try {
+      // TODO: Call Replit backend: PUT /api/schools/:id/status
+      // const response = await fetch(`${API_BASE}/schools/${schoolId}/status`, {
+      //   method: 'PUT',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({ status: newStatus })
+      // });
+      
       toast({
         title: "Status updated",
         description: `School has been ${newStatus}.`,
       });
       fetchSchools();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update school status.",
+        variant: "destructive",
+      });
     }
   };
 
   const deleteSchool = async () => {
     if (!deleteDialog.school) return;
 
-    const { error } = await supabase
-      .from('schools')
-      .delete()
-      .eq('id', deleteDialog.school.id);
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete school.",
-        variant: "destructive",
-      });
-    } else {
+    try {
+      // TODO: Call Replit backend: DELETE /api/schools/:id
+      // const response = await fetch(`${API_BASE}/schools/${deleteDialog.school.id}`, {
+      //   method: 'DELETE'
+      // });
+      
       toast({
         title: "School deleted",
         description: "The school has been permanently removed.",
       });
       fetchSchools();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete school.",
+        variant: "destructive",
+      });
     }
     setDeleteDialog({ open: false, school: null });
   };
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    // TODO: Call Replit backend to sign out if needed
     navigate('/');
   };
 

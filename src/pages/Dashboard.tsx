@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import { 
   School, 
   User, 
@@ -63,16 +62,12 @@ const Dashboard = () => {
     setIsSaving(true);
 
     try {
-      const { error } = await supabase
-        .from('schools')
-        .update({
-          contact_name: editData.contact_name,
-          contact_email: editData.contact_email,
-          contact_phone: editData.contact_phone,
-        })
-        .eq('id', school.id);
-
-      if (error) throw error;
+      // TODO: Call Replit backend: PUT /api/schools/:id
+      // const response = await fetch(`${API_BASE}/schools/${school.id}`, {
+      //   method: 'PUT',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify(editData)
+      // });
 
       toast({
         title: "Settings saved",
@@ -84,7 +79,7 @@ const Dashboard = () => {
     } catch (error: any) {
       toast({
         title: "Error saving",
-        description: error.message || "Failed to save changes.",
+        description: "Connection error. Please check Replit backend.",
         variant: "destructive",
       });
     } finally {

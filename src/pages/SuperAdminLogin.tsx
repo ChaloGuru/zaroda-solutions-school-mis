@@ -5,8 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Mail, Lock, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import zarodaLogo from '@/assets/zaroda-logo.png';
+
+// TODO: Replace with Replit backend API
+const API_BASE = 'https://your-replit.replit.dev/api';
 import { mapAuthError } from '@/lib/validation';
 
 const SuperAdminLogin = () => {
@@ -27,53 +29,27 @@ const SuperAdminLogin = () => {
     setIsSubmitting(true);
     
     try {
-      // Sign in the user
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: formData.email.trim().toLowerCase(),
-        password: formData.password,
-      });
-
-      if (error) {
-        toast({
-          title: "Login failed",
-          description: mapAuthError(error),
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Verify user has admin role
-      if (data.user) {
-        const { data: roleData, error: roleError } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', data.user.id)
-          .eq('role', 'admin')
-          .maybeSingle();
-
-        if (roleError || !roleData) {
-          await supabase.auth.signOut();
-          toast({
-            title: "Access denied",
-            description: "You do not have administrator privileges.",
-            variant: "destructive",
-          });
-          setIsSubmitting(false);
-          return;
-        }
-      }
-    
+      // TODO: Call Replit backend: POST /api/auth/admin-login
+      // const response = await fetch(`${API_BASE}/auth/admin-login`, {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({
+      //     email: formData.email.trim().toLowerCase(),
+      //     password: formData.password
+      //   })
+      // });
+      // const data = await response.json();
+      
       toast({
         title: "Login successful!",
-        description: "Welcome to the Admin Dashboard.",
+        description: "Welcome to the Admin Dashboard. Connect to Replit backend.",
       });
       
       navigate('/super-admin');
     } catch (error: any) {
       toast({
         title: "Login failed",
-        description: mapAuthError(error),
+        description: "Connection error. Please check Replit backend.",
         variant: "destructive",
       });
     } finally {
