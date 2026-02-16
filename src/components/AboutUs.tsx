@@ -179,7 +179,7 @@ const AboutUs = () => {
             </a>
 
             <a 
-              href="tel:+254724282065" 
+              href="tel:+254781230805" 
               className="flex items-center gap-4 p-4 rounded-xl bg-muted/50 hover:bg-primary/10 transition-colors group"
             >
               <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
@@ -187,7 +187,7 @@ const AboutUs = () => {
               </div>
               <div>
                 <div className="text-sm text-muted-foreground">Phone</div>
-                <div className="font-medium">+254 724 282 065</div>
+                <div className="font-medium">+254 781 230 805</div>
               </div>
             </a>
 

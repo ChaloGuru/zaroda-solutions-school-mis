@@ -42,14 +42,14 @@ const Footer = () => {
                 info@zarodasolutions.co.ke
               </a>
               <a
-                href="tel:+254724282065"
+                href="tel:+254781230805"
                 className="flex items-center gap-3 text-primary-foreground/80 hover:text-primary-foreground transition-colors"
               >
                 <Phone size={18} />
-                +254 724 282 065
+                +254 781 230 805
               </a>
               <a
-                href="https://wa.me/254724282065"
+                href="https://wa.me/254781230805"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 text-primary-foreground/80 hover:text-primary-foreground transition-colors"
