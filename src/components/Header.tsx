@@ -37,25 +37,24 @@ const Header = () => {
           : 'bg-transparent'
       }`}
     >
-      <div className="container-max section-padding !py-0">
-        <div className="flex items-center justify-between h-20 sm:h-24">
-          <a href="#" className="flex items-center gap-2 group">
+      <div className="max-w-[1400px] mx-auto px-3 sm:px-4 lg:px-6">
+        <div className="flex items-center justify-between h-16 sm:h-18">
+          <a href="#" className="flex items-center gap-1.5 group shrink-0">
             <img 
               src={zarodaLogo} 
               alt="Zaroda Solutions" 
-              className="h-16 sm:h-20 w-auto transition-transform group-hover:scale-105 object-contain"
+              className="h-10 sm:h-12 w-auto transition-transform group-hover:scale-105 object-contain"
             />
-            <span className="text-lg sm:text-xl font-bold tracking-wide" style={{ color: '#1a5276' }}>ZARODA SOLUTIONS</span>
+            <span className="text-sm sm:text-base font-bold tracking-wide whitespace-nowrap" style={{ color: '#1a5276' }}>ZARODA SOLUTIONS</span>
           </a>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-6">
+          <nav className="hidden xl:flex items-center gap-3 mx-4">
             {navLinks.map((link) => (
               link.href.startsWith('/') ? (
                 <Link
                   key={link.name}
                   to={link.href}
-                  className="text-muted-foreground hover:text-primary transition-colors font-medium"
+                  className="text-muted-foreground hover:text-primary transition-colors font-medium text-sm whitespace-nowrap"
                 >
                   {link.name}
                 </Link>
@@ -63,7 +62,7 @@ const Header = () => {
                 <a
                   key={link.name}
                   href={link.href}
-                  className="text-muted-foreground hover:text-primary transition-colors font-medium"
+                  className="text-muted-foreground hover:text-primary transition-colors font-medium text-sm whitespace-nowrap"
                 >
                   {link.name}
                 </a>
@@ -71,22 +70,21 @@ const Header = () => {
             ))}
           </nav>
 
-          {/* Desktop CTA */}
-          <div className="hidden lg:flex items-center gap-3">
+          <div className="hidden xl:flex items-center gap-2 shrink-0">
             {!loading && (
               user ? (
-                <Button asChild variant="hero" size="default">
+                <Button asChild variant="hero" size="sm">
                   <Link to="/dashboard">
-                    <LayoutDashboard size={18} className="mr-2" />
+                    <LayoutDashboard size={16} className="mr-1.5" />
                     Dashboard
                   </Link>
                 </Button>
               ) : (
                 <>
-                  <Button asChild variant="login" size="default">
+                  <Button asChild variant="login" size="sm">
                     <Link to="/login">Login</Link>
                   </Button>
-                  <Button asChild variant="signup" size="default">
+                  <Button asChild variant="signup" size="sm">
                     <Link to="/signup">Sign Up</Link>
                   </Button>
                 </>
@@ -94,25 +92,23 @@ const Header = () => {
             )}
           </div>
 
-          {/* Mobile Menu Toggle */}
           <button
-            className="lg:hidden p-2 text-foreground"
+            className="xl:hidden p-2 text-foreground"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           >
             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
 
-        {/* Mobile Menu */}
         {isMobileMenuOpen && (
-          <div className="lg:hidden py-4 border-t border-border animate-fade-up">
-            <nav className="flex flex-col gap-4">
+          <div className="xl:hidden py-4 border-t border-border animate-fade-up">
+            <nav className="flex flex-col gap-3">
               {navLinks.map((link) => (
                 link.href.startsWith('/') ? (
                   <Link
                     key={link.name}
                     to={link.href}
-                    className="text-muted-foreground hover:text-primary transition-colors font-medium py-2"
+                    className="text-muted-foreground hover:text-primary transition-colors font-medium py-1.5"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     {link.name}
@@ -121,7 +117,7 @@ const Header = () => {
                   <a
                     key={link.name}
                     href={link.href}
-                    className="text-muted-foreground hover:text-primary transition-colors font-medium py-2"
+                    className="text-muted-foreground hover:text-primary transition-colors font-medium py-1.5"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     {link.name}
