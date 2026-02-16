@@ -4,6 +4,7 @@
 A multi-tenant school management platform built with React, TypeScript, Vite, and Tailwind CSS. Features include multi-school sync, automated billing, parent-teacher portals, elections, sports management, and more.
 
 ## Recent Changes
+- 2026-02-16: Simplified login page to a single unified form with School Code, Email, and Password fields. Removed role selector dropdown. System auto-detects user role based on credentials (checks SuperAdmin, platform users, DHOI accounts, and stored users in order).
 - 2026-02-16: Built complete DHOI (Deputy Head of Institution) Dashboard with 14 sections: Overview, Teachers (with teacher codes, assignments, duty roster), Students, Classes, Subjects, Master Timetable (3 types: Upper Primary/Junior School/ECDE with locked slots, auto-generate), Officials, Attendance, Library, Sports, Elections, Reports, Settings. DHOI account created by HOI only. Added "My Timetable" read-only tab to Teacher Dashboard. All DHOI sections share HOI data via hoiStorage.ts.
 - 2026-02-16: Connected auth so SuperAdmin creates HOI accounts. Added User Management section to SuperAdmin dashboard (create/edit/suspend/track users). HOI can no longer self-register - must use credentials assigned by SuperAdmin. Added PlatformUser & LoginActivity tracking, activity log, login history, and status checks (suspended accounts blocked). Teacher login also supports SuperAdmin-created accounts.
 - 2026-02-16: Built complete HOI (Head of Institution) Dashboard with 15 sections: Overview, School Management, Classes & Streams, Teacher Management, Student Management, Officials Management, Subjects, Timetable, Attendance Summary, Finances, Library, Sports, Elections, Reports, Settings. All with full CRUD, search/filter, pagination, modal dialogs, charts, and localStorage persistence.
@@ -28,10 +29,13 @@ A multi-tenant school management platform built with React, TypeScript, Vite, an
 ### Authentication System
 - `src/context/AuthContext.tsx` - Auth provider with login/signup/logout + activity tracking
 - `src/components/ProtectedRoute.tsx` - Role-based route guard
+- Single unified login form: School Code + Email + Password (no role selector)
+- Login auto-detects role: checks SuperAdmin credentials first, then platform users (HOI/Teacher/etc), then DHOI accounts, then stored users
 - SuperAdmin credentials: Zaroda001 / oduorongo@gmail.com / ongo123
-- HOI: Account created by SuperAdmin only. Logs in with assigned email/password. Status-checked (suspended accounts blocked).
+- HOI: Account created by SuperAdmin only. Status-checked (suspended/inactive accounts blocked).
 - Teacher: Can self-register (signup) or be created by SuperAdmin. Both paths work for login. Status-checked.
-- DHOI, Student, Parent: Placeholder dashboards, accounts can be created by SuperAdmin but login not yet implemented
+- DHOI: Account created by HOI. Login checked against zaroda_dhoi_account storage.
+- Student, Parent: Placeholder dashboards
 - Seed HOI accounts (created on first load): hoi@greenwood.ac.ke/greenwood2024, hoi@sunrise.ac.ke/sunrise2024, hoi@heritage.ac.ke/heritage2024, hoi@victory.ac.ke/victory2024
 
 ### Data Layer
