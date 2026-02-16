@@ -89,7 +89,6 @@ const Login = () => {
         const result = signup(signupData);
         if (result.success) {
           toast({ title: 'Account created!', description: 'Welcome to Zaroda Solutions.' });
-          navigate(getDashboardForRole('teacher'));
         } else {
           toast({ title: 'Sign up failed', description: result.error, variant: 'destructive' });
         }
@@ -97,7 +96,6 @@ const Login = () => {
         const result = login(selectedRole as UserRole, formData.email, formData.password, formData.schoolCode);
         if (result.success) {
           toast({ title: 'Login successful!', description: 'Welcome back to Zaroda Solutions.' });
-          navigate(getDashboardForRole(selectedRole as UserRole));
         } else {
           toast({ title: 'Login failed', description: result.error, variant: 'destructive' });
         }
