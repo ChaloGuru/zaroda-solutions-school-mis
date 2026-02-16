@@ -1,0 +1,62 @@
+I have a React + Vite + Tailwind + shadcn/ui frontend (Lovable-built) with a login page already designed. I need you to build a complete authentication system with role-based routing. No Supabase — use React Context + localStorage for now.
+Roles and dashboards needed:
+
+superadmin → /superadmin-dashboard (already built)
+teacher → /teacher-dashboard (already built)
+HOI → /hoi-dashboard (placeholder page for now)
+DHOI → /dhoi-dashboard (placeholder page for now)
+student → /student-dashboard (placeholder page for now)
+parent → /parent-dashboard (placeholder page for now)
+
+SuperAdmin login (hardcoded, no signup):
+
+School Code: Zaroda001
+Email: oduorongo@gmail.com
+Password: ongo123
+On successful login → redirect to /superadmin-dashboard
+
+Teacher flow:
+
+Has both a Sign Up and Login form
+Sign up collects: full name, email, password, school code, subject, phone number
+After sign up, save their details and auto-redirect to /teacher-dashboard
+On future logins, validate email + password against saved details → redirect to /teacher-dashboard
+
+Login page behavior:
+
+Single login page for ALL roles
+Has a role selector dropdown (SuperAdmin, HOI, DHOI, Teacher, Student, Parent)
+When SuperAdmin is selected → show fields: School Code, Email, Password
+When Teacher is selected → show a toggle between Login and Sign Up
+When HOI, DHOI, Student, Parent are selected → show Login form only (just email + password) with a message "Contact your administrator to get your account" — no functionality yet
+After successful login, store the user role and details in localStorage and React Context
+
+Auth Context (src/context/AuthContext.tsx):
+
+Create an AuthProvider that wraps the whole app
+Exposes: currentUser, userRole, login(), logout(), signup()
+On logout → clear localStorage and redirect to /login
+
+Protected Routes:
+
+Create a ProtectedRoute component that checks if user is logged in and has the correct role
+If not logged in → redirect to /login
+If logged in but wrong role → redirect back to their correct dashboard
+
+File structure to create:
+
+src/context/AuthContext.tsx
+src/components/ProtectedRoute.tsx
+src/pages/Login.tsx (update existing login page)
+src/pages/HoiDashboard.tsx (placeholder)
+src/pages/DhoiDashboard.tsx (placeholder)
+src/pages/StudentDashboard.tsx (placeholder)
+src/pages/ParentDashboard.tsx (placeholder)
+
+App.tsx routing:
+
+Wrap all routes with AuthProvider
+Protect every dashboard route with ProtectedRoute + correct role
+Default route / → redirect to /login
+
+Use React Router v6, React Context API, localStorage. Keep the existing login page design and just wire up the logic. Make sure the login form gives clear error messages for wrong credentials.
