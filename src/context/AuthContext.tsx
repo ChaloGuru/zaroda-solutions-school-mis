@@ -17,6 +17,11 @@ export interface AuthUser {
   phone?: string;
   subject?: string;
   grade?: GradeLevel;
+  isClassTeacher?: boolean;
+  classTeacherClassId?: string;
+  classTeacherClassName?: string;
+  classTeacherStreamId?: string;
+  classTeacherStreamName?: string;
 }
 
 interface AuthContextType {
@@ -157,6 +162,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         phone: platformUser.phone,
         subject: platformUser.subject,
         grade: platformUser.grade as GradeLevel | undefined,
+        isClassTeacher: platformUser.isClassTeacher,
+        classTeacherClassId: platformUser.classTeacherClassId,
+        classTeacherClassName: platformUser.classTeacherClassName,
+        classTeacherStreamId: platformUser.classTeacherStreamId,
+        classTeacherStreamName: platformUser.classTeacherStreamName,
       };
       setCurrentUser(user);
       localStorage.setItem('zaroda_current_user', JSON.stringify(user));

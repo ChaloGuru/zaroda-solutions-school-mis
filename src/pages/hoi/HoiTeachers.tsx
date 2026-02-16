@@ -83,6 +83,9 @@ const emptyTeacherForm = {
   qualification: '',
   status: 'active' as HoiTeacher['status'],
   password: '',
+  is_class_teacher: false,
+  class_teacher_class_id: '',
+  class_teacher_stream_id: '',
 };
 
 const emptyAssignmentForm = {
@@ -229,6 +232,9 @@ export default function HoiTeachers() {
       qualification: t.qualification,
       status: t.status,
       password: '',
+      is_class_teacher: t.is_class_teacher || false,
+      class_teacher_class_id: t.class_teacher_class_id || '',
+      class_teacher_stream_id: t.class_teacher_stream_id || '',
     });
     setTeacherDialogOpen(true);
   };
@@ -242,17 +248,43 @@ export default function HoiTeachers() {
       toast({ title: 'Validation Error', description: 'Password is required when adding a new teacher.', variant: 'destructive' });
       return;
     }
-    const { password, ...teacherData } = teacherForm;
+    const { password, is_class_teacher, class_teacher_class_id, class_teacher_stream_id, ...teacherData } = teacherForm;
+    const selectedClass = classes.find(c => c.id === class_teacher_class_id);
+    const selectedStream = streams.find(s => s.id === class_teacher_stream_id);
+    const classTeacherFields = is_class_teacher && selectedClass && selectedStream ? {
+      is_class_teacher: true,
+      class_teacher_class_id: selectedClass.id,
+      class_teacher_class_name: selectedClass.name,
+      class_teacher_stream_id: selectedStream.id,
+      class_teacher_stream_name: selectedStream.name,
+    } : {
+      is_class_teacher: false,
+      class_teacher_class_id: undefined,
+      class_teacher_class_name: undefined,
+      class_teacher_stream_id: undefined,
+      class_teacher_stream_name: undefined,
+    };
+
     if (editingTeacher) {
-      hoiTeachersStorage.update(editingTeacher.id, teacherData);
+      hoiTeachersStorage.update(editingTeacher.id, { ...teacherData, ...classTeacherFields });
       if (password.trim()) {
         const passwords = JSON.parse(localStorage.getItem('zaroda_passwords') || '{}');
         passwords[teacherForm.email.trim().toLowerCase()] = password.trim();
         localStorage.setItem('zaroda_passwords', JSON.stringify(passwords));
       }
+      const existingPU = platformUsersStorage.findByEmail(teacherForm.email.trim().toLowerCase());
+      if (existingPU) {
+        platformUsersStorage.update(existingPU.id, {
+          isClassTeacher: classTeacherFields.is_class_teacher,
+          classTeacherClassId: classTeacherFields.class_teacher_class_id,
+          classTeacherClassName: classTeacherFields.class_teacher_class_name,
+          classTeacherStreamId: classTeacherFields.class_teacher_stream_id,
+          classTeacherStreamName: classTeacherFields.class_teacher_stream_name,
+        });
+      }
       toast({ title: 'Teacher Updated', description: `${teacherForm.full_name} has been updated.` });
     } else {
-      const newTeacher = hoiTeachersStorage.add({ ...teacherData, hired_at: new Date().toISOString().split('T')[0] });
+      const newTeacher = hoiTeachersStorage.add({ ...teacherData, ...classTeacherFields, hired_at: new Date().toISOString().split('T')[0] });
       const passwords = JSON.parse(localStorage.getItem('zaroda_passwords') || '{}');
       passwords[teacherForm.email.trim().toLowerCase()] = password.trim();
       localStorage.setItem('zaroda_passwords', JSON.stringify(passwords));
@@ -267,6 +299,19 @@ export default function HoiTeachers() {
           phone: teacherForm.phone.trim(),
           status: 'active',
           createdBy: 'HOI',
+          isClassTeacher: classTeacherFields.is_class_teacher,
+          classTeacherClassId: classTeacherFields.class_teacher_class_id,
+          classTeacherClassName: classTeacherFields.class_teacher_class_name,
+          classTeacherStreamId: classTeacherFields.class_teacher_stream_id,
+          classTeacherStreamName: classTeacherFields.class_teacher_stream_name,
+        });
+      } else {
+        platformUsersStorage.update(existing.id, {
+          isClassTeacher: classTeacherFields.is_class_teacher,
+          classTeacherClassId: classTeacherFields.class_teacher_class_id,
+          classTeacherClassName: classTeacherFields.class_teacher_class_name,
+          classTeacherStreamId: classTeacherFields.class_teacher_stream_id,
+          classTeacherStreamName: classTeacherFields.class_teacher_stream_name,
         });
       }
       toast({ title: 'Teacher Added', description: `${teacherForm.full_name} has been added. They can now log in with their email and password.` });
@@ -426,11 +471,21 @@ export default function HoiTeachers() {
                     <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No teachers found.</TableCell></TableRow>
                   ) : pagedTeachers.map((t) => (
                     <TableRow key={t.id}>
-                      <TableCell className="font-medium">{t.full_name}</TableCell>
+                      <TableCell className="font-medium">
+                        {t.full_name}
+                        {t.is_class_teacher && (
+                          <Badge className="ml-2 bg-amber-100 text-amber-800 border-amber-300 text-[10px]">Class Teacher</Badge>
+                        )}
+                      </TableCell>
                       <TableCell>{t.employee_id}</TableCell>
                       <TableCell>{t.email}</TableCell>
                       <TableCell>{t.phone}</TableCell>
-                      <TableCell>{t.subject_specialization}</TableCell>
+                      <TableCell>
+                        {t.subject_specialization}
+                        {t.is_class_teacher && t.class_teacher_class_name && (
+                          <p className="text-[10px] text-amber-600 mt-0.5">{t.class_teacher_class_name} {t.class_teacher_stream_name}</p>
+                        )}
+                      </TableCell>
                       <TableCell>{statusBadge(t.status)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
@@ -627,6 +682,38 @@ export default function HoiTeachers() {
                   <SelectItem value="deactivated">Deactivated</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="border rounded-lg p-4 space-y-3 bg-amber-50/50">
+              <div className="flex items-center gap-3">
+                <input type="checkbox" id="classTeacherToggle" checked={teacherForm.is_class_teacher} onChange={(e) => setTeacherForm({ ...teacherForm, is_class_teacher: e.target.checked, class_teacher_class_id: '', class_teacher_stream_id: '' })} className="w-4 h-4 rounded border-gray-300" />
+                <Label htmlFor="classTeacherToggle" className="font-semibold text-amber-800 cursor-pointer">Assign as Class Teacher</Label>
+              </div>
+              {teacherForm.is_class_teacher && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Class *</Label>
+                    <Select value={teacherForm.class_teacher_class_id} onValueChange={(v) => setTeacherForm({ ...teacherForm, class_teacher_class_id: v, class_teacher_stream_id: '' })}>
+                      <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
+                      <SelectContent>
+                        {classes.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Stream *</Label>
+                    <Select value={teacherForm.class_teacher_stream_id} onValueChange={(v) => setTeacherForm({ ...teacherForm, class_teacher_stream_id: v })}>
+                      <SelectTrigger><SelectValue placeholder="Select stream" /></SelectTrigger>
+                      <SelectContent>
+                        {streams.filter(s => s.class_id === teacherForm.class_teacher_class_id).map((s) => (
+                          <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
             </div>
             <div>
               <Label>Login Password {!editingTeacher ? '*' : '(leave blank to keep current)'}</Label>

@@ -324,6 +324,11 @@ export interface PlatformUser {
   status: 'active' | 'suspended' | 'inactive';
   subject?: string;
   grade?: string;
+  isClassTeacher?: boolean;
+  classTeacherClassId?: string;
+  classTeacherClassName?: string;
+  classTeacherStreamId?: string;
+  classTeacherStreamName?: string;
   createdAt: string;
   createdBy: string;
   lastLogin: string | null;

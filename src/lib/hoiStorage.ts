@@ -25,6 +25,11 @@ export interface HoiTeacher {
   qualification: string;
   status: 'active' | 'on_leave' | 'deactivated';
   hired_at: string;
+  is_class_teacher?: boolean;
+  class_teacher_class_id?: string;
+  class_teacher_class_name?: string;
+  class_teacher_stream_id?: string;
+  class_teacher_stream_name?: string;
 }
 
 export interface HoiSubjectAssignment {
