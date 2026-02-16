@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthContext } from '@/context/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,26 +24,48 @@ import {
   Calendar,
   AlertCircle,
   LayoutDashboard,
+  Users,
+  FileText,
 } from 'lucide-react';
 import DashboardLayout, { type MenuGroup } from '@/components/DashboardLayout';
 import AssessmentBook from '@/components/teacher/AssessmentBook';
-
-const menuGroups: MenuGroup[] = [
-  {
-    label: 'Main Menu',
-    items: [
-      { id: 'assessment', label: 'Assessment Book', icon: ClipboardList },
-      { id: 'timetable', label: 'My Timetable', icon: Calendar },
-      { id: 'profile', label: 'My Profile', icon: User },
-    ],
-  },
-];
+import ClassOverview from '@/components/teacher/classteacher/ClassOverview';
+import ClassAttendance from '@/components/teacher/classteacher/ClassAttendance';
+import ClassStudents from '@/components/teacher/classteacher/ClassStudents';
+import ClassReports from '@/components/teacher/classteacher/ClassReports';
 
 const Dashboard = () => {
   const { currentUser } = useAuthContext();
   const [activeTab, setActiveTab] = useState('assessment');
   const [myTimetable, setMyTimetable] = useState<any[]>([]);
   const [teacherCode, setTeacherCode] = useState('');
+
+  const isClassTeacher = currentUser?.isClassTeacher && currentUser?.classTeacherClassId && currentUser?.classTeacherStreamId;
+
+  const menuGroups: MenuGroup[] = useMemo(() => {
+    const groups: MenuGroup[] = [
+      {
+        label: 'Main Menu',
+        items: [
+          { id: 'assessment', label: 'Assessment Book', icon: ClipboardList },
+          { id: 'timetable', label: 'My Timetable', icon: Calendar },
+          { id: 'profile', label: 'My Profile', icon: User },
+        ],
+      },
+    ];
+    if (isClassTeacher) {
+      groups.push({
+        label: 'Class Teacher',
+        items: [
+          { id: 'class-overview', label: 'My Class', icon: LayoutDashboard },
+          { id: 'class-attendance', label: 'Class Attendance', icon: ClipboardList },
+          { id: 'class-students', label: 'Class Students', icon: Users },
+          { id: 'class-reports', label: 'Class Reports', icon: FileText },
+        ],
+      });
+    }
+    return groups;
+  }, [isClassTeacher]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -64,7 +86,7 @@ const Dashboard = () => {
   return (
     <DashboardLayout
       portalName="Teacher"
-      roleLabel={`${currentUser.grade || ''} - ${currentUser.subject || 'Teacher'}`}
+      roleLabel={`${currentUser.grade || ''} - ${currentUser.subject || 'Teacher'}${isClassTeacher ? ' | Class Teacher' : ''}`}
       menuGroups={menuGroups}
       activeSection={activeTab}
       onSectionChange={setActiveTab}
@@ -212,6 +234,12 @@ const Dashboard = () => {
                     </div>
                   )}
                 </div>
+                {isClassTeacher && (
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p className="text-xs text-amber-700 uppercase font-bold tracking-wide mb-1">Class Teacher Assignment</p>
+                    <p className="text-amber-900 font-semibold">{currentUser.classTeacherClassName} - {currentUser.classTeacherStreamName}</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -231,6 +259,12 @@ const Dashboard = () => {
                   <Calendar size={16} className="mr-2" />
                   View Timetable
                 </Button>
+                {isClassTeacher && (
+                  <Button variant="outline" className="w-full justify-start border-amber-300 text-amber-700 hover:bg-amber-50" onClick={() => setActiveTab('class-overview')}>
+                    <Users size={16} className="mr-2" />
+                    My Class Dashboard
+                  </Button>
+                )}
                 <Button variant="outline" className="w-full justify-start" asChild>
                   <Link to="/">
                     <School size={16} className="mr-2" />
@@ -241,6 +275,44 @@ const Dashboard = () => {
             </Card>
           </div>
         </div>
+      )}
+
+      {isClassTeacher && activeTab === 'class-overview' && (
+        <ClassOverview
+          classId={currentUser.classTeacherClassId!}
+          className={currentUser.classTeacherClassName!}
+          streamId={currentUser.classTeacherStreamId!}
+          streamName={currentUser.classTeacherStreamName!}
+          teacherName={currentUser.fullName}
+        />
+      )}
+
+      {isClassTeacher && activeTab === 'class-attendance' && (
+        <ClassAttendance
+          classId={currentUser.classTeacherClassId!}
+          className={currentUser.classTeacherClassName!}
+          streamId={currentUser.classTeacherStreamId!}
+          streamName={currentUser.classTeacherStreamName!}
+          teacherName={currentUser.fullName}
+        />
+      )}
+
+      {isClassTeacher && activeTab === 'class-students' && (
+        <ClassStudents
+          classId={currentUser.classTeacherClassId!}
+          className={currentUser.classTeacherClassName!}
+          streamId={currentUser.classTeacherStreamId!}
+          streamName={currentUser.classTeacherStreamName!}
+        />
+      )}
+
+      {isClassTeacher && activeTab === 'class-reports' && (
+        <ClassReports
+          classId={currentUser.classTeacherClassId!}
+          className={currentUser.classTeacherClassName!}
+          streamId={currentUser.classTeacherStreamId!}
+          streamName={currentUser.classTeacherStreamName!}
+        />
       )}
     </DashboardLayout>
   );
