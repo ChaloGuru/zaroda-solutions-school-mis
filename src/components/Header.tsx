@@ -8,7 +8,7 @@ import zarodaLogo from '@/assets/zaroda-logo.png';
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const { user, loading } = useAuth();
+  const { currentUser: user, loading } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {

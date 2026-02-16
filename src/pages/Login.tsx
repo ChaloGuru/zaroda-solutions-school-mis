@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,8 +36,13 @@ const Login = () => {
   const navigate = useNavigate();
   const { login, signup, currentUser } = useAuthContext();
 
+  useEffect(() => {
+    if (currentUser) {
+      navigate(getDashboardForRole(currentUser.role), { replace: true });
+    }
+  }, [currentUser, navigate]);
+
   if (currentUser) {
-    navigate(getDashboardForRole(currentUser.role), { replace: true });
     return null;
   }
 
