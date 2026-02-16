@@ -39,7 +39,9 @@ import {
   Users,
   GraduationCap,
   Printer,
+  FileDown,
 } from 'lucide-react';
+import { exportToPdf } from '@/lib/pdfExport';
 
 export default function HoiReports() {
   const [attendance, setAttendance] = useState<HoiAttendance[]>([]);
@@ -140,10 +142,11 @@ export default function HoiReports() {
                     </SelectContent>
                   </Select>
                   <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-1" />Print</Button>
+                  <Button variant="default" onClick={() => exportToPdf('hoi-attendance-report', { title: 'Attendance Report', filename: 'Attendance_Report.pdf' })}><FileDown className="w-4 h-4 mr-1" />PDF</Button>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="print-area">
+            <CardContent className="print-area" id="hoi-attendance-report">
               <h2 className="hidden print:block text-xl font-bold mb-4">Attendance Report</h2>
               <Table>
                 <TableHeader>
@@ -191,10 +194,11 @@ export default function HoiReports() {
                     </SelectContent>
                   </Select>
                   <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-1" />Print</Button>
+                  <Button variant="default" onClick={() => exportToPdf('hoi-financial-report', { title: 'Financial Report', filename: 'Financial_Report.pdf' })}><FileDown className="w-4 h-4 mr-1" />PDF</Button>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="print-area">
+            <CardContent className="print-area" id="hoi-financial-report">
               <h2 className="hidden print:block text-xl font-bold mb-4">Financial Report</h2>
               <div className="space-y-6">
                 <div>
@@ -289,10 +293,13 @@ export default function HoiReports() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between no-print">
                 <CardTitle>Teacher Duty Roster</CardTitle>
-                <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-1" />Print</Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-1" />Print</Button>
+                  <Button variant="default" onClick={() => exportToPdf('hoi-duty-report', { title: 'Teacher Duty Roster', filename: 'Duty_Roster.pdf' })}><FileDown className="w-4 h-4 mr-1" />PDF</Button>
+                </div>
               </div>
             </CardHeader>
-            <CardContent className="print-area">
+            <CardContent className="print-area" id="hoi-duty-report">
               <h2 className="hidden print:block text-xl font-bold mb-4">Teacher Duty Roster</h2>
               <Table>
                 <TableHeader>
@@ -341,10 +348,11 @@ export default function HoiReports() {
                     </SelectContent>
                   </Select>
                   <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-1" />Print</Button>
+                  <Button variant="default" onClick={() => exportToPdf('hoi-student-report', { title: 'Student List Report', filename: 'Student_List.pdf', orientation: 'landscape' })}><FileDown className="w-4 h-4 mr-1" />PDF</Button>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="print-area">
+            <CardContent className="print-area" id="hoi-student-report">
               <h2 className="hidden print:block text-xl font-bold mb-4">Student List</h2>
               <Table>
                 <TableHeader>

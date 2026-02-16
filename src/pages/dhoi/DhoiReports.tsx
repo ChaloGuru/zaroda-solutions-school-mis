@@ -42,7 +42,9 @@ import {
   GraduationCap,
   Printer,
   BookOpen,
+  FileDown,
 } from 'lucide-react';
+import { exportToPdf } from '@/lib/pdfExport';
 import { useToast } from '@/hooks/use-toast';
 
 export default function DhoiReports() {
@@ -167,10 +169,11 @@ export default function DhoiReports() {
                     </SelectContent>
                   </Select>
                   <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-1" />Print</Button>
+                  <Button variant="default" onClick={() => exportToPdf('dhoi-timetable-report', { title: 'Timetable Report', filename: 'Timetable_Report.pdf', orientation: 'landscape' })}><FileDown className="w-4 h-4 mr-1" />PDF</Button>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="print-area">
+            <CardContent className="print-area" id="dhoi-timetable-report">
               <h2 className="hidden print:block text-xl font-bold mb-4">Timetable Report</h2>
               <Table>
                 <TableHeader>
@@ -220,10 +223,11 @@ export default function DhoiReports() {
                     </SelectContent>
                   </Select>
                   <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-1" />Print</Button>
+                  <Button variant="default" onClick={() => exportToPdf('dhoi-teacher-schedule', { title: 'Teacher Schedule Report', filename: 'Teacher_Schedule.pdf' })}><FileDown className="w-4 h-4 mr-1" />PDF</Button>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="print-area">
+            <CardContent className="print-area" id="dhoi-teacher-schedule">
               <h2 className="hidden print:block text-xl font-bold mb-4">Teacher Schedule Report</h2>
               <Table>
                 <TableHeader>
@@ -265,10 +269,11 @@ export default function DhoiReports() {
                     </SelectContent>
                   </Select>
                   <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-1" />Print</Button>
+                  <Button variant="default" onClick={() => exportToPdf('dhoi-attendance-report', { title: 'Attendance Report', filename: 'Attendance_Report.pdf' })}><FileDown className="w-4 h-4 mr-1" />PDF</Button>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="print-area">
+            <CardContent className="print-area" id="dhoi-attendance-report">
               <h2 className="hidden print:block text-xl font-bold mb-4">Attendance Report</h2>
               <Table>
                 <TableHeader>
@@ -305,10 +310,13 @@ export default function DhoiReports() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between no-print">
                 <CardTitle>Teacher Duty Roster Report</CardTitle>
-                <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-1" />Print</Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-1" />Print</Button>
+                  <Button variant="default" onClick={() => exportToPdf('dhoi-duty-report', { title: 'Teacher Duty Roster', filename: 'Duty_Roster.pdf' })}><FileDown className="w-4 h-4 mr-1" />PDF</Button>
+                </div>
               </div>
             </CardHeader>
-            <CardContent className="print-area">
+            <CardContent className="print-area" id="dhoi-duty-report">
               <h2 className="hidden print:block text-xl font-bold mb-4">Teacher Duty Roster</h2>
               <Table>
                 <TableHeader>
@@ -357,10 +365,11 @@ export default function DhoiReports() {
                     </SelectContent>
                   </Select>
                   <Button variant="outline" onClick={handlePrint}><Printer className="w-4 h-4 mr-1" />Print</Button>
+                  <Button variant="default" onClick={() => exportToPdf('dhoi-student-report', { title: 'Student List Report', filename: 'Student_List.pdf', orientation: 'landscape' })}><FileDown className="w-4 h-4 mr-1" />PDF</Button>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="print-area">
+            <CardContent className="print-area" id="dhoi-student-report">
               <h2 className="hidden print:block text-xl font-bold mb-4">Student List</h2>
               <Table>
                 <TableHeader>

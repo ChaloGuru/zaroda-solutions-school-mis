@@ -45,8 +45,10 @@ import {
   Pencil,
   Trash2,
   Printer,
+  FileDown,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { exportToPdf } from '@/lib/pdfExport';
 
 const DAYS: HoiTimetableSlot['day'][] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const DAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
@@ -235,9 +237,14 @@ export default function HoiTimetable() {
           </h1>
           <p className="text-muted-foreground mt-1">Weekly class timetable and scheduling</p>
         </div>
-        <Button variant="outline" className="gap-2" onClick={() => window.print()}>
-          <Printer className="w-4 h-4" /> Print / Export
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" className="gap-2" onClick={() => window.print()}>
+            <Printer className="w-4 h-4" /> Print
+          </Button>
+          <Button variant="default" className="gap-2" onClick={() => exportToPdf('hoi-timetable-grid', { title: 'Weekly Timetable', subtitle: `Class: ${classes.find(c => c.id === selectedClassId)?.name || ''} | Stream: ${streams.find(s => s.id === selectedStreamId)?.name || ''}`, filename: 'Timetable.pdf', orientation: 'landscape' })}>
+            <FileDown className="w-4 h-4" /> PDF
+          </Button>
+        </div>
       </div>
 
       <Card className="mb-6">
@@ -279,7 +286,7 @@ export default function HoiTimetable() {
       </Card>
 
       <Card>
-        <CardContent className="p-4 overflow-x-auto">
+        <CardContent className="p-4 overflow-x-auto" id="hoi-timetable-grid">
           <table className="w-full border-collapse min-w-[700px]">
             <thead>
               <tr>

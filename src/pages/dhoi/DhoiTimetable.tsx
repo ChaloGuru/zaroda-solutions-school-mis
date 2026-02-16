@@ -44,8 +44,11 @@ import {
   CheckCircle2,
   XCircle,
   Wand2,
+  Printer,
+  FileDown,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { exportToPdf } from '@/lib/pdfExport';
 
 const STORAGE_KEY = 'zaroda_master_timetable';
 const TEACHER_CODES_KEY = 'zaroda_teacher_codes';
@@ -356,6 +359,12 @@ export default function DhoiTimetable() {
             {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
             {generating ? 'Generating...' : 'Generate Master Timetable'}
           </Button>
+          <Button variant="outline" className="gap-2" onClick={() => window.print()}>
+            <Printer className="w-4 h-4" /> Print
+          </Button>
+          <Button variant="default" className="gap-2" onClick={() => exportToPdf('dhoi-timetable-grid', { title: 'Master Timetable', subtitle: `${TYPE_LABELS[timetableType]} | ${classes.find(c => c.id === selectedClassId)?.name || ''} - ${streams.find(s => s.id === selectedStreamId)?.name || ''} | ${term} ${year}`, filename: 'Master_Timetable.pdf', orientation: 'landscape' })}>
+            <FileDown className="w-4 h-4" /> PDF
+          </Button>
         </div>
       </div>
 
@@ -432,7 +441,7 @@ export default function DhoiTimetable() {
       </Card>
 
       <Card>
-        <CardContent className="p-2 overflow-x-auto">
+        <CardContent className="p-2 overflow-x-auto" id="dhoi-timetable-grid">
           <table className="w-full border-collapse min-w-[800px]" style={{ tableLayout: 'fixed' }}>
             <thead>
               <tr>
