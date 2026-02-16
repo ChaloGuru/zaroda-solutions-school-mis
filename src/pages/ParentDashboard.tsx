@@ -1,41 +1,50 @@
-import { Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { LogOut, Construction } from 'lucide-react';
-import { useAuthContext } from '@/context/AuthContext';
-import zarodaLogo from '@/assets/zaroda-logo.png';
+import { useState } from 'react';
+import {
+  LayoutDashboard,
+  Users,
+  BookOpen,
+  DollarSign,
+  MessageSquare,
+  User,
+  Construction,
+} from 'lucide-react';
+import DashboardLayout, { type MenuGroup } from '@/components/DashboardLayout';
+
+const menuGroups: MenuGroup[] = [
+  {
+    label: 'Main Menu',
+    items: [
+      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { id: 'children', label: 'My Children', icon: Users },
+      { id: 'grades', label: 'Academic Reports', icon: BookOpen },
+      { id: 'fees', label: 'Fee Payments', icon: DollarSign },
+      { id: 'messages', label: 'Messages', icon: MessageSquare },
+      { id: 'profile', label: 'My Profile', icon: User },
+    ],
+  },
+];
 
 const ParentDashboard = () => {
-  const { currentUser, logout } = useAuthContext();
+  const [activeSection, setActiveSection] = useState('dashboard');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background">
-      <header className="bg-card border-b border-border sticky top-0 z-50">
-        <div className="container-max section-padding !py-0">
-          <div className="flex items-center justify-between h-16">
-            <Link to="/" className="flex items-center gap-2">
-              <img src={zarodaLogo} alt="Zaroda Solutions" className="h-12 w-auto" />
-              <span className="text-sm font-bold tracking-wide hidden sm:inline" style={{ color: '#1a5276' }}>ZARODA SOLUTIONS</span>
-            </Link>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-muted-foreground hidden sm:block">
-                {currentUser?.fullName || 'Parent'}
-              </span>
-              <Button variant="outline" size="sm" onClick={logout}>
-                <LogOut size={16} className="mr-2" />
-                Sign Out
-              </Button>
-            </div>
-          </div>
+    <DashboardLayout
+      portalName="Parent"
+      roleLabel="Parent/Guardian"
+      menuGroups={menuGroups}
+      activeSection={activeSection}
+      onSectionChange={setActiveSection}
+    >
+      <div className="flex flex-col items-center justify-center min-h-[50vh]">
+        <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
+          <Construction size={32} className="text-primary" />
         </div>
-      </header>
-      <main className="container-max section-padding flex flex-col items-center justify-center min-h-[60vh]">
-        <Construction size={64} className="text-primary mb-6" />
-        <h1 className="text-3xl font-bold mb-2">Parent Dashboard</h1>
-        <p className="text-muted-foreground text-center max-w-md">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Parent Dashboard</h1>
+        <p className="text-gray-500 text-center max-w-md">
           This dashboard is under construction. Parent features will be available soon.
         </p>
-      </main>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 };
 
