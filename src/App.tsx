@@ -2,44 +2,94 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/hooks/useAuth";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "@/context/AuthContext";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
-import SignUp from "./pages/SignUp";
 import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
 import Contact from "./pages/Contact";
 import Elections from "./pages/Elections";
 import Sports from "./pages/Sports";
 import SuperAdmin from "./pages/SuperAdmin";
-import SuperAdminLogin from "./pages/SuperAdminLogin";
+import Dashboard from "./pages/Dashboard";
+import HoiDashboard from "./pages/HoiDashboard";
+import DhoiDashboard from "./pages/DhoiDashboard";
+import StudentDashboard from "./pages/StudentDashboard";
+import ParentDashboard from "./pages/ParentDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
+    <BrowserRouter>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
           <Routes>
             <Route path="/" element={<Index />} />
-            <Route path="/signup" element={<SignUp />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/elections" element={<Elections />} />
             <Route path="/sports" element={<Sports />} />
-            <Route path="/admin-login" element={<SuperAdminLogin />} />
-            <Route path="/super-admin" element={<SuperAdmin />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route
+              path="/superadmin-dashboard"
+              element={
+                <ProtectedRoute allowedRole="superadmin">
+                  <SuperAdmin />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/teacher-dashboard"
+              element={
+                <ProtectedRoute allowedRole="teacher">
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/hoi-dashboard"
+              element={
+                <ProtectedRoute allowedRole="hoi">
+                  <HoiDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dhoi-dashboard"
+              element={
+                <ProtectedRoute allowedRole="dhoi">
+                  <DhoiDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/student-dashboard"
+              element={
+                <ProtectedRoute allowedRole="student">
+                  <StudentDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/parent-dashboard"
+              element={
+                <ProtectedRoute allowedRole="parent">
+                  <ParentDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/dashboard" element={<Navigate to="/login" replace />} />
+            <Route path="/signup" element={<Navigate to="/login" replace />} />
+            <Route path="/admin-login" element={<Navigate to="/login" replace />} />
+            <Route path="/super-admin" element={<Navigate to="/login" replace />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
+        </TooltipProvider>
+      </AuthProvider>
+    </BrowserRouter>
   </QueryClientProvider>
 );
 

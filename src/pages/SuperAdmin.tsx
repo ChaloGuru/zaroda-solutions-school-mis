@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuthContext } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -174,9 +175,11 @@ const SuperAdmin = () => {
     setDeleteDialog({ open: false, school: null });
   };
 
-  const handleSignOut = async () => {
-    // TODO: Call Replit backend to sign out if needed
-    navigate('/');
+  const { logout } = useAuthContext();
+
+  const handleSignOut = () => {
+    logout();
+    navigate('/login');
   };
 
   const getStatusBadge = (status: string | null) => {
