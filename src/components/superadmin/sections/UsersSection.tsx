@@ -4,10 +4,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import {
   Search, Plus, Edit2, Ban, CheckCircle, Eye, ChevronLeft, ChevronRight, Users,
-  Shield, GraduationCap, Clock, Activity, UserPlus, Filter, X
+  Shield, GraduationCap, Clock, Activity, UserPlus, Filter, X, Trash2
 } from 'lucide-react';
 import { platformUsersStorage, activityStorage, schoolsStorage } from '@/lib/storage';
 import type { PlatformUser, LoginActivity } from '@/lib/storage';
@@ -44,6 +45,7 @@ const ACTION_LABELS: Record<string, string> = {
   account_updated: 'Account updated',
   account_suspended: 'Account suspended',
   account_activated: 'Account activated',
+  account_deleted: 'Account deleted',
 };
 
 const ACTION_COLORS: Record<string, string> = {
@@ -53,6 +55,7 @@ const ACTION_COLORS: Record<string, string> = {
   account_updated: 'text-orange-600',
   account_suspended: 'text-red-600',
   account_activated: 'text-emerald-600',
+  account_deleted: 'text-red-700 font-semibold',
 };
 
 type TabId = 'all_users' | 'create_user' | 'activity_log';
@@ -84,6 +87,7 @@ export default function UsersSection() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedUser, setSelectedUser] = useState<PlatformUser | null>(null);
   const [userActivities, setUserActivities] = useState<LoginActivity[]>([]);
   const { toast } = useToast();
@@ -266,6 +270,32 @@ export default function UsersSection() {
     });
 
     toast({ title: newStatus === 'suspended' ? 'User suspended' : 'User activated', description: `${user.fullName}'s account has been ${newStatus}.` });
+    loadData();
+  };
+
+  const handleDeleteUser = () => {
+    if (!selectedUser) return;
+
+    platformUsersStorage.delete(selectedUser.id);
+
+    // Also remove from password storage
+    const passwords = getStoredPasswords();
+    delete passwords[selectedUser.email.toLowerCase()];
+    localStorage.setItem('zaroda_passwords', JSON.stringify(passwords));
+
+    activityStorage.add({
+      userId: selectedUser.id,
+      email: selectedUser.email,
+      fullName: selectedUser.fullName,
+      role: selectedUser.role,
+      action: 'account_deleted',
+      details: `Account deleted permanently by SuperAdmin`,
+    });
+
+    toast({ title: 'User deleted', description: `${selectedUser.fullName}'s account has been permanently deleted.` });
+    setShowDeleteConfirm(false);
+    setShowEditModal(false);
+    setSelectedUser(null);
     loadData();
   };
 
@@ -758,6 +788,9 @@ export default function UsersSection() {
             <div className="flex gap-3 pt-2">
               <Button onClick={handleEditUser} className="flex-1">Save Changes</Button>
               <Button variant="outline" onClick={() => setShowEditModal(false)}>Cancel</Button>
+              <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)}>
+                <Trash2 size={14} className="mr-2" /> Delete
+              </Button>
             </div>
           </div>
         </DialogContent>
@@ -866,6 +899,23 @@ export default function UsersSection() {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete User Account</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete <strong>{selectedUser?.fullName}</strong>'s account? This action cannot be undone and will remove all account data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex gap-3 justify-end">
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteUser} className="bg-red-600 hover:bg-red-700">
+              Delete Account
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
