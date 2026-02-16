@@ -4,6 +4,7 @@
 A multi-tenant school management platform built with React, TypeScript, Vite, and Tailwind CSS. Features include multi-school sync, automated billing, parent-teacher portals, elections, sports management, and more.
 
 ## Recent Changes
+- 2026-02-16: Implemented complete CBC Assessment Book for Teacher Dashboard with grade/subject assignment during signup, comprehensive curriculum data for all 12 grades (Playgroup-Grade 9), assessment records storage, dynamic scoring forms (EE/ME/AE/BE or CAT1/CAT2/END TERM), and tab-based dashboard navigation.
 - 2026-02-16: Built all 5 SuperAdmin dashboard sections: Schools Management, Student Registry, Faculty Management, Finance & Billing, System Settings. Each has full CRUD, search/filter, and uses localStorage for data persistence with seed data.
 - 2026-02-16: Created data layer (src/lib/storage.ts) with typed interfaces, CRUD helpers, and seed data for schools, students, faculty, invoices, and platform settings.
 - 2026-02-16: Added role-based authentication system using React Context + localStorage. Roles: SuperAdmin, Teacher, HOI, DHOI, Student, Parent. SuperAdmin has hardcoded credentials. Teacher supports signup/login. Other roles show placeholder message.
@@ -40,14 +41,23 @@ A multi-tenant school management platform built with React, TypeScript, Vite, an
 - `src/components/superadmin/sections/FinanceSection.tsx` - Invoice management, revenue tracking
 - `src/components/superadmin/sections/SettingsSection.tsx` - Platform configuration
 
+### Teacher Dashboard & Assessment Book
+- `src/components/teacher/AssessmentBook.tsx` - Full CBC Assessment Book component
+- `src/lib/assessmentData.ts` - CBC curriculum data for all 12 grades (Playgroup-Grade 9)
+- Assessment storage in `src/lib/storage.ts` (assessmentStorage with upsert/find/getByTeacher)
+- Teacher signup includes grade (Playgroup, PP1, PP2, Grade 1-9) and subject assignment
+- Two scoring systems: EE/ME/AE/BE (Playgroup, PP1, PP2, Grade 5, 7, 8, 9) and CAT1/CAT2/END TERM (Grade 1-4, 6)
+- Tab-based dashboard: Assessment Book (default) and Profile views
+
 ### Directory Structure
 - `src/` - Application source code
   - `context/` - React Context providers (AuthContext)
   - `components/` - Reusable UI components (shadcn/ui based)
     - `superadmin/` - SuperAdmin dashboard components (Sidebar, TopNav, sections/)
+    - `teacher/` - Teacher dashboard components (AssessmentBook)
   - `pages/` - Route page components
   - `hooks/` - Custom React hooks
-  - `lib/` - Utility functions and data layer (storage.ts)
+  - `lib/` - Utility functions, data layer (storage.ts), curriculum data (assessmentData.ts)
   - `assets/` - Static assets (images)
 - `public/` - Public static files
 
