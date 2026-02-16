@@ -236,6 +236,83 @@ export const invoicesStorage = {
   },
 };
 
+export interface AssessmentScore {
+  strandNumber: number;
+  subStrandName: string;
+  ee?: boolean;
+  me?: boolean;
+  ae?: boolean;
+  be?: boolean;
+  cat1?: number | string;
+  cat2?: number | string;
+  endTerm?: number | string;
+  perfLevel?: string;
+  comment?: string;
+}
+
+export interface AssessmentRecord {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  studentId: string;
+  studentName: string;
+  admissionNo: string;
+  grade: string;
+  subject: string;
+  term: number;
+  schoolCode: string;
+  scores: AssessmentScore[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const assessmentStorage = {
+  getAll: (): AssessmentRecord[] => {
+    const stored = localStorage.getItem('zaroda_assessments');
+    return stored ? JSON.parse(stored) : [];
+  },
+  save: (records: AssessmentRecord[]) => {
+    localStorage.setItem('zaroda_assessments', JSON.stringify(records));
+  },
+  getByTeacher: (teacherId: string): AssessmentRecord[] => {
+    return assessmentStorage.getAll().filter(r => r.teacherId === teacherId);
+  },
+  getByStudent: (studentId: string): AssessmentRecord[] => {
+    return assessmentStorage.getAll().filter(r => r.studentId === studentId);
+  },
+  find: (teacherId: string, studentId: string, grade: string, subject: string, term: number): AssessmentRecord | undefined => {
+    return assessmentStorage.getAll().find(
+      r => r.teacherId === teacherId && r.studentId === studentId && r.grade === grade && r.subject === subject && r.term === term
+    );
+  },
+  upsert: (record: Omit<AssessmentRecord, 'id' | 'createdAt' | 'updatedAt'>): AssessmentRecord => {
+    const records = assessmentStorage.getAll();
+    const existingIdx = records.findIndex(
+      r => r.teacherId === record.teacherId && r.studentId === record.studentId && r.grade === record.grade && r.subject === record.subject && r.term === record.term
+    );
+    const now = new Date().toISOString();
+    if (existingIdx !== -1) {
+      records[existingIdx] = { ...records[existingIdx], ...record, updatedAt: now };
+      assessmentStorage.save(records);
+      return records[existingIdx];
+    }
+    const newRecord: AssessmentRecord = { ...record, id: generateId(), createdAt: now, updatedAt: now };
+    records.push(newRecord);
+    assessmentStorage.save(records);
+    return newRecord;
+  },
+  remove: (id: string) => {
+    const records = assessmentStorage.getAll().filter(r => r.id !== id);
+    assessmentStorage.save(records);
+  },
+  getStudentsAssessed: (teacherId: string, grade: string, subject: string, term: number): { studentId: string; studentName: string; admissionNo: string }[] => {
+    const records = assessmentStorage.getAll().filter(
+      r => r.teacherId === teacherId && r.grade === grade && r.subject === subject && r.term === term
+    );
+    return records.map(r => ({ studentId: r.studentId, studentName: r.studentName, admissionNo: r.admissionNo }));
+  },
+};
+
 export const settingsStorage = {
   get: (): PlatformSettings => {
     const stored = localStorage.getItem('zaroda_settings');

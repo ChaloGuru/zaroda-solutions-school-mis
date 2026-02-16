@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom';
 
 export type UserRole = 'superadmin' | 'teacher' | 'hoi' | 'dhoi' | 'student' | 'parent';
 
+export type GradeLevel = 'Playgroup' | 'PP1' | 'PP2' | 'Grade 1' | 'Grade 2' | 'Grade 3' | 'Grade 4' | 'Grade 5' | 'Grade 6' | 'Grade 7' | 'Grade 8' | 'Grade 9';
+
+export const GRADE_LEVELS: GradeLevel[] = ['Playgroup', 'PP1', 'PP2', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9'];
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -11,6 +15,7 @@ export interface AuthUser {
   schoolCode: string;
   phone?: string;
   subject?: string;
+  grade?: GradeLevel;
 }
 
 interface AuthContextType {
@@ -29,6 +34,7 @@ export interface TeacherSignupData {
   schoolCode: string;
   subject: string;
   phone: string;
+  grade: GradeLevel;
 }
 
 const SUPERADMIN_CREDENTIALS = {
@@ -153,6 +159,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       schoolCode: data.schoolCode.trim(),
       subject: data.subject.trim(),
       phone: data.phone.trim(),
+      grade: data.grade,
     };
 
     saveUser(newUser, data.password);

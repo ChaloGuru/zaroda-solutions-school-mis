@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Mail, Lock, Hash, User, Phone, BookOpen, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuthContext, UserRole, getDashboardForRole, TeacherSignupData } from '@/context/AuthContext';
+import { useAuthContext, UserRole, getDashboardForRole, TeacherSignupData, GradeLevel, GRADE_LEVELS } from '@/context/AuthContext';
 import zarodaLogo from '@/assets/zaroda-logo.png';
 
 type FormMode = 'login' | 'signup';
@@ -31,6 +31,7 @@ const Login = () => {
     fullName: '',
     phone: '',
     subject: '',
+    grade: '' as string,
   });
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -53,7 +54,7 @@ const Login = () => {
   const handleRoleChange = (value: string) => {
     setSelectedRole(value as UserRole);
     setFormMode('login');
-    setFormData({ schoolCode: '', email: '', password: '', fullName: '', phone: '', subject: '' });
+    setFormData({ schoolCode: '', email: '', password: '', fullName: '', phone: '', subject: '', grade: '' });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -73,7 +74,7 @@ const Login = () => {
 
     try {
       if (selectedRole === 'teacher' && formMode === 'signup') {
-        if (!formData.fullName.trim() || !formData.schoolCode.trim() || !formData.subject.trim() || !formData.phone.trim()) {
+        if (!formData.fullName.trim() || !formData.schoolCode.trim() || !formData.subject.trim() || !formData.phone.trim() || !formData.grade) {
           toast({ title: 'Missing fields', description: 'Please fill in all required fields.', variant: 'destructive' });
           setIsSubmitting(false);
           return;
@@ -85,6 +86,7 @@ const Login = () => {
           schoolCode: formData.schoolCode,
           subject: formData.subject,
           phone: formData.phone,
+          grade: formData.grade as GradeLevel,
         };
         const result = signup(signupData);
         if (result.success) {
@@ -267,6 +269,19 @@ const Login = () => {
 
               {showTeacherSignupFields && (
                 <>
+                  <div>
+                    <Label>Grade / Class Assigned</Label>
+                    <Select onValueChange={(value) => setFormData({ ...formData, grade: value })} value={formData.grade}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select grade..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {GRADE_LEVELS.map((g) => (
+                          <SelectItem key={g} value={g}>{g}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div>
                     <Label htmlFor="subject">Subject</Label>
                     <div className="relative">
