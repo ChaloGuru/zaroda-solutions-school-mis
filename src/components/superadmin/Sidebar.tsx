@@ -12,6 +12,7 @@ import {
   UserCog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import zarodaLogo from '@/assets/zaroda-logo.png';
 
 export const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", id: "dashboard" },
@@ -49,21 +50,17 @@ export function Sidebar({ collapsed, onToggle, activeItem = "dashboard", onItemC
               transition={{ duration: 0.2 }}
               className="flex items-center gap-3"
             >
-              <div className="w-10 h-10 rounded-xl bg-sidebar-primary flex items-center justify-center">
-                <span className="text-sidebar-primary-foreground font-bold text-lg">Z</span>
-              </div>
+              <img src={zarodaLogo} alt="Zaroda" className="h-10 w-auto" />
               <div>
-                <h1 className="text-sidebar-foreground font-semibold text-lg">Zaroda</h1>
-                <p className="text-sidebar-foreground/60 text-xs">Solutions</p>
+                <h1 className="font-bold text-xs tracking-wide" style={{ color: '#1a5276' }}>ZARODA SOLUTIONS</h1>
+                <p className="text-sidebar-foreground/60 text-xs">SuperAdmin</p>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
         
         {collapsed && (
-          <div className="w-10 h-10 rounded-xl bg-sidebar-primary flex items-center justify-center mx-auto">
-            <span className="text-sidebar-primary-foreground font-bold text-lg">Z</span>
-          </div>
+          <img src={zarodaLogo} alt="Z" className="h-8 w-auto mx-auto" />
         )}
       </div>
 
