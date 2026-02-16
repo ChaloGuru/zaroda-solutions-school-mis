@@ -82,7 +82,7 @@ const MultiTenant = () => {
               <div className="flex items-center justify-between mb-6 pb-4 border-b border-border">
                 <div className="flex items-center gap-3">
                   <img src={zarodaLogo} alt="Zaroda" className="h-8 w-auto" />
-                  <span className="font-semibold">Zaroda Dashboard</span>
+                  <span className="font-bold tracking-wide" style={{ color: '#1a5276' }}>ZARODA SOLUTIONS</span>
                 </div>
                 <div className="flex gap-2">
                   <div className="w-3 h-3 rounded-full bg-destructive/60" />

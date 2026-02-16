@@ -120,7 +120,7 @@ const DhoiDashboard = () => {
             >
               <img src={zarodaLogo} alt="Zaroda" className="h-8 w-auto" />
               <div>
-                <h1 className="text-sidebar-foreground font-semibold text-sm">Zaroda</h1>
+                <h1 className="font-bold text-xs tracking-wide" style={{ color: '#1a5276' }}>ZARODA SOLUTIONS</h1>
                 <p className="text-sidebar-foreground/60 text-xs">DHOI Portal</p>
               </div>
             </motion.div>

@@ -40,7 +40,8 @@ const AboutUs = () => {
       <div className="container-max">
         {/* Header with Logo */}
         <div className="text-center max-w-3xl mx-auto mb-16">
-          <img src={zarodaLogo} alt="Zaroda Solutions" className="h-20 mx-auto mb-6" />
+          <img src={zarodaLogo} alt="Zaroda Solutions" className="h-20 mx-auto mb-2" />
+          <p className="text-lg font-bold tracking-wide mb-4" style={{ color: '#1a5276' }}>ZARODA SOLUTIONS</p>
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-kenya-green/10 rounded-full text-kenya-green font-medium text-sm mb-6">
             About Us
           </div>

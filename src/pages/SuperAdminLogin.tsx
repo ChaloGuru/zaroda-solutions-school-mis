@@ -73,7 +73,8 @@ const SuperAdminLogin = () => {
           {/* Header */}
           <div className="text-center mb-8">
             <Link to="/">
-              <img src={zarodaLogo} alt="Zaroda Solutions" className="h-16 mx-auto mb-4" />
+              <img src={zarodaLogo} alt="Zaroda Solutions" className="h-16 mx-auto mb-2" />
+              <p className="text-base font-bold tracking-wide mb-2" style={{ color: '#1a5276' }}>ZARODA SOLUTIONS</p>
             </Link>
             <div className="flex items-center justify-center gap-2 mb-2">
               <Shield className="text-primary" size={24} />

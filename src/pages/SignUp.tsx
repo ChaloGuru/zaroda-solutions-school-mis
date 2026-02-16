@@ -124,7 +124,8 @@ const SignUp = () => {
           {/* Header */}
           <div className="text-center mb-8">
             <Link to="/">
-              <img src={zarodaLogo} alt="Zaroda Solutions" className="h-16 mx-auto mb-4" />
+              <img src={zarodaLogo} alt="Zaroda Solutions" className="h-16 mx-auto mb-2" />
+              <p className="text-base font-bold tracking-wide mb-2" style={{ color: '#1a5276' }}>ZARODA SOLUTIONS</p>
             </Link>
             <h1 className="text-2xl md:text-3xl font-bold mb-2">Create Your Account</h1>
             <p className="text-muted-foreground">

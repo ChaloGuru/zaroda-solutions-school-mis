@@ -14,6 +14,7 @@ const ParentDashboard = () => {
           <div className="flex items-center justify-between h-16">
             <Link to="/" className="flex items-center gap-2">
               <img src={zarodaLogo} alt="Zaroda Solutions" className="h-12 w-auto" />
+              <span className="text-sm font-bold tracking-wide hidden sm:inline" style={{ color: '#1a5276' }}>ZARODA SOLUTIONS</span>
             </Link>
             <div className="flex items-center gap-4">
               <span className="text-sm text-muted-foreground hidden sm:block">

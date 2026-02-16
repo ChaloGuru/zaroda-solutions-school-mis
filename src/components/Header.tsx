@@ -39,14 +39,13 @@ const Header = () => {
     >
       <div className="container-max section-padding !py-0">
         <div className="flex items-center justify-between h-20 sm:h-24">
-          {/* Logo - Made larger and removed white background */}
           <a href="#" className="flex items-center gap-2 group">
             <img 
               src={zarodaLogo} 
               alt="Zaroda Solutions" 
-              className="h-20 sm:h-24 w-auto transition-transform group-hover:scale-105 object-contain"
-              style={{ mixBlendMode: 'multiply' }}
+              className="h-16 sm:h-20 w-auto transition-transform group-hover:scale-105 object-contain"
             />
+            <span className="text-lg sm:text-xl font-bold tracking-wide" style={{ color: '#1a5276' }}>ZARODA SOLUTIONS</span>
           </a>
 
           {/* Desktop Navigation */}

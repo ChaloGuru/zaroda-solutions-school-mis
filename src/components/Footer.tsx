@@ -21,12 +21,13 @@ const Footer = () => {
         <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-12">
           {/* Brand column */}
           <div className="lg:col-span-2 space-y-6">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <img 
                 src={zarodaLogo} 
                 alt="Zaroda Solutions" 
-                className="h-16 w-auto"
+                className="h-14 w-auto"
               />
+              <span className="text-lg font-bold tracking-wide" style={{ color: '#5dade2' }}>ZARODA SOLUTIONS</span>
             </div>
             <p className="text-primary-foreground/80 max-w-sm leading-relaxed">
               Empowering educational institutions with intelligent management solutions. 
