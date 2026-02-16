@@ -4,6 +4,7 @@
 A multi-tenant school management platform built with React, TypeScript, Vite, and Tailwind CSS. Features include multi-school sync, automated billing, parent-teacher portals, elections, sports management, and more.
 
 ## Recent Changes
+- 2026-02-16: Built complete DHOI (Deputy Head of Institution) Dashboard with 14 sections: Overview, Teachers (with teacher codes, assignments, duty roster), Students, Classes, Subjects, Master Timetable (3 types: Upper Primary/Junior School/ECDE with locked slots, auto-generate), Officials, Attendance, Library, Sports, Elections, Reports, Settings. DHOI account created by HOI only. Added "My Timetable" read-only tab to Teacher Dashboard. All DHOI sections share HOI data via hoiStorage.ts.
 - 2026-02-16: Connected auth so SuperAdmin creates HOI accounts. Added User Management section to SuperAdmin dashboard (create/edit/suspend/track users). HOI can no longer self-register - must use credentials assigned by SuperAdmin. Added PlatformUser & LoginActivity tracking, activity log, login history, and status checks (suspended accounts blocked). Teacher login also supports SuperAdmin-created accounts.
 - 2026-02-16: Built complete HOI (Head of Institution) Dashboard with 15 sections: Overview, School Management, Classes & Streams, Teacher Management, Student Management, Officials Management, Subjects, Timetable, Attendance Summary, Finances, Library, Sports, Elections, Reports, Settings. All with full CRUD, search/filter, pagination, modal dialogs, charts, and localStorage persistence.
 - 2026-02-16: Created HOI data layer (src/lib/hoiStorage.ts) with generic localStorage helpers, 22 typed interfaces, and seed data for all HOI entities.
@@ -87,6 +88,7 @@ A multi-tenant school management platform built with React, TypeScript, Vite, an
     - `teacher/` - Teacher dashboard components (AssessmentBook)
   - `pages/` - Route page components
     - `hoi/` - HOI dashboard (15 section pages + main layout)
+    - `dhoi/` - DHOI dashboard (14 section pages + main layout + timetable generator)
   - `hooks/` - Custom React hooks
   - `lib/` - Utility functions, data layers (storage.ts, hoiStorage.ts), curriculum data (assessmentData.ts)
   - `assets/` - Static assets (images)
@@ -98,7 +100,7 @@ A multi-tenant school management platform built with React, TypeScript, Vite, an
 - `/superadmin-dashboard` - SuperAdmin dashboard (protected)
 - `/teacher-dashboard` - Teacher dashboard (protected)
 - `/hoi-dashboard` - HOI dashboard with 15 sections (protected)
-- `/dhoi-dashboard` - DHOI placeholder (protected)
+- `/dhoi-dashboard` - DHOI dashboard with 14 sections (protected)
 - `/student-dashboard` - Student placeholder (protected)
 - `/parent-dashboard` - Parent placeholder (protected)
 

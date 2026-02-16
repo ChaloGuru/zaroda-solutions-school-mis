@@ -13,7 +13,7 @@ import Sports from "./pages/Sports";
 import SuperAdmin from "./pages/SuperAdmin";
 import Dashboard from "./pages/Dashboard";
 import HoiDashboard from "./pages/hoi/HoiDashboard";
-import DhoiDashboard from "./pages/DhoiDashboard";
+import DhoiDashboard from "./pages/dhoi/DhoiDashboard";
 import StudentDashboard from "./pages/StudentDashboard";
 import ParentDashboard from "./pages/ParentDashboard";
 import NotFound from "./pages/NotFound";

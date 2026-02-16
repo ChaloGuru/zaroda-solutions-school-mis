@@ -111,7 +111,8 @@ const Login = () => {
 
   const showSchoolCode = selectedRole === 'superadmin' || (selectedRole === 'teacher' && formMode === 'signup');
   const showLoginSignupToggle = selectedRole === 'teacher';
-  const isPlaceholderRole = selectedRole === 'dhoi' || selectedRole === 'student' || selectedRole === 'parent';
+  const isDhoiRole = selectedRole === 'dhoi';
+  const isPlaceholderRole = selectedRole === 'student' || selectedRole === 'parent';
   const isHoiRole = selectedRole === 'hoi';
   const showTeacherSignupFields = selectedRole === 'teacher' && formMode === 'signup';
 
@@ -184,6 +185,20 @@ const Login = () => {
               <p className="text-sm text-muted-foreground">
                 Contact your administrator to get your account. Self-registration for this role is not available yet.
               </p>
+            </div>
+          )}
+
+          {isDhoiRole && (
+            <div className="flex items-start gap-3 p-4 bg-indigo-50 dark:bg-indigo-950/30 rounded-lg mb-6 border border-indigo-200 dark:border-indigo-800">
+              <Info size={20} className="text-indigo-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-indigo-800 dark:text-indigo-300 mb-1">
+                  DHOI accounts are created by the HOI
+                </p>
+                <p className="text-xs text-indigo-600 dark:text-indigo-400">
+                  Your login credentials (email and password) are assigned by the Head of Institution. Use those details to log in below.
+                </p>
+              </div>
             </div>
           )}
 

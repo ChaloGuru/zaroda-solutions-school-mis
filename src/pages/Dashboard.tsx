@@ -1,9 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthContext } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   School,
   User,
@@ -13,13 +22,29 @@ import {
   BookOpen,
   ClipboardList,
   GraduationCap,
+  Calendar,
+  AlertCircle,
 } from 'lucide-react';
 import zarodaLogo from '@/assets/zaroda-logo.png';
 import AssessmentBook from '@/components/teacher/AssessmentBook';
 
 const Dashboard = () => {
   const { currentUser, logout } = useAuthContext();
-  const [activeTab, setActiveTab] = useState<'assessment' | 'profile'>('assessment');
+  const [activeTab, setActiveTab] = useState<'assessment' | 'timetable' | 'profile'>('assessment');
+  const [myTimetable, setMyTimetable] = useState<any[]>([]);
+  const [teacherCode, setTeacherCode] = useState('');
+
+  useEffect(() => {
+    if (!currentUser) return;
+    try {
+      const codes: Record<string, string> = JSON.parse(localStorage.getItem('zaroda_teacher_codes') || '{}');
+      const myCode = codes[currentUser.id] || Object.entries(codes).find(([, c]) => c && currentUser.fullName)?.toString() || '';
+      setTeacherCode(typeof myCode === 'string' ? myCode : '');
+      const allSlots = JSON.parse(localStorage.getItem('zaroda_master_timetable') || '[]');
+      const filtered = allSlots.filter((s: any) => s.teacherId === currentUser.id || s.teacherCode === codes[currentUser.id]);
+      setMyTimetable(filtered);
+    } catch { setMyTimetable([]); }
+  }, [currentUser, activeTab]);
 
   const handleSignOut = () => {
     logout();
@@ -27,8 +52,11 @@ const Dashboard = () => {
 
   if (!currentUser) return null;
 
+  const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI'];
+
   const navItems = [
     { id: 'assessment' as const, label: 'Assessment Book', icon: ClipboardList },
+    { id: 'timetable' as const, label: 'My Timetable', icon: Calendar },
     { id: 'profile' as const, label: 'My Profile', icon: User },
   ];
 
@@ -117,6 +145,65 @@ const Dashboard = () => {
               </Button>
             </CardContent>
           </Card>
+        )}
+
+        {activeTab === 'timetable' && (
+          <div className="mt-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="text-primary" size={24} />
+                  My Weekly Timetable
+                </CardTitle>
+                <CardDescription>
+                  {teacherCode && <Badge variant="outline" className="mr-2">Code: {teacherCode}</Badge>}
+                  Your assigned classes and schedule
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {myTimetable.length === 0 ? (
+                  <div className="text-center py-12">
+                    <AlertCircle size={48} className="mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">Your timetable has not been set yet</h3>
+                    <p className="text-muted-foreground">Contact the DHOI to have your timetable generated.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="bg-[#1E3A5F] text-white font-bold">Day</TableHead>
+                          <TableHead className="bg-[#0D9488] text-white">Time</TableHead>
+                          <TableHead className="bg-[#0D9488] text-white">Subject</TableHead>
+                          <TableHead className="bg-[#0D9488] text-white">Class</TableHead>
+                          <TableHead className="bg-[#0D9488] text-white">Stream</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {DAYS.map(day => {
+                          const daySlots = myTimetable
+                            .filter((s: any) => s.day === day && !s.isLocked)
+                            .sort((a: any, b: any) => a.periodIndex - b.periodIndex);
+                          if (daySlots.length === 0) return null;
+                          return daySlots.map((slot: any, idx: number) => (
+                            <TableRow key={slot.id || `${day}-${idx}`}>
+                              {idx === 0 && (
+                                <TableCell rowSpan={daySlots.length} className="bg-[#1E3A5F] text-white font-bold align-middle text-center">{day}</TableCell>
+                              )}
+                              <TableCell className="text-sm whitespace-nowrap">{slot.timeStart} - {slot.timeEnd}</TableCell>
+                              <TableCell className="font-semibold">{slot.subjectName}</TableCell>
+                              <TableCell>{slot.className}</TableCell>
+                              <TableCell>{slot.streamName}</TableCell>
+                            </TableRow>
+                          ));
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {activeTab === 'profile' && (

@@ -213,6 +213,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { success: true };
     }
 
+    if (role === 'dhoi') {
+      const dhoiAccounts = (() => {
+        try {
+          const data = localStorage.getItem('zaroda_dhoi_account');
+          return data ? JSON.parse(data) : [];
+        } catch { return []; }
+      })();
+      const dhoiAccount = Array.isArray(dhoiAccounts)
+        ? dhoiAccounts.find((a: any) => a.email?.toLowerCase() === normalizedEmail)
+        : (dhoiAccounts?.email?.toLowerCase() === normalizedEmail ? dhoiAccounts : null);
+
+      if (!dhoiAccount) {
+        return { success: false, error: 'No DHOI account found with this email. Your account must be created by the HOI.' };
+      }
+      if (dhoiAccount.status === 'suspended') {
+        return { success: false, error: 'Your account has been suspended. Please contact the HOI.' };
+      }
+      const passwords = getStoredPasswords();
+      if (passwords[normalizedEmail] !== password) {
+        return { success: false, error: 'Incorrect password. Please try again.' };
+      }
+      const user: AuthUser = {
+        id: dhoiAccount.id || `dhoi-${Date.now()}`,
+        email: dhoiAccount.email,
+        fullName: dhoiAccount.fullName,
+        role: 'dhoi',
+        schoolCode: dhoiAccount.schoolCode || '',
+        phone: dhoiAccount.phone,
+      };
+      setCurrentUser(user);
+      localStorage.setItem('zaroda_current_user', JSON.stringify(user));
+      activityStorage.add({
+        userId: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        role: 'dhoi',
+        action: 'login',
+      });
+      return { success: true };
+    }
+
     return { success: false, error: 'This role is not yet available. Contact your administrator to get your account.' };
   };
 

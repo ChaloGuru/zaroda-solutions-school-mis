@@ -1,0 +1,197 @@
+I have an existing React + Vite + Tailwind + shadcn/ui project with SuperAdmin, HOI, and Teacher dashboards already built. I need you to build a complete DHOI (Deputy Head of Institution) Dashboard and add it to my project. Here are the full requirements:
+
+IMPORTANT RULES BEFORE YOU START:
+
+Read my App.tsx, AuthContext.tsx, and existing file structure first
+Do NOT touch SuperAdmin, HOI, or Teacher dashboards
+Do NOT change the auth system
+DHOI route /dhoi-dashboard must stay protected (only role=DHOI can access)
+Use same design language: shadcn/ui, Tailwind, lucide-react icons
+All data in localStorage using the same storage.ts utility already built
+All forms validate and show errors
+All add/edit actions open in modals/dialogs
+Tables have pagination (10 rows per page)
+Use recharts for charts
+
+
+HOW DHOI ACCOUNT IS CREATED:
+
+DHOI does NOT sign up themselves
+The HOI creates the DHOI account from inside the HOI dashboard
+HOI enters: DHOI full name, email, assigned password, phone number, employee ID
+That account is saved to localStorage under key zaroda_dhoi_account
+When DHOI goes to /login, selects role DHOI, enters their email + password → system checks against zaroda_dhoi_account → redirects to /dhoi-dashboard
+Update the existing login AuthContext to support this DHOI login flow
+Also add a button inside the HOI Teachers Management section to "Create DHOI Account" that opens a modal with the form above
+
+
+DHOI LAYOUT:
+Sidebar layout with top navbar, same structure as HOI dashboard. Sidebar has collapsible menu sections. Show DHOI name and role in the navbar.
+
+SIDEBAR SECTIONS:
+1. Overview (Home)
+
+Stats cards: Total Teachers, Total Students, Total Classes, Total Subjects, Timetable Status (Generated / Not Generated)
+Recent activity feed (teachers added, subjects assigned, timetable generated)
+Quick action buttons: Add Teacher, Assign Subject, Generate Timetable, View Roster
+
+2. Teacher Management (DHOI owns this)
+
+Add a teacher with: Full Name, Email, Phone, Subject Specialization, Employee ID, Teacher Code (DHOI assigns a unique short code e.g. TCH001, TCH002 — this code is how the teacher is identified in the timetable)
+View all teachers in a searchable table showing: Code, Name, Email, Subjects Assigned, Classes Assigned
+Edit or deactivate a teacher
+Assign teacher to: Subject + Class + Stream (multiple assignments allowed per teacher)
+View each teacher's full profile: their code, subjects, classes, streams, duties, schedule
+Teacher Duties: assign duties (gate duty, dining duty, games supervision, etc.) with day and time
+Weekly Duty Roster: build a weekly duty roster, assign teachers to days and duties, view as a weekly table
+Save all teacher data to localStorage key zaroda_teachers (same key HOI uses so data is shared)
+
+3. Student Management
+
+Same as HOI student management (add, view, edit, transfer students)
+Shared localStorage key zaroda_students
+
+4. Classes & Streams
+
+View all classes and streams (shared with HOI via zaroda_classes)
+Add/edit/delete classes and streams
+Assign class teacher to each stream
+
+5. Subjects
+
+Add/edit/delete subjects
+Assign subjects to classes
+Link subjects to teachers with their code
+View: Subject | Class | Stream | Teacher Name | Teacher Code
+Save to zaroda_subjects
+
+6. Master Timetable (DHOI's most important feature)
+Build a complete master timetable system exactly like the physical timetable shown. There are THREE timetable types the DHOI can create:
+UPPER PRIMARY TIMETABLE — Time slots:
+8:00-8:20 | 8:20-8:55 | 8:55-9:30 | 9:30-9:50 | 10:25-11:00 | 11:00-11:30 | 11:30-12:05 | 12:05-12:40 | 12:40-2:00 | 2:00-2:35 | 2:35-4:00
+
+First slot (8:00-8:20): ASSEMBLY / HEALTH CHECK / ROLL CALL for MON-FRI (locked, not editable)
+Slot 9:30-9:50: BREAK (spans across, shown as vertical BREAK block) (locked)
+Slot 11:00-11:30: BREAK again (locked)
+Slot 12:40-2:00: LUNCH (locked)
+
+JUNIOR SCHOOL TIMETABLE — Time slots:
+8:20-9:00 | 9:00-9:40 | 9:40-9:50 | 9:50-10:30 | 10:30-11:10 | 11:10-11:40 | 11:40-12:20 | 12:20-1:00 | 1:00-2:00 | 2:00-2:40 | 2:40-3:20 | 3:20-4:45
+
+Slot 9:40-9:50: BREAK (locked)
+Slot 11:10-11:40: BREAK (locked)
+Slot 1:00-2:00: LUNCH (locked)
+
+ECDE CLASS TIMETABLE — Time slots:
+Before 8:30 | 8:30-9:00 | 9:00-9:30 | 9:30-10:00 | 10:00-10:10 | 10:10-10:40 | 10:40-11:00 | 11:00-11:30 | 11:30-12:00 | 12:00-1:00
+
+Before 8:30: FREE CHOICE ACTIVITIES (locked)
+8:30-9:00: HEALTH CHECK & ROLL CALL (locked)
+10:00-10:10: BREAK (locked)
+10:40-11:00: BREAK (locked)
+12:00-1:00: LUNCH (locked)
+ECDE has fixed activities per day (e.g. MON: Language Activities, Mathematical Activities, Creative Activities, Religious Activities, Environmental Activities)
+
+Timetable UI:
+
+Display as a grid: rows = MON/TUE/WED/THU/FRI, columns = time periods
+BREAK and LUNCH cells span their columns and are highlighted in yellow/gold, showing letters B-R-E-A-K and L-U-N-C-H vertically across rows exactly like the image
+Editable cells show: Subject + Teacher Code (e.g. "MATH - TCH001")
+DHOI clicks any empty cell → dropdown to pick Subject and Teacher (filtered to only teachers assigned to that subject and class)
+Show school logo placeholder, GRADE, TERM, YEAR fields at the top of each timetable
+Show CLASS TEACHER field at top and bottom
+Filter timetable by: Timetable Type (Upper Primary/Junior/ECDE) + Class + Stream
+
+Auto-Generate Timetable:
+
+After DHOI has assigned all subjects to teachers and classes, there's a big "Generate Master Timetable" button
+System auto-fills the timetable slots by distributing subjects across the week avoiding: double-booking a teacher, putting the same subject twice in a day, and filling locked slots
+Show a progress indicator while generating
+DHOI can manually adjust any cell after auto-generation
+Save timetable to zaroda_master_timetable
+Timetable status shows "Generated ✓" or "Not Generated" on Overview
+
+7. Teacher's View of Their Schedule
+
+When a Teacher logs in to their /teacher-dashboard, they see a "My Timetable" section
+This reads from zaroda_master_timetable and filters only the slots where their Teacher Code appears
+Teacher sees: Day | Time | Subject | Class | Stream — as a clean weekly schedule grid
+Teacher CANNOT edit the timetable, view only
+If timetable hasn't been generated yet, show: "Your timetable has not been set yet. Contact DHOI."
+
+8. Officials Management
+
+Add/view/edit school officials (deputies, HODs, prefects)
+Shared with HOI via zaroda_officials
+
+9. Attendance Summary
+
+Same as HOI attendance: view all classes, mark attendance, view summary table and chart
+Shared zaroda_attendance key
+
+10. Library
+
+Same as HOI library module
+Shared zaroda_library key
+
+11. Sports
+
+Same as HOI sports module
+Shared zaroda_sports key
+
+12. Elections
+
+Same as HOI elections module
+Shared zaroda_elections key
+
+13. Reports
+
+Timetable report (print master timetable per class — use window.print())
+Teacher schedule report per teacher (print individual teacher timetable)
+Attendance report
+Teacher duty roster report
+Student list report
+
+14. Settings
+
+Change DHOI password (update zaroda_dhoi_account in localStorage)
+Theme toggle light/dark
+Logout → clear auth → redirect to /login
+
+
+FILE STRUCTURE TO CREATE:
+src/pages/dhoi/
+  DhoiDashboard.tsx
+  DhoiOverview.tsx
+  DhoiTeachers.tsx
+  DhoiStudents.tsx
+  DhoiClasses.tsx
+  DhoiSubjects.tsx
+  DhoiTimetable.tsx          ← main timetable builder
+  DhoiTimetableGenerator.ts  ← auto-generate logic
+  DhoiTimetableView.tsx      ← grid display component
+  DhoiOfficials.tsx
+  DhoiAttendance.tsx
+  DhoiLibrary.tsx
+  DhoiSports.tsx
+  DhoiElections.tsx
+  DhoiReports.tsx
+  DhoiSettings.tsx
+Also update:
+
+src/pages/hoi/HoiTeachers.tsx → add "Create DHOI Account" button and modal
+src/pages/teacher/TeacherDashboard.tsx → add "My Timetable" section reading from master timetable
+src/context/AuthContext.tsx → add DHOI login support checking zaroda_dhoi_account
+
+
+TIMETABLE STYLING (very important):
+
+BREAK cells: background gold/yellow (#F5C842), text bold, letters B-R-E-A-K shown vertically centered across the 5 day rows
+LUNCH cells: same gold styling with L-U-N-C-H vertically
+Header row (time slots): light blue/teal background
+Day labels (MON-FRI): dark blue/navy background with white text
+Editable subject cells: white background, subject name in bold, teacher code in small gray text below
+School logo shown top left of timetable (use existing logo or placeholder)
+Print stylesheet included so timetable prints cleanly on A4
+
+

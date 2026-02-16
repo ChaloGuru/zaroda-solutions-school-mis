@@ -63,13 +63,15 @@ import {
   BookOpen,
   ClipboardList,
   Trash2,
-  Shield,
+  CalendarDays,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const PAGE_SIZE = 10;
+const TEACHER_CODES_KEY = 'zaroda_teacher_codes';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+const DAY_SHORT: Record<string, string> = { Monday: 'MON', Tuesday: 'TUE', Wednesday: 'WED', Thursday: 'THU', Friday: 'FRI' };
 const DUTY_TYPES: HoiTeacherDuty['duty_type'][] = ['gate', 'dining', 'games', 'assembly', 'cleaning supervision'];
 
 const emptyTeacherForm = {
@@ -81,6 +83,7 @@ const emptyTeacherForm = {
   gender: 'Male' as HoiTeacher['gender'],
   qualification: '',
   status: 'active' as HoiTeacher['status'],
+  teacher_code: '',
 };
 
 const emptyAssignmentForm = {
@@ -97,7 +100,20 @@ const emptyDutyForm = {
   time_slot: '',
 };
 
-export default function HoiTeachers() {
+function getTeacherCodes(): Record<string, string> {
+  try {
+    const stored = localStorage.getItem(TEACHER_CODES_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+}
+
+function setTeacherCodes(codes: Record<string, string>) {
+  localStorage.setItem(TEACHER_CODES_KEY, JSON.stringify(codes));
+}
+
+export default function DhoiTeachers() {
   const { toast } = useToast();
 
   const [teachers, setTeachers] = useState<HoiTeacher[]>([]);
@@ -106,11 +122,13 @@ export default function HoiTeachers() {
   const [classes, setClasses] = useState<HoiClass[]>([]);
   const [streams, setStreams] = useState<HoiStream[]>([]);
   const [duties, setDuties] = useState<HoiTeacherDuty[]>([]);
+  const [teacherCodes, setTeacherCodesState] = useState<Record<string, string>>({});
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [teacherPage, setTeacherPage] = useState(1);
   const [assignPage, setAssignPage] = useState(1);
+  const [dutyPage, setDutyPage] = useState(1);
 
   const [teacherDialogOpen, setTeacherDialogOpen] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<HoiTeacher | null>(null);
@@ -127,10 +145,6 @@ export default function HoiTeachers() {
   const [deleteAssignDialog, setDeleteAssignDialog] = useState<{ open: boolean; id: string | null }>({ open: false, id: null });
   const [deleteDutyDialog, setDeleteDutyDialog] = useState<{ open: boolean; id: string | null }>({ open: false, id: null });
 
-  const [dhoiDialogOpen, setDhoiDialogOpen] = useState(false);
-  const [dhoiForm, setDhoiForm] = useState({ fullName: '', email: '', password: '', phone: '', employeeId: '' });
-  const [existingDhoi, setExistingDhoi] = useState<any>(null);
-
   const loadData = () => {
     setTeachers(hoiTeachersStorage.getAll());
     setAssignments(hoiSubjectAssignmentsStorage.getAll());
@@ -138,58 +152,30 @@ export default function HoiTeachers() {
     setClasses(hoiClassesStorage.getAll());
     setStreams(hoiStreamsStorage.getAll());
     setDuties(hoiTeacherDutiesStorage.getAll());
-    try {
-      const stored = localStorage.getItem('zaroda_dhoi_account');
-      const accounts = stored ? JSON.parse(stored) : [];
-      setExistingDhoi(Array.isArray(accounts) && accounts.length > 0 ? accounts[0] : null);
-    } catch { setExistingDhoi(null); }
+    setTeacherCodesState(getTeacherCodes());
   };
 
   useEffect(() => { loadData(); }, []);
 
-  const openDhoiDialog = () => {
-    if (existingDhoi) {
-      setDhoiForm({ fullName: existingDhoi.fullName, email: existingDhoi.email, password: '', phone: existingDhoi.phone, employeeId: existingDhoi.employeeId });
-    } else {
-      setDhoiForm({ fullName: '', email: '', password: '', phone: '', employeeId: '' });
-    }
-    setDhoiDialogOpen(true);
+  const getCode = (teacherId: string) => teacherCodes[teacherId] || '—';
+
+  const getSubjectsForTeacher = (teacherId: string) => {
+    const teacherAssignments = assignments.filter((a) => a.teacher_id === teacherId);
+    const uniqueSubjects = [...new Set(teacherAssignments.map((a) => a.subject_name))];
+    return uniqueSubjects.join(', ') || '—';
   };
 
-  const saveDhoiAccount = () => {
-    if (!dhoiForm.fullName.trim() || !dhoiForm.email.trim() || !dhoiForm.phone.trim() || !dhoiForm.employeeId.trim()) {
-      toast({ title: 'Validation Error', description: 'All fields are required.', variant: 'destructive' });
-      return;
-    }
-    if (!existingDhoi && !dhoiForm.password.trim()) {
-      toast({ title: 'Validation Error', description: 'Password is required for new accounts.', variant: 'destructive' });
-      return;
-    }
-    const email = dhoiForm.email.trim().toLowerCase();
-    const account = {
-      id: existingDhoi?.id || crypto.randomUUID(),
-      fullName: dhoiForm.fullName.trim(),
-      email,
-      phone: dhoiForm.phone.trim(),
-      employeeId: dhoiForm.employeeId.trim(),
-      schoolCode: '',
-      status: 'active',
-      createdAt: existingDhoi?.createdAt || new Date().toISOString(),
-    };
-    localStorage.setItem('zaroda_dhoi_account', JSON.stringify([account]));
-    if (dhoiForm.password.trim()) {
-      const passwords = JSON.parse(localStorage.getItem('zaroda_passwords') || '{}');
-      passwords[email] = dhoiForm.password.trim();
-      localStorage.setItem('zaroda_passwords', JSON.stringify(passwords));
-    }
-    toast({ title: existingDhoi ? 'DHOI Account Updated' : 'DHOI Account Created', description: `${account.fullName} can now log in as DHOI.` });
-    setDhoiDialogOpen(false);
-    loadData();
+  const getClassesForTeacher = (teacherId: string) => {
+    const teacherAssignments = assignments.filter((a) => a.teacher_id === teacherId);
+    const uniqueClasses = [...new Set(teacherAssignments.map((a) => `${a.class_name} ${a.stream_name}`))];
+    return uniqueClasses.join(', ') || '—';
   };
 
   const filteredTeachers = teachers.filter((t) => {
+    const code = (teacherCodes[t.id] || '').toLowerCase();
     const matchesSearch = t.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.email.toLowerCase().includes(searchTerm.toLowerCase());
+      t.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      code.includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || t.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -199,6 +185,9 @@ export default function HoiTeachers() {
 
   const totalAssignPages = Math.max(1, Math.ceil(assignments.length / PAGE_SIZE));
   const pagedAssignments = assignments.slice((assignPage - 1) * PAGE_SIZE, assignPage * PAGE_SIZE);
+
+  const totalDutyPages = Math.max(1, Math.ceil(duties.length / PAGE_SIZE));
+  const pagedDuties = duties.slice((dutyPage - 1) * PAGE_SIZE, dutyPage * PAGE_SIZE);
 
   const statusBadge = (status: HoiTeacher['status']) => {
     const colors: Record<string, string> = {
@@ -226,21 +215,38 @@ export default function HoiTeachers() {
       gender: t.gender,
       qualification: t.qualification,
       status: t.status,
+      teacher_code: teacherCodes[t.id] || '',
     });
     setTeacherDialogOpen(true);
   };
 
   const saveTeacher = () => {
-    if (!teacherForm.full_name.trim() || !teacherForm.email.trim() || !teacherForm.employee_id.trim()) {
-      toast({ title: 'Validation Error', description: 'Full name, email, and employee ID are required.', variant: 'destructive' });
+    if (!teacherForm.full_name.trim() || !teacherForm.email.trim() || !teacherForm.employee_id.trim() || !teacherForm.teacher_code.trim()) {
+      toast({ title: 'Validation Error', description: 'Full name, email, employee ID, and teacher code are required.', variant: 'destructive' });
       return;
     }
+    const codeVal = teacherForm.teacher_code.trim().toUpperCase();
+    const existingCodes = getTeacherCodes();
+    const codeConflict = Object.entries(existingCodes).find(([tid, c]) => c === codeVal && tid !== (editingTeacher?.id || ''));
+    if (codeConflict) {
+      toast({ title: 'Duplicate Code', description: `Teacher code "${codeVal}" is already assigned to another teacher.`, variant: 'destructive' });
+      return;
+    }
+
+    const { teacher_code, ...teacherData } = teacherForm;
+
     if (editingTeacher) {
-      hoiTeachersStorage.update(editingTeacher.id, teacherForm);
+      hoiTeachersStorage.update(editingTeacher.id, teacherData);
+      const codes = getTeacherCodes();
+      codes[editingTeacher.id] = codeVal;
+      setTeacherCodes(codes);
       toast({ title: 'Teacher Updated', description: `${teacherForm.full_name} has been updated.` });
     } else {
-      hoiTeachersStorage.add({ ...teacherForm, hired_at: new Date().toISOString().split('T')[0] });
-      toast({ title: 'Teacher Added', description: `${teacherForm.full_name} has been added.` });
+      const newTeacher = hoiTeachersStorage.add({ ...teacherData, hired_at: new Date().toISOString().split('T')[0] });
+      const codes = getTeacherCodes();
+      codes[newTeacher.id] = codeVal;
+      setTeacherCodes(codes);
+      toast({ title: 'Teacher Added', description: `${teacherForm.full_name} has been added with code ${codeVal}.` });
     }
     setTeacherDialogOpen(false);
     loadData();
@@ -320,8 +326,6 @@ export default function HoiTeachers() {
     }
   };
 
-  const uniqueTeachersInDuties = [...new Set(duties.map((d) => d.teacher_name))];
-
   const Pagination = ({ page, total, setPage }: { page: number; total: number; setPage: (p: number) => void }) => (
     <div className="flex items-center justify-between mt-4">
       <p className="text-sm text-muted-foreground">Page {page} of {total}</p>
@@ -338,22 +342,17 @@ export default function HoiTeachers() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground mb-1">Teacher Management</h1>
-          <p className="text-muted-foreground">Manage teachers, subject assignments, and duty roster</p>
-        </div>
-        <Button variant="outline" className="gap-2 border-indigo-300 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-700 dark:text-indigo-300 dark:hover:bg-indigo-950" onClick={openDhoiDialog}>
-          <Shield className="w-4 h-4" />
-          {existingDhoi ? 'Edit DHOI Account' : 'Create DHOI Account'}
-        </Button>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-foreground mb-1">Teacher Management</h1>
+        <p className="text-muted-foreground">Manage teachers, subject assignments, duties, and weekly roster</p>
       </div>
 
       <Tabs defaultValue="teachers">
         <TabsList className="mb-6">
           <TabsTrigger value="teachers" className="gap-2"><Users className="w-4 h-4" />All Teachers</TabsTrigger>
           <TabsTrigger value="assignments" className="gap-2"><BookOpen className="w-4 h-4" />Subject Assignments</TabsTrigger>
-          <TabsTrigger value="roster" className="gap-2"><ClipboardList className="w-4 h-4" />Duty Roster</TabsTrigger>
+          <TabsTrigger value="duties" className="gap-2"><ClipboardList className="w-4 h-4" />Teacher Duties</TabsTrigger>
+          <TabsTrigger value="roster" className="gap-2"><CalendarDays className="w-4 h-4" />Weekly Duty Roster</TabsTrigger>
         </TabsList>
 
         <TabsContent value="teachers">
@@ -364,7 +363,7 @@ export default function HoiTeachers() {
                 <div className="flex flex-col sm:flex-row gap-2">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input placeholder="Search by name or email..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setTeacherPage(1); }} className="pl-9 w-64" />
+                    <Input placeholder="Search by name, email, or code..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setTeacherPage(1); }} className="pl-9 w-64" />
                   </div>
                   <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setTeacherPage(1); }}>
                     <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
@@ -380,41 +379,43 @@ export default function HoiTeachers() {
               </div>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Employee ID</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Specialization</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pagedTeachers.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No teachers found.</TableCell></TableRow>
-                  ) : pagedTeachers.map((t) => (
-                    <TableRow key={t.id}>
-                      <TableCell className="font-medium">{t.full_name}</TableCell>
-                      <TableCell>{t.employee_id}</TableCell>
-                      <TableCell>{t.email}</TableCell>
-                      <TableCell>{t.phone}</TableCell>
-                      <TableCell>{t.subject_specialization}</TableCell>
-                      <TableCell>{statusBadge(t.status)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => openEditTeacher(t)}><Pencil className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="sm" onClick={() => setDeactivateDialog({ open: true, teacher: t })}>
-                            {t.status === 'deactivated' ? <UserCheck className="w-4 h-4 text-green-600" /> : <UserX className="w-4 h-4 text-red-600" />}
-                          </Button>
-                        </div>
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Code</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Subjects Assigned</TableHead>
+                      <TableHead>Classes Assigned</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {pagedTeachers.length === 0 ? (
+                      <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No teachers found.</TableCell></TableRow>
+                    ) : pagedTeachers.map((t) => (
+                      <TableRow key={t.id}>
+                        <TableCell><Badge variant="secondary" className="font-mono">{getCode(t.id)}</Badge></TableCell>
+                        <TableCell className="font-medium">{t.full_name}</TableCell>
+                        <TableCell>{t.email}</TableCell>
+                        <TableCell className="max-w-[200px] truncate">{getSubjectsForTeacher(t.id)}</TableCell>
+                        <TableCell className="max-w-[200px] truncate">{getClassesForTeacher(t.id)}</TableCell>
+                        <TableCell>{statusBadge(t.status)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => openEditTeacher(t)}><Pencil className="w-4 h-4" /></Button>
+                            <Button variant="ghost" size="sm" onClick={() => setDeactivateDialog({ open: true, teacher: t })}>
+                              {t.status === 'deactivated' ? <UserCheck className="w-4 h-4 text-green-600" /> : <UserX className="w-4 h-4 text-red-600" />}
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
               <Pagination page={teacherPage} total={totalTeacherPages} setPage={setTeacherPage} />
             </CardContent>
           </Card>
@@ -429,103 +430,65 @@ export default function HoiTeachers() {
               </div>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Teacher</TableHead>
-                    <TableHead>Subject</TableHead>
-                    <TableHead>Class</TableHead>
-                    <TableHead>Stream</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pagedAssignments.length === 0 ? (
-                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No assignments found.</TableCell></TableRow>
-                  ) : pagedAssignments.map((a) => (
-                    <TableRow key={a.id}>
-                      <TableCell className="font-medium">{a.teacher_name}</TableCell>
-                      <TableCell>{a.subject_name}</TableCell>
-                      <TableCell>{a.class_name}</TableCell>
-                      <TableCell>{a.stream_name}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" onClick={() => setDeleteAssignDialog({ open: true, id: a.id })}><Trash2 className="w-4 h-4 text-red-600" /></Button>
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Subject</TableHead>
+                      <TableHead>Class</TableHead>
+                      <TableHead>Stream</TableHead>
+                      <TableHead>Teacher Name</TableHead>
+                      <TableHead>Teacher Code</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {pagedAssignments.length === 0 ? (
+                      <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No assignments found.</TableCell></TableRow>
+                    ) : pagedAssignments.map((a) => (
+                      <TableRow key={a.id}>
+                        <TableCell>{a.subject_name}</TableCell>
+                        <TableCell>{a.class_name}</TableCell>
+                        <TableCell>{a.stream_name}</TableCell>
+                        <TableCell className="font-medium">{a.teacher_name}</TableCell>
+                        <TableCell><Badge variant="secondary" className="font-mono">{getCode(a.teacher_id)}</Badge></TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="sm" onClick={() => setDeleteAssignDialog({ open: true, id: a.id })}><Trash2 className="w-4 h-4 text-red-600" /></Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
               <Pagination page={assignPage} total={totalAssignPages} setPage={setAssignPage} />
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="roster">
-          <div className="space-y-6">
-            <Card>
-              <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">Weekly Duty Roster</CardTitle>
-                  <Button onClick={() => { setDutyForm(emptyDutyForm); setDutyDialogOpen(true); }} className="gap-2"><Plus className="w-4 h-4" />Add Duty</Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="min-w-[150px]">Teacher</TableHead>
-                        {DAYS.map((d) => <TableHead key={d} className="min-w-[140px]">{d}</TableHead>)}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {uniqueTeachersInDuties.length === 0 ? (
-                        <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No duties assigned yet.</TableCell></TableRow>
-                      ) : uniqueTeachersInDuties.map((tName) => (
-                        <TableRow key={tName}>
-                          <TableCell className="font-medium">{tName}</TableCell>
-                          {DAYS.map((day) => {
-                            const dayDuties = duties.filter((d) => d.teacher_name === tName && d.day === day);
-                            return (
-                              <TableCell key={day}>
-                                {dayDuties.length === 0 ? (
-                                  <span className="text-muted-foreground text-xs">—</span>
-                                ) : dayDuties.map((d) => (
-                                  <div key={d.id} className="mb-1">
-                                    <Badge variant="outline" className="text-xs capitalize">{d.duty_type}</Badge>
-                                    <p className="text-[10px] text-muted-foreground">{d.time_slot}</p>
-                                  </div>
-                                ))}
-                              </TableCell>
-                            );
-                          })}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg">All Duties ({duties.length})</CardTitle>
-              </CardHeader>
-              <CardContent>
+        <TabsContent value="duties">
+          <Card>
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Teacher Duties ({duties.length})</CardTitle>
+                <Button onClick={() => { setDutyForm(emptyDutyForm); setDutyDialogOpen(true); }} className="gap-2"><Plus className="w-4 h-4" />Add Duty</Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Teacher</TableHead>
-                      <TableHead>Duty</TableHead>
+                      <TableHead>Duty Type</TableHead>
                       <TableHead>Day</TableHead>
                       <TableHead>Time Slot</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {duties.length === 0 ? (
+                    {pagedDuties.length === 0 ? (
                       <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No duties assigned.</TableCell></TableRow>
-                    ) : duties.map((d) => (
+                    ) : pagedDuties.map((d) => (
                       <TableRow key={d.id}>
                         <TableCell className="font-medium">{d.teacher_name}</TableCell>
                         <TableCell className="capitalize">{d.duty_type}</TableCell>
@@ -538,9 +501,52 @@ export default function HoiTeachers() {
                     ))}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+              <Pagination page={dutyPage} total={totalDutyPages} setPage={setDutyPage} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="roster">
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg">Weekly Duty Roster</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="min-w-[180px]">Duty</TableHead>
+                      {DAYS.map((d) => <TableHead key={d} className="min-w-[160px] text-center">{DAY_SHORT[d]}</TableHead>)}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {DUTY_TYPES.map((dutyType) => (
+                      <TableRow key={dutyType}>
+                        <TableCell className="font-medium capitalize">{dutyType}</TableCell>
+                        {DAYS.map((day) => {
+                          const slotDuties = duties.filter((d) => d.duty_type === dutyType && d.day === day);
+                          return (
+                            <TableCell key={day} className="text-center">
+                              {slotDuties.length === 0 ? (
+                                <span className="text-muted-foreground text-xs">—</span>
+                              ) : slotDuties.map((d) => (
+                                <div key={d.id} className="mb-1">
+                                  <p className="text-sm font-medium">{d.teacher_name}</p>
+                                  <p className="text-[10px] text-muted-foreground">{d.time_slot}</p>
+                                </div>
+                              ))}
+                            </TableCell>
+                          );
+                        })}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
@@ -570,6 +576,16 @@ export default function HoiTeachers() {
                 <Input value={teacherForm.employee_id} onChange={(e) => setTeacherForm({ ...teacherForm, employee_id: e.target.value })} />
               </div>
               <div>
+                <Label>Teacher Code *</Label>
+                <Input placeholder="e.g. TCH001" value={teacherForm.teacher_code} onChange={(e) => setTeacherForm({ ...teacherForm, teacher_code: e.target.value })} />
+              </div>
+            </div>
+            <div>
+              <Label>Subject Specialization</Label>
+              <Input value={teacherForm.subject_specialization} onChange={(e) => setTeacherForm({ ...teacherForm, subject_specialization: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
                 <Label>Gender</Label>
                 <Select value={teacherForm.gender} onValueChange={(v) => setTeacherForm({ ...teacherForm, gender: v as HoiTeacher['gender'] })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -579,14 +595,10 @@ export default function HoiTeachers() {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-            <div>
-              <Label>Subject Specialization</Label>
-              <Input value={teacherForm.subject_specialization} onChange={(e) => setTeacherForm({ ...teacherForm, subject_specialization: e.target.value })} />
-            </div>
-            <div>
-              <Label>Qualification</Label>
-              <Input value={teacherForm.qualification} onChange={(e) => setTeacherForm({ ...teacherForm, qualification: e.target.value })} />
+              <div>
+                <Label>Qualification</Label>
+                <Input value={teacherForm.qualification} onChange={(e) => setTeacherForm({ ...teacherForm, qualification: e.target.value })} />
+              </div>
             </div>
             <div>
               <Label>Status</Label>
@@ -758,45 +770,6 @@ export default function HoiTeachers() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <Dialog open={dhoiDialogOpen} onOpenChange={setDhoiDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{existingDhoi ? 'Edit DHOI Account' : 'Create DHOI Account'}</DialogTitle>
-          </DialogHeader>
-          {existingDhoi && (
-            <div className="p-3 bg-indigo-50 dark:bg-indigo-950/30 rounded-lg border border-indigo-200 dark:border-indigo-800 text-sm">
-              <p className="text-indigo-700 dark:text-indigo-300">Current DHOI: <strong>{existingDhoi.fullName}</strong> ({existingDhoi.email})</p>
-            </div>
-          )}
-          <div className="space-y-4">
-            <div>
-              <Label>Full Name *</Label>
-              <Input placeholder="DHOI full name" value={dhoiForm.fullName} onChange={(e) => setDhoiForm({ ...dhoiForm, fullName: e.target.value })} />
-            </div>
-            <div>
-              <Label>Email *</Label>
-              <Input type="email" placeholder="dhoi@school.ac.ke" value={dhoiForm.email} onChange={(e) => setDhoiForm({ ...dhoiForm, email: e.target.value })} />
-            </div>
-            <div>
-              <Label>{existingDhoi ? 'New Password (leave blank to keep current)' : 'Password *'}</Label>
-              <Input type="password" placeholder="Assign a password" value={dhoiForm.password} onChange={(e) => setDhoiForm({ ...dhoiForm, password: e.target.value })} />
-            </div>
-            <div>
-              <Label>Phone Number *</Label>
-              <Input type="tel" placeholder="+254 7XX XXX XXX" value={dhoiForm.phone} onChange={(e) => setDhoiForm({ ...dhoiForm, phone: e.target.value })} />
-            </div>
-            <div>
-              <Label>Employee ID *</Label>
-              <Input placeholder="e.g. EMP-DHOI-001" value={dhoiForm.employeeId} onChange={(e) => setDhoiForm({ ...dhoiForm, employeeId: e.target.value })} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDhoiDialogOpen(false)}>Cancel</Button>
-            <Button onClick={saveDhoiAccount}>{existingDhoi ? 'Update Account' : 'Create Account'}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
