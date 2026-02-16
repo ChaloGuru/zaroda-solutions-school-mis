@@ -1,0 +1,118 @@
+I have an existing React + Vite + Tailwind + shadcn/ui project with SuperAdmin, HOI, DHOI, and Teacher dashboards already built. I need you to build a complete HOD (Head of Department) Dashboard and add it to my project. HOD is the Head of a specific subject department (e.g. Head of Mathematics Department, Head of Sciences, Head of Languages etc.)
+
+IMPORTANT RULES BEFORE YOU START:
+
+Read my App.tsx, AuthContext.tsx, and existing file structure first
+Do NOT touch any existing dashboards
+Do NOT change the auth system except to add HOD login support
+HOD route /hod-dashboard must stay protected (only role=HOD can access)
+Use same design: shadcn/ui, Tailwind, lucide-react icons
+All data in localStorage using the same storage.ts utility already built
+All forms validate and show errors
+All add/edit actions open in modals
+Tables paginate at 10 rows per page
+Use recharts for all charts
+HOD only sees data related to their own department — they cannot see other departments' data
+
+
+HOW HOD ACCOUNT IS CREATED:
+
+HOD does NOT sign up themselves
+The DHOI (or HOI) creates the HOD account from inside their dashboard
+Add a "Manage HODs" section inside both HOI and DHOI dashboards
+To create HOD account, DHOI/HOI enters: Full Name, Email, Assigned Password, Phone, Employee ID, Department (select from existing subjects e.g. Mathematics, Sciences, Languages, Humanities, Technical), HOD Code (e.g. HOD001)
+That account is saved to localStorage under key zaroda_hod_accounts (array, multiple HODs can exist)
+When HOD goes to /login, selects role HOD, enters email + password → system checks against zaroda_hod_accounts → redirects to /hod-dashboard
+HOD's department is stored in their account so the dashboard filters everything by their department
+Update AuthContext to support HOD login and store HOD's department in the auth context
+
+
+HOD LAYOUT:
+Sidebar layout with top navbar. Show HOD name, HOD Code, and their Department name prominently in the navbar (e.g. "HOD - Mathematics Department"). Same visual style as other dashboards.
+
+SIDEBAR SECTIONS:
+1. Overview (Home)
+
+Stats cards: Teachers in My Department, Subjects Under My Department, Total Students Taking My Subjects, Average Performance This Term, Lessons This Week
+Department announcement board (HOD can post announcements visible to teachers in their dept)
+Upcoming department activities/events
+Quick action buttons: Add Lesson Note, Record Exam Results, View Timetable, View Teachers
+
+2. Department Profile
+
+View and edit department details (name, motto, description)
+List of subjects under this department
+HOD can add sub-subjects under their department (e.g. under Sciences: Biology, Chemistry, Physics)
+Department goals for the term (add/edit/delete goals)
+Department meeting schedule (add meeting date, agenda, minutes)
+Department meeting minutes: record what was discussed, who attended, action points
+
+3. Teachers in My Department
+
+View all teachers assigned to this department (read from zaroda_teachers, filter by department)
+Each teacher shown with: Teacher Code, Name, Subjects Teaching, Classes Assigned, Lessons Per Week
+View individual teacher profile (read-only): their full schedule from master timetable, duties, subjects
+HOD can write a teacher performance note (saved locally, visible only to HOD and that teacher)
+HOD can mark a teacher as "observed" with observation date and feedback notes
+Teacher Observation Form: HOD fills structured form — Lesson date, Class observed, Topic taught, Strengths, Areas to improve, Rating (1-5), Recommendations
+View all observation records in a table
+
+4. Subjects & Curriculum
+
+View all subjects under this department with classes they're taught in
+For each subject per class, HOD sets: Scheme of Work (topics per week for the whole term)
+Scheme of Work builder: Term → Week → Topic → Subtopic → Learning Objectives → Teaching/Learning Activities → Resources Needed → Assessment Method
+View scheme of work as a table (Week | Topic | Subtopic | Activities | Resources | Assessment)
+HOD can mark each week's scheme as "Covered" or "Pending" or "Incomplete"
+Save to zaroda_scheme_of_work
+
+5. Lesson Notes & Resources
+
+Teachers in the department can submit lesson notes (title, subject, class, week, content/description, file name)
+HOD views all submitted lesson notes: filter by teacher, subject, class, week
+HOD can approve or send back with comments
+HOD can also upload department resources (name, description, subject, file name placeholder)
+Save to zaroda_lesson_notes
+
+6. Exams & Assessment
+Exam Setup:
+
+Create an exam (name e.g. "End Term 1 Exam", type: CAT/Mid-Term/End-Term, date, subjects included, classes)
+Save to zaroda_exams
+
+Results Entry:
+
+Select exam → select subject → select class/stream → enter marks per student
+Student list loaded from zaroda_students filtered by class
+Enter: Student Name (auto-loaded), Admission No, Marks Out of (e.g. /100), Marks Scored
+System auto-calculates: percentage, grade (A/B/C/D/E based on Kenyan grading), remarks (Excellent/Good/Average/Below Average/Fail)
+
+Kenyan Grading Scale:
+
+75-100: A (Excellent)
+60-74: B (Good)
+50-59: C (Average)
+40-49: D (Below Average)
+0-39: E (Fail)
+
+Results View:
+
+View results per exam per subject per class
+Class performance summary: Highest Mark, Lowest Mark, Class Mean, Pass Rate %
+Student ranking table (1st to last) with marks, grade, remarks
+Subject performance comparison: bar chart showing average per class
+Term performance trend: line chart comparing CAT vs Mid-Term vs End-Term per subject
+
+7. My Timetable (Department View)
+
+Read from zaroda_master_timetable
+Show all lessons for all subjects in this department across all classes
+Filter by: Subject, Class, Stream, Teacher, Day
+View as weekly grid: rows = days, columns = time slots
+HOD cannot edit — view only
+Shows Teacher Code in each cell so HOD knows who is teaching what and when
+
+8. Attendance (Department)
+
+View attendance specifically for lessons in this department
+Read from zaroda_attendance, filter by subjects
