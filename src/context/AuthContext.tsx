@@ -24,6 +24,7 @@ interface AuthContextType {
   loading: boolean;
   login: (role: UserRole, email: string, password: string, schoolCode?: string) => { success: boolean; error?: string };
   signup: (data: TeacherSignupData) => { success: boolean; error?: string };
+  signupHoi: (data: HoiSignupData) => { success: boolean; error?: string };
   logout: () => void;
 }
 
@@ -35,6 +36,14 @@ export interface TeacherSignupData {
   subject: string;
   phone: string;
   grade: GradeLevel;
+}
+
+export interface HoiSignupData {
+  fullName: string;
+  email: string;
+  password: string;
+  schoolCode: string;
+  phone: string;
 }
 
 const SUPERADMIN_CREDENTIALS = {
@@ -140,6 +149,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { success: true };
     }
 
+    if (role === 'hoi') {
+      const users = getStoredUsers();
+      const found = users.find(u => u.email.toLowerCase() === normalizedEmail && u.role === 'hoi');
+      if (!found) {
+        return { success: false, error: 'No HOI account found with this email. Please sign up first.' };
+      }
+      const passwords = getStoredPasswords();
+      if (passwords[normalizedEmail] !== password) {
+        return { success: false, error: 'Incorrect password. Please try again.' };
+      }
+      setCurrentUser(found);
+      localStorage.setItem('zaroda_current_user', JSON.stringify(found));
+      return { success: true };
+    }
+
     return { success: false, error: 'This role is not yet available. Contact your administrator to get your account.' };
   };
 
@@ -168,6 +192,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { success: true };
   };
 
+  const signupHoi = (data: HoiSignupData): { success: boolean; error?: string } => {
+    const normalizedEmail = data.email.trim().toLowerCase();
+    const users = getStoredUsers();
+    const existing = users.find(u => u.email.toLowerCase() === normalizedEmail);
+    if (existing) {
+      return { success: false, error: 'An account with this email already exists. Please log in instead.' };
+    }
+
+    const newUser: AuthUser = {
+      id: `hoi-${Date.now()}`,
+      email: normalizedEmail,
+      fullName: data.fullName.trim(),
+      role: 'hoi',
+      schoolCode: data.schoolCode.trim(),
+      phone: data.phone.trim(),
+    };
+
+    saveUser(newUser, data.password);
+    setCurrentUser(newUser);
+    localStorage.setItem('zaroda_current_user', JSON.stringify(newUser));
+    return { success: true };
+  };
+
   const logout = () => {
     setCurrentUser(null);
     localStorage.removeItem('zaroda_current_user');
@@ -181,6 +228,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         loading,
         login,
         signup,
+        signupHoi,
         logout,
       }}
     >

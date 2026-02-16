@@ -4,10 +4,13 @@
 A multi-tenant school management platform built with React, TypeScript, Vite, and Tailwind CSS. Features include multi-school sync, automated billing, parent-teacher portals, elections, sports management, and more.
 
 ## Recent Changes
+- 2026-02-16: Built complete HOI (Head of Institution) Dashboard with 15 sections: Overview, School Management, Classes & Streams, Teacher Management, Student Management, Officials Management, Subjects, Timetable, Attendance Summary, Finances, Library, Sports, Elections, Reports, Settings. All with full CRUD, search/filter, pagination, modal dialogs, charts, and localStorage persistence.
+- 2026-02-16: Enabled HOI signup/login flow in AuthContext and Login page. HOI can now register and login.
+- 2026-02-16: Created HOI data layer (src/lib/hoiStorage.ts) with generic localStorage helpers, 22 typed interfaces, and seed data for all HOI entities.
 - 2026-02-16: Implemented complete CBC Assessment Book for Teacher Dashboard with grade/subject assignment during signup, comprehensive curriculum data for all 12 grades (Playgroup-Grade 9), assessment records storage, dynamic scoring forms (EE/ME/AE/BE or CAT1/CAT2/END TERM), and tab-based dashboard navigation.
 - 2026-02-16: Built all 5 SuperAdmin dashboard sections: Schools Management, Student Registry, Faculty Management, Finance & Billing, System Settings. Each has full CRUD, search/filter, and uses localStorage for data persistence with seed data.
 - 2026-02-16: Created data layer (src/lib/storage.ts) with typed interfaces, CRUD helpers, and seed data for schools, students, faculty, invoices, and platform settings.
-- 2026-02-16: Added role-based authentication system using React Context + localStorage. Roles: SuperAdmin, Teacher, HOI, DHOI, Student, Parent. SuperAdmin has hardcoded credentials. Teacher supports signup/login. Other roles show placeholder message.
+- 2026-02-16: Added role-based authentication system using React Context + localStorage. Roles: SuperAdmin, Teacher, HOI, DHOI, Student, Parent. SuperAdmin has hardcoded credentials. Teacher and HOI support signup/login. Other roles show placeholder message.
 - 2026-02-16: Initial import and Replit environment setup. Configured Vite dev server on port 5000 with proxy-friendly host settings.
 
 ## Project Architecture
@@ -15,24 +18,33 @@ A multi-tenant school management platform built with React, TypeScript, Vite, an
 - **Build Tool**: Vite 7
 - **Styling**: Tailwind CSS + shadcn/ui components
 - **Auth**: React Context + localStorage (no backend yet)
-- **Data**: localStorage with typed CRUD helpers (src/lib/storage.ts)
+- **Data**: localStorage with typed CRUD helpers (src/lib/storage.ts, src/lib/hoiStorage.ts)
+- **Charts**: Recharts for data visualization
+- **Animations**: Framer Motion
 - **Routing**: React Router v6 with ProtectedRoute component
 - **State/Data**: TanStack React Query + localStorage
 
 ### Authentication System
-- `src/context/AuthContext.tsx` - Auth provider with login/signup/logout
+- `src/context/AuthContext.tsx` - Auth provider with login/signup/signupHoi/logout
 - `src/components/ProtectedRoute.tsx` - Role-based route guard
 - SuperAdmin credentials: Zaroda001 / oduorongo@gmail.com / ongo123
 - Teacher: Can sign up and log in, data stored in localStorage
-- HOI, DHOI, Student, Parent: Placeholder dashboards, no self-registration
+- HOI: Can sign up and log in, data stored in localStorage
+- DHOI, Student, Parent: Placeholder dashboards, no self-registration
 
-### Data Layer (src/lib/storage.ts)
+### Data Layer
+#### Platform-wide (src/lib/storage.ts)
 - **School**: id, name, code, type, county, sub_county, contact info, status, categories, counts
 - **Student**: id, full_name, admission_no, school_id, grade, stream, guardian info, gender, dob, status
 - **Faculty**: id, full_name, staff_no, school_id, role, department, email, phone, qualification, status
 - **Invoice**: id, school_id, school_name, description, amount, period, status, due_date, paid_at
 - **PlatformSettings**: platform config, academic year, notifications, billing cycle, maintenance mode
-- Each entity has getAll/add/update/remove helpers with seed data initialization
+- **AssessmentRecord**: teacher/student assessment data with scoring
+
+#### HOI-specific (src/lib/hoiStorage.ts)
+- Generic helpers: getData, setData, addItem, updateItem, deleteItem (crypto.randomUUID)
+- 22 interfaces: HoiClass, HoiStream, HoiTeacher, HoiStudent, HoiOfficial, HoiSubject, HoiSubjectAssignment, HoiTeacherDuty, HoiTimetableSlot, HoiAttendance, HoiFeePayment, HoiExpense, HoiBook, HoiBookIssue, HoiSport, HoiSportsTeam, HoiSportsEvent, HoiElection, HoiCandidate, HoiAnnouncement, HoiSchoolProfile, HoiCalendarEvent
+- All with seed data and localStorage key naming: zaroda_hoi_*
 
 ### SuperAdmin Dashboard Sections
 - `src/components/superadmin/sections/SchoolsSection.tsx` - Full CRUD school management
@@ -47,7 +59,24 @@ A multi-tenant school management platform built with React, TypeScript, Vite, an
 - Assessment storage in `src/lib/storage.ts` (assessmentStorage with upsert/find/getByTeacher)
 - Teacher signup includes grade (Playgroup, PP1, PP2, Grade 1-9) and subject assignment
 - Two scoring systems: EE/ME/AE/BE (Playgroup, PP1, PP2, Grade 5, 7, 8, 9) and CAT1/CAT2/END TERM (Grade 1-4, 6)
-- Tab-based dashboard: Assessment Book (default) and Profile views
+
+### HOI Dashboard (src/pages/hoi/)
+- `HoiDashboard.tsx` - Main layout with collapsible sidebar and 15 sections
+- `HoiOverview.tsx` - Stats cards, charts, activity feed, quick actions, announcements
+- `HoiSchool.tsx` - School profile, academic settings, calendar events
+- `HoiClasses.tsx` - Classes & streams management, class teacher assignment
+- `HoiTeachers.tsx` - Teacher CRUD, subject assignments, duty roster
+- `HoiStudents.tsx` - Student CRUD, transfer, bulk import UI
+- `HoiOfficials.tsx` - School officials management
+- `HoiSubjects.tsx` - Subject CRUD with teacher/class linkage
+- `HoiTimetable.tsx` - Weekly timetable grid per class/stream
+- `HoiAttendance.tsx` - Attendance summary, charts, mark attendance
+- `HoiFinances.tsx` - Fee payments, expenses, financial summary with charts
+- `HoiLibrary.tsx` - Books CRUD, issue/return, overdue tracking
+- `HoiSports.tsx` - Sports management, teams, events
+- `HoiElections.tsx` - Student council elections, candidates, results with charts
+- `HoiReports.tsx` - Attendance/financial/duty/student reports with print
+- `HoiSettings.tsx` - Password, notifications, theme, logout
 
 ### Directory Structure
 - `src/` - Application source code
@@ -56,8 +85,9 @@ A multi-tenant school management platform built with React, TypeScript, Vite, an
     - `superadmin/` - SuperAdmin dashboard components (Sidebar, TopNav, sections/)
     - `teacher/` - Teacher dashboard components (AssessmentBook)
   - `pages/` - Route page components
+    - `hoi/` - HOI dashboard (15 section pages + main layout)
   - `hooks/` - Custom React hooks
-  - `lib/` - Utility functions, data layer (storage.ts), curriculum data (assessmentData.ts)
+  - `lib/` - Utility functions, data layers (storage.ts, hoiStorage.ts), curriculum data (assessmentData.ts)
   - `assets/` - Static assets (images)
 - `public/` - Public static files
 
@@ -66,7 +96,7 @@ A multi-tenant school management platform built with React, TypeScript, Vite, an
 - `/login` - Unified login page with role selector
 - `/superadmin-dashboard` - SuperAdmin dashboard (protected)
 - `/teacher-dashboard` - Teacher dashboard (protected)
-- `/hoi-dashboard` - HOI placeholder (protected)
+- `/hoi-dashboard` - HOI dashboard with 15 sections (protected)
 - `/dhoi-dashboard` - DHOI placeholder (protected)
 - `/student-dashboard` - Student placeholder (protected)
 - `/parent-dashboard` - Parent placeholder (protected)
@@ -74,3 +104,9 @@ A multi-tenant school management platform built with React, TypeScript, Vite, an
 ## User Preferences
 - Keep existing login page design, only add logic
 - No Supabase auth - use React Context + localStorage
+- All data stored in localStorage with clear key names (zaroda_*)
+- Every item has unique id (crypto.randomUUID)
+- Tables have pagination (10 rows per page)
+- All forms have validation
+- All add/edit actions open in modal dialogs
+- Use recharts for charts

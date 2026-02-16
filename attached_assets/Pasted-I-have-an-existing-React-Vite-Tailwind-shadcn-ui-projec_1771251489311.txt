@@ -1,0 +1,170 @@
+I have an existing React + Vite + Tailwind + shadcn/ui project with a SuperAdmin and Teacher dashboard already built. I need you to build a complete HOI (Head of Institution) Dashboard and add it to my project. The HOI is the head of the school and manages everything. Here is everything to build:
+
+ROUTE: /hoi-dashboard (already protected by role-based auth)
+LAYOUT:
+Build a sidebar layout with a top navbar. The sidebar should have collapsible menu sections. Use shadcn/ui components, Tailwind, and lucide-react icons throughout. Store all data in localStorage for now (backend will be added later). Make every section its own page/tab that renders inside the dashboard layout without leaving the page.
+
+SIDEBAR MENU SECTIONS AND FEATURES:
+1. Overview (Home)
+
+Stats cards: Total Students, Total Teachers, Total Classes, Total Revenue this month, Attendance rate today
+Recent activity feed
+Quick action buttons (Add Teacher, Add Student, View Timetable, View Finances)
+Announcements panel
+
+2. School Management
+
+Edit school profile (name, logo, address, motto, contacts)
+School code display
+Academic year and term settings (set current term, start date, end date)
+School calendar with events
+
+3. Classes & Streams
+
+View all classes (e.g. Form 1, Form 2, Grade 1 etc.)
+Add / edit / delete a class
+For each class, add streams (e.g. Form 1 East, Form 1 West)
+Assign a class teacher to each stream
+View students in each class/stream
+
+4. Teacher Management
+
+Add a teacher manually (name, email, phone, subject specialization, employee ID)
+View all teachers in a table with search and filter
+Edit or deactivate a teacher
+Assign a teacher to a subject + class + stream (e.g. Mr. Oduor → Mathematics → Form 2 East)
+View each teacher's full profile: classes they teach, duties, roster, attendance record
+Teacher duties: assign duties like gate duty, dining duty, games supervision etc.
+Weekly roster: build a weekly duty roster, assign days and duties to teachers, view it in a calendar/table format
+
+5. Student Management
+
+Add a student (name, admission number, class, stream, gender, DOB, parent contact)
+View all students with search, filter by class/stream
+Edit or transfer a student to another class/stream
+View individual student profile
+Bulk import students (CSV upload UI — just the UI, mark logic as TODO)
+
+6. Officials Management
+
+Add school officials (deputy head, HOD, prefects, etc.)
+Assign roles to officials
+View all officials in a table
+
+7. Subjects
+
+Add / edit / delete subjects (e.g. Mathematics, English, Kiswahili)
+Assign subjects to classes
+Link subjects to teachers
+View which teacher teaches which subject in which class/stream
+
+8. Timetable
+
+Build a school timetable per class/stream
+Each slot has: day, period/time, subject, teacher, room
+View timetable as a weekly grid (rows = periods, columns = days)
+Filter by class/stream
+Print/export timetable button (UI only)
+
+9. Attendance Summary
+
+View attendance across all classes and streams
+Summary table: Class | Stream | Present | Absent | Percentage
+Filter by date, class, stream
+Visual chart (bar chart) showing attendance trends
+Mark today's attendance per class (toggle present/absent per student)
+
+10. Finances
+
+Record fee payments (student name, admission no, amount, term, date, payment method)
+View all payments in a table with search and filter
+Outstanding fees — list of students who haven't paid with amounts owed
+Expense tracking — add school expenses (item, amount, category, date)
+Revenue vs Expenses summary card
+Monthly financial report view
+All data stored in localStorage for now
+
+11. Library
+
+Add books (title, author, ISBN, copies available, category)
+View all books in a searchable table
+Issue a book to a student (student name, book, date issued, due date)
+Return a book (mark as returned)
+View currently issued books and overdue books
+
+12. Sports
+
+Add sports/games offered (Football, Volleyball, Athletics etc.)
+Register students into sports teams
+Add sports events (name, date, venue, teams involved)
+View upcoming and past events
+Record results of sports events
+
+13. Elections (Student Council)
+
+Create an election (name, positions available, date)
+Register candidates (student name, position they're running for, class)
+Record votes per candidate (manual entry for now)
+View results with a bar chart
+Declare winner per position
+
+14. Reports
+
+Attendance report (per class, per term)
+Financial report (per term)
+Teacher duty report
+Student list report per class/stream
+All reports have a Print button (window.print())
+
+15. Settings
+
+Change HOI password (UI only for now)
+Notification preferences toggle
+Theme toggle (light/dark)
+Logout button → clears auth and redirects to /login
+
+
+DATA STORAGE:
+Use localStorage for all data with clear key names like zaroda_teachers, zaroda_students, zaroda_classes, zaroda_finances etc. so it's easy to replace with API calls later.
+Create a src/lib/storage.ts utility file with helper functions:
+
+getData(key) → parse from localStorage
+setData(key, data) → stringify to localStorage
+addItem(key, item) → add to an array in localStorage
+updateItem(key, id, updates) → update one item by id
+deleteItem(key, id) → remove one item by id
+
+Every item stored should have a unique id (use crypto.randomUUID()).
+
+FILE STRUCTURE:
+src/pages/hoi/
+  HoiDashboard.tsx          ← main layout with sidebar
+  HoiOverview.tsx
+  HoiSchool.tsx
+  HoiClasses.tsx
+  HoiTeachers.tsx
+  HoiStudents.tsx
+  HoiOfficials.tsx
+  HoiSubjects.tsx
+  HoiTimetable.tsx
+  HoiAttendance.tsx
+  HoiFinances.tsx
+  HoiLibrary.tsx
+  HoiSports.tsx
+  HoiElections.tsx
+  HoiReports.tsx
+  HoiSettings.tsx
+src/lib/storage.ts
+
+IMPORTANT:
+
+Do NOT touch the SuperAdmin or Teacher dashboards already built
+Do NOT remove or change the auth system already in place
+HOI route /hoi-dashboard must remain protected (only role=HOI can access)
+Use the same design language (shadcn/ui, Tailwind, lucide-react) already used in the project
+Make all tables have pagination (10 rows per page)
+All forms must have validation and show error messages
+All add/edit actions open in a modal/dialog, not a new page
+Use recharts for all charts (already likely installed)
+
+

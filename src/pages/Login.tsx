@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Mail, Lock, Hash, User, Phone, BookOpen, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuthContext, UserRole, getDashboardForRole, TeacherSignupData, GradeLevel, GRADE_LEVELS } from '@/context/AuthContext';
+import { useAuthContext, UserRole, getDashboardForRole, TeacherSignupData, HoiSignupData, GradeLevel, GRADE_LEVELS } from '@/context/AuthContext';
 import zarodaLogo from '@/assets/zaroda-logo.png';
 
 type FormMode = 'login' | 'signup';
@@ -35,7 +35,7 @@ const Login = () => {
   });
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { login, signup, currentUser } = useAuthContext();
+  const { login, signup, signupHoi, currentUser } = useAuthContext();
 
   useEffect(() => {
     if (currentUser) {
@@ -94,6 +94,25 @@ const Login = () => {
         } else {
           toast({ title: 'Sign up failed', description: result.error, variant: 'destructive' });
         }
+      } else if (selectedRole === 'hoi' && formMode === 'signup') {
+        if (!formData.fullName.trim() || !formData.schoolCode.trim() || !formData.phone.trim()) {
+          toast({ title: 'Missing fields', description: 'Please fill in all required fields.', variant: 'destructive' });
+          setIsSubmitting(false);
+          return;
+        }
+        const hoiData: HoiSignupData = {
+          fullName: formData.fullName,
+          email: formData.email,
+          password: formData.password,
+          schoolCode: formData.schoolCode,
+          phone: formData.phone,
+        };
+        const result = signupHoi(hoiData);
+        if (result.success) {
+          toast({ title: 'HOI Account created!', description: 'Welcome to Zaroda Solutions.' });
+        } else {
+          toast({ title: 'Sign up failed', description: result.error, variant: 'destructive' });
+        }
       } else {
         const result = login(selectedRole as UserRole, formData.email, formData.password, formData.schoolCode);
         if (result.success) {
@@ -109,10 +128,11 @@ const Login = () => {
     }
   };
 
-  const showSchoolCode = selectedRole === 'superadmin' || (selectedRole === 'teacher' && formMode === 'signup');
-  const showLoginSignupToggle = selectedRole === 'teacher';
-  const isPlaceholderRole = selectedRole === 'hoi' || selectedRole === 'dhoi' || selectedRole === 'student' || selectedRole === 'parent';
+  const showSchoolCode = selectedRole === 'superadmin' || ((selectedRole === 'teacher' || selectedRole === 'hoi') && formMode === 'signup');
+  const showLoginSignupToggle = selectedRole === 'teacher' || selectedRole === 'hoi';
+  const isPlaceholderRole = selectedRole === 'dhoi' || selectedRole === 'student' || selectedRole === 'parent';
   const showTeacherSignupFields = selectedRole === 'teacher' && formMode === 'signup';
+  const showHoiSignupFields = selectedRole === 'hoi' && formMode === 'signup';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background flex items-center justify-center p-4">
@@ -188,7 +208,7 @@ const Login = () => {
 
           {selectedRole && (
             <form onSubmit={handleSubmit} className="space-y-4">
-              {showTeacherSignupFields && (
+              {(showTeacherSignupFields || showHoiSignupFields) && (
                 <div>
                   <Label htmlFor="fullName">Full Name</Label>
                   <div className="relative">
@@ -315,6 +335,25 @@ const Login = () => {
                     </div>
                   </div>
                 </>
+              )}
+
+              {showHoiSignupFields && (
+                <div>
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+                    <Input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      placeholder="+254 7XX XXX XXX"
+                      value={formData.phone}
+                      onChange={handleChange}
+                      className="pl-10"
+                      required
+                    />
+                  </div>
+                </div>
               )}
 
               <Button type="submit" variant="hero" size="lg" className="w-full" disabled={isSubmitting}>

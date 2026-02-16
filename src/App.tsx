@@ -12,7 +12,7 @@ import Elections from "./pages/Elections";
 import Sports from "./pages/Sports";
 import SuperAdmin from "./pages/SuperAdmin";
 import Dashboard from "./pages/Dashboard";
-import HoiDashboard from "./pages/HoiDashboard";
+import HoiDashboard from "./pages/hoi/HoiDashboard";
 import DhoiDashboard from "./pages/DhoiDashboard";
 import StudentDashboard from "./pages/StudentDashboard";
 import ParentDashboard from "./pages/ParentDashboard";
