@@ -4,12 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Mail, Lock, Hash, User, Phone, BookOpen, Info } from 'lucide-react';
+import { ArrowLeft, Mail, Lock, Hash, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuthContext, UserRole, getDashboardForRole, TeacherSignupData, GradeLevel, GRADE_LEVELS } from '@/context/AuthContext';
+import { useAuthContext, UserRole, getDashboardForRole } from '@/context/AuthContext';
 import zarodaLogo from '@/assets/zaroda-logo.png';
-
-type FormMode = 'login' | 'signup';
 
 const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: 'superadmin', label: 'SuperAdmin' },
@@ -23,19 +21,14 @@ const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
 const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedRole, setSelectedRole] = useState<UserRole | ''>('');
-  const [formMode, setFormMode] = useState<FormMode>('login');
   const [formData, setFormData] = useState({
     schoolCode: '',
     email: '',
     password: '',
-    fullName: '',
-    phone: '',
-    subject: '',
-    grade: '' as string,
   });
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { login, signup, currentUser } = useAuthContext();
+  const { login, currentUser } = useAuthContext();
 
   useEffect(() => {
     if (currentUser) {
@@ -53,8 +46,7 @@ const Login = () => {
 
   const handleRoleChange = (value: string) => {
     setSelectedRole(value as UserRole);
-    setFormMode('login');
-    setFormData({ schoolCode: '', email: '', password: '', fullName: '', phone: '', subject: '', grade: '' });
+    setFormData({ schoolCode: '', email: '', password: '' });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -73,34 +65,11 @@ const Login = () => {
     setIsSubmitting(true);
 
     try {
-      if (selectedRole === 'teacher' && formMode === 'signup') {
-        if (!formData.fullName.trim() || !formData.schoolCode.trim() || !formData.subject.trim() || !formData.phone.trim() || !formData.grade) {
-          toast({ title: 'Missing fields', description: 'Please fill in all required fields.', variant: 'destructive' });
-          setIsSubmitting(false);
-          return;
-        }
-        const signupData: TeacherSignupData = {
-          fullName: formData.fullName,
-          email: formData.email,
-          password: formData.password,
-          schoolCode: formData.schoolCode,
-          subject: formData.subject,
-          phone: formData.phone,
-          grade: formData.grade as GradeLevel,
-        };
-        const result = signup(signupData);
-        if (result.success) {
-          toast({ title: 'Account created!', description: 'Welcome to Zaroda Solutions.' });
-        } else {
-          toast({ title: 'Sign up failed', description: result.error, variant: 'destructive' });
-        }
+      const result = login(selectedRole as UserRole, formData.email, formData.password, formData.schoolCode);
+      if (result.success) {
+        toast({ title: 'Login successful!', description: 'Welcome back to Zaroda Solutions.' });
       } else {
-        const result = login(selectedRole as UserRole, formData.email, formData.password, formData.schoolCode);
-        if (result.success) {
-          toast({ title: 'Login successful!', description: 'Welcome back to Zaroda Solutions.' });
-        } else {
-          toast({ title: 'Login failed', description: result.error, variant: 'destructive' });
-        }
+        toast({ title: 'Login failed', description: result.error, variant: 'destructive' });
       }
     } catch {
       toast({ title: 'Error', description: 'Something went wrong. Please try again.', variant: 'destructive' });
@@ -109,12 +78,11 @@ const Login = () => {
     }
   };
 
-  const showSchoolCode = selectedRole === 'superadmin' || (selectedRole === 'teacher' && formMode === 'signup');
-  const showLoginSignupToggle = selectedRole === 'teacher';
+  const showSchoolCode = selectedRole === 'superadmin';
   const isDhoiRole = selectedRole === 'dhoi';
+  const isTeacherRole = selectedRole === 'teacher';
   const isPlaceholderRole = selectedRole === 'student' || selectedRole === 'parent';
   const isHoiRole = selectedRole === 'hoi';
-  const showTeacherSignupFields = selectedRole === 'teacher' && formMode === 'signup';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background flex items-center justify-center p-4">
@@ -133,10 +101,10 @@ const Login = () => {
               <img src={zarodaLogo} alt="Zaroda Solutions" className="h-16 mx-auto mb-4" />
             </Link>
             <h1 className="text-2xl md:text-3xl font-bold mb-2">
-              {formMode === 'signup' ? 'Create Teacher Account' : 'Welcome Back'}
+              Welcome Back
             </h1>
             <p className="text-muted-foreground">
-              {formMode === 'signup' ? 'Sign up for your teacher account' : 'Log in to your Zaroda account'}
+              Log in to your Zaroda account
             </p>
           </div>
 
@@ -156,26 +124,17 @@ const Login = () => {
             </Select>
           </div>
 
-          {showLoginSignupToggle && (
-            <div className="flex gap-2 mb-6">
-              <Button
-                type="button"
-                variant={formMode === 'login' ? 'default' : 'outline'}
-                size="sm"
-                className="flex-1"
-                onClick={() => setFormMode('login')}
-              >
-                Log In
-              </Button>
-              <Button
-                type="button"
-                variant={formMode === 'signup' ? 'default' : 'outline'}
-                size="sm"
-                className="flex-1"
-                onClick={() => setFormMode('signup')}
-              >
-                Sign Up
-              </Button>
+          {isTeacherRole && (
+            <div className="flex items-start gap-3 p-4 bg-purple-50 dark:bg-purple-950/30 rounded-lg mb-6 border border-purple-200 dark:border-purple-800">
+              <Info size={20} className="text-purple-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-purple-800 dark:text-purple-300 mb-1">
+                  Teacher accounts are created by the SuperAdmin, HOI, or DHOI
+                </p>
+                <p className="text-xs text-purple-600 dark:text-purple-400">
+                  Your login credentials (email and password) are assigned by your institution. Use those details to log in below.
+                </p>
+              </div>
             </div>
           )}
 
@@ -193,10 +152,10 @@ const Login = () => {
               <Info size={20} className="text-indigo-600 mt-0.5 shrink-0" />
               <div>
                 <p className="text-sm font-medium text-indigo-800 dark:text-indigo-300 mb-1">
-                  DHOI accounts are created by the HOI
+                  DHOI accounts are created by the HOI or SuperAdmin
                 </p>
                 <p className="text-xs text-indigo-600 dark:text-indigo-400">
-                  Your login credentials (email and password) are assigned by the Head of Institution. Use those details to log in below.
+                  Your login credentials (email and password) are assigned by the Head of Institution or SuperAdmin. Use those details to log in below.
                 </p>
               </div>
             </div>
@@ -218,25 +177,6 @@ const Login = () => {
 
           {selectedRole && !isPlaceholderRole && (
             <form onSubmit={handleSubmit} className="space-y-4">
-              {showTeacherSignupFields && (
-                <div>
-                  <Label htmlFor="fullName">Full Name</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                    <Input
-                      id="fullName"
-                      name="fullName"
-                      type="text"
-                      placeholder="Enter your full name"
-                      value={formData.fullName}
-                      onChange={handleChange}
-                      className="pl-10"
-                      required
-                    />
-                  </div>
-                </div>
-              )}
-
               {showSchoolCode && (
                 <div>
                   <Label htmlFor="schoolCode">School Code</Label>
@@ -276,11 +216,9 @@ const Login = () => {
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <Label htmlFor="password">Password</Label>
-                  {formMode === 'login' && (
-                    <a href="#" className="text-sm text-primary hover:underline">
-                      Forgot password?
-                    </a>
-                  )}
+                  <a href="#" className="text-sm text-primary hover:underline">
+                    Forgot password?
+                  </a>
                 </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
@@ -297,61 +235,8 @@ const Login = () => {
                 </div>
               </div>
 
-              {showTeacherSignupFields && (
-                <>
-                  <div>
-                    <Label>Grade / Class Assigned</Label>
-                    <Select onValueChange={(value) => setFormData({ ...formData, grade: value })} value={formData.grade}>
-                      <SelectTrigger className="mt-1">
-                        <SelectValue placeholder="Select grade..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {GRADE_LEVELS.map((g) => (
-                          <SelectItem key={g} value={g}>{g}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="subject">Subject</Label>
-                    <div className="relative">
-                      <BookOpen className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                      <Input
-                        id="subject"
-                        name="subject"
-                        type="text"
-                        placeholder="e.g., Mathematics"
-                        value={formData.subject}
-                        onChange={handleChange}
-                        className="pl-10"
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                      <Input
-                        id="phone"
-                        name="phone"
-                        type="tel"
-                        placeholder="+254 7XX XXX XXX"
-                        value={formData.phone}
-                        onChange={handleChange}
-                        className="pl-10"
-                        required
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
-
               <Button type="submit" variant="hero" size="lg" className="w-full" disabled={isSubmitting}>
-                {isSubmitting
-                  ? (formMode === 'signup' ? 'Creating Account...' : 'Logging in...')
-                  : (formMode === 'signup' ? 'Create Account' : 'Log In')
-                }
+                {isSubmitting ? 'Logging in...' : 'Log In'}
               </Button>
 
               {selectedRole === 'superadmin' && (

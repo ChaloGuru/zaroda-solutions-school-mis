@@ -140,7 +140,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const platformUser = platformUsersStorage.findByEmail(normalizedEmail);
 
       if (!found && (!platformUser || platformUser.role !== 'teacher')) {
-        return { success: false, error: 'No teacher account found with this email. Please sign up first.' };
+        return { success: false, error: 'No teacher account found with this email. Your account must be created by the SuperAdmin, HOI, or DHOI.' };
       }
 
       if (platformUser && platformUser.status === 'suspended') {

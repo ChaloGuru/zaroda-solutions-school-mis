@@ -13,6 +13,7 @@ import {
   HoiStream,
   HoiTeacherDuty,
 } from '@/lib/hoiStorage';
+import { platformUsersStorage } from '@/lib/storage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -81,6 +82,7 @@ const emptyTeacherForm = {
   gender: 'Male' as HoiTeacher['gender'],
   qualification: '',
   status: 'active' as HoiTeacher['status'],
+  password: '',
 };
 
 const emptyAssignmentForm = {
@@ -226,6 +228,7 @@ export default function HoiTeachers() {
       gender: t.gender,
       qualification: t.qualification,
       status: t.status,
+      password: '',
     });
     setTeacherDialogOpen(true);
   };
@@ -235,12 +238,38 @@ export default function HoiTeachers() {
       toast({ title: 'Validation Error', description: 'Full name, email, and employee ID are required.', variant: 'destructive' });
       return;
     }
+    if (!editingTeacher && !teacherForm.password.trim()) {
+      toast({ title: 'Validation Error', description: 'Password is required when adding a new teacher.', variant: 'destructive' });
+      return;
+    }
+    const { password, ...teacherData } = teacherForm;
     if (editingTeacher) {
-      hoiTeachersStorage.update(editingTeacher.id, teacherForm);
+      hoiTeachersStorage.update(editingTeacher.id, teacherData);
+      if (password.trim()) {
+        const passwords = JSON.parse(localStorage.getItem('zaroda_passwords') || '{}');
+        passwords[teacherForm.email.trim().toLowerCase()] = password.trim();
+        localStorage.setItem('zaroda_passwords', JSON.stringify(passwords));
+      }
       toast({ title: 'Teacher Updated', description: `${teacherForm.full_name} has been updated.` });
     } else {
-      hoiTeachersStorage.add({ ...teacherForm, hired_at: new Date().toISOString().split('T')[0] });
-      toast({ title: 'Teacher Added', description: `${teacherForm.full_name} has been added.` });
+      const newTeacher = hoiTeachersStorage.add({ ...teacherData, hired_at: new Date().toISOString().split('T')[0] });
+      const passwords = JSON.parse(localStorage.getItem('zaroda_passwords') || '{}');
+      passwords[teacherForm.email.trim().toLowerCase()] = password.trim();
+      localStorage.setItem('zaroda_passwords', JSON.stringify(passwords));
+      const existing = platformUsersStorage.getAll().find(u => u.email.toLowerCase() === teacherForm.email.trim().toLowerCase());
+      if (!existing) {
+        platformUsersStorage.add({
+          email: teacherForm.email.trim().toLowerCase(),
+          fullName: teacherForm.full_name.trim(),
+          role: 'teacher',
+          schoolCode: '',
+          schoolName: '',
+          phone: teacherForm.phone.trim(),
+          status: 'active',
+          createdBy: 'HOI',
+        });
+      }
+      toast({ title: 'Teacher Added', description: `${teacherForm.full_name} has been added. They can now log in with their email and password.` });
     }
     setTeacherDialogOpen(false);
     loadData();
@@ -598,6 +627,11 @@ export default function HoiTeachers() {
                   <SelectItem value="deactivated">Deactivated</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label>Login Password {!editingTeacher ? '*' : '(leave blank to keep current)'}</Label>
+              <Input type="password" placeholder={editingTeacher ? 'Leave blank to keep current' : 'Set login password'} value={teacherForm.password} onChange={(e) => setTeacherForm({ ...teacherForm, password: e.target.value })} />
+              <p className="text-xs text-muted-foreground mt-1">This password will be used by the teacher to log in to the platform.</p>
             </div>
           </div>
           <DialogFooter>
