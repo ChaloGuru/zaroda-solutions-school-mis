@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Mail, Lock, Hash, User, Phone, BookOpen, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuthContext, UserRole, getDashboardForRole, TeacherSignupData, HoiSignupData, GradeLevel, GRADE_LEVELS } from '@/context/AuthContext';
+import { useAuthContext, UserRole, getDashboardForRole, TeacherSignupData, GradeLevel, GRADE_LEVELS } from '@/context/AuthContext';
 import zarodaLogo from '@/assets/zaroda-logo.png';
 
 type FormMode = 'login' | 'signup';
@@ -35,7 +35,7 @@ const Login = () => {
   });
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { login, signup, signupHoi, currentUser } = useAuthContext();
+  const { login, signup, currentUser } = useAuthContext();
 
   useEffect(() => {
     if (currentUser) {
@@ -94,25 +94,6 @@ const Login = () => {
         } else {
           toast({ title: 'Sign up failed', description: result.error, variant: 'destructive' });
         }
-      } else if (selectedRole === 'hoi' && formMode === 'signup') {
-        if (!formData.fullName.trim() || !formData.schoolCode.trim() || !formData.phone.trim()) {
-          toast({ title: 'Missing fields', description: 'Please fill in all required fields.', variant: 'destructive' });
-          setIsSubmitting(false);
-          return;
-        }
-        const hoiData: HoiSignupData = {
-          fullName: formData.fullName,
-          email: formData.email,
-          password: formData.password,
-          schoolCode: formData.schoolCode,
-          phone: formData.phone,
-        };
-        const result = signupHoi(hoiData);
-        if (result.success) {
-          toast({ title: 'HOI Account created!', description: 'Welcome to Zaroda Solutions.' });
-        } else {
-          toast({ title: 'Sign up failed', description: result.error, variant: 'destructive' });
-        }
       } else {
         const result = login(selectedRole as UserRole, formData.email, formData.password, formData.schoolCode);
         if (result.success) {
@@ -128,11 +109,11 @@ const Login = () => {
     }
   };
 
-  const showSchoolCode = selectedRole === 'superadmin' || ((selectedRole === 'teacher' || selectedRole === 'hoi') && formMode === 'signup');
-  const showLoginSignupToggle = selectedRole === 'teacher' || selectedRole === 'hoi';
+  const showSchoolCode = selectedRole === 'superadmin' || (selectedRole === 'teacher' && formMode === 'signup');
+  const showLoginSignupToggle = selectedRole === 'teacher';
   const isPlaceholderRole = selectedRole === 'dhoi' || selectedRole === 'student' || selectedRole === 'parent';
+  const isHoiRole = selectedRole === 'hoi';
   const showTeacherSignupFields = selectedRole === 'teacher' && formMode === 'signup';
-  const showHoiSignupFields = selectedRole === 'hoi' && formMode === 'signup';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background flex items-center justify-center p-4">
@@ -206,9 +187,23 @@ const Login = () => {
             </div>
           )}
 
-          {selectedRole && (
+          {isHoiRole && (
+            <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg mb-6 border border-blue-200 dark:border-blue-800">
+              <Info size={20} className="text-blue-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-1">
+                  HOI accounts are created by the SuperAdmin
+                </p>
+                <p className="text-xs text-blue-600 dark:text-blue-400">
+                  Your login credentials (email and password) are assigned by the SuperAdmin. Use those details to log in below.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {selectedRole && !isPlaceholderRole && (
             <form onSubmit={handleSubmit} className="space-y-4">
-              {(showTeacherSignupFields || showHoiSignupFields) && (
+              {showTeacherSignupFields && (
                 <div>
                   <Label htmlFor="fullName">Full Name</Label>
                   <div className="relative">
@@ -335,25 +330,6 @@ const Login = () => {
                     </div>
                   </div>
                 </>
-              )}
-
-              {showHoiSignupFields && (
-                <div>
-                  <Label htmlFor="phone">Phone Number</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                    <Input
-                      id="phone"
-                      name="phone"
-                      type="tel"
-                      placeholder="+254 7XX XXX XXX"
-                      value={formData.phone}
-                      onChange={handleChange}
-                      className="pl-10"
-                      required
-                    />
-                  </div>
-                </div>
               )}
 
               <Button type="submit" variant="hero" size="lg" className="w-full" disabled={isSubmitting}>

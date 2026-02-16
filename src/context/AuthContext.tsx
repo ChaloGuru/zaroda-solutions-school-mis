@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { platformUsersStorage, activityStorage, initSeedPasswords } from '@/lib/storage';
 
 export type UserRole = 'superadmin' | 'teacher' | 'hoi' | 'dhoi' | 'student' | 'parent';
 
@@ -24,7 +25,6 @@ interface AuthContextType {
   loading: boolean;
   login: (role: UserRole, email: string, password: string, schoolCode?: string) => { success: boolean; error?: string };
   signup: (data: TeacherSignupData) => { success: boolean; error?: string };
-  signupHoi: (data: HoiSignupData) => { success: boolean; error?: string };
   logout: () => void;
 }
 
@@ -36,14 +36,6 @@ export interface TeacherSignupData {
   subject: string;
   phone: string;
   grade: GradeLevel;
-}
-
-export interface HoiSignupData {
-  fullName: string;
-  email: string;
-  password: string;
-  schoolCode: string;
-  phone: string;
 }
 
 const SUPERADMIN_CREDENTIALS = {
@@ -100,6 +92,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    initSeedPasswords();
     try {
       const stored = localStorage.getItem('zaroda_current_user');
       if (stored) {
@@ -129,6 +122,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         };
         setCurrentUser(user);
         localStorage.setItem('zaroda_current_user', JSON.stringify(user));
+        activityStorage.add({
+          userId: user.id,
+          email: user.email,
+          fullName: user.fullName,
+          role: 'superadmin',
+          action: 'login',
+        });
         return { success: true };
       }
       return { success: false, error: 'Invalid school code, email, or password.' };
@@ -137,30 +137,79 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (role === 'teacher') {
       const users = getStoredUsers();
       const found = users.find(u => u.email.toLowerCase() === normalizedEmail && u.role === 'teacher');
-      if (!found) {
+      const platformUser = platformUsersStorage.findByEmail(normalizedEmail);
+
+      if (!found && (!platformUser || platformUser.role !== 'teacher')) {
         return { success: false, error: 'No teacher account found with this email. Please sign up first.' };
       }
+
+      if (platformUser && platformUser.status === 'suspended') {
+        return { success: false, error: 'Your account has been suspended. Please contact the SuperAdmin.' };
+      }
+
       const passwords = getStoredPasswords();
       if (passwords[normalizedEmail] !== password) {
         return { success: false, error: 'Incorrect password. Please try again.' };
       }
-      setCurrentUser(found);
-      localStorage.setItem('zaroda_current_user', JSON.stringify(found));
+
+      const user: AuthUser = found || {
+        id: platformUser!.id,
+        email: platformUser!.email,
+        fullName: platformUser!.fullName,
+        role: 'teacher' as UserRole,
+        schoolCode: platformUser!.schoolCode,
+        phone: platformUser!.phone,
+        subject: platformUser!.subject,
+        grade: platformUser!.grade as GradeLevel | undefined,
+      };
+      setCurrentUser(user);
+      localStorage.setItem('zaroda_current_user', JSON.stringify(user));
+      if (platformUser) {
+        platformUsersStorage.recordLogin(platformUser.id);
+        activityStorage.add({
+          userId: platformUser.id,
+          email: user.email,
+          fullName: user.fullName,
+          role: 'teacher',
+          action: 'login',
+        });
+      }
       return { success: true };
     }
 
     if (role === 'hoi') {
-      const users = getStoredUsers();
-      const found = users.find(u => u.email.toLowerCase() === normalizedEmail && u.role === 'hoi');
-      if (!found) {
-        return { success: false, error: 'No HOI account found with this email. Please sign up first.' };
+      const platformUser = platformUsersStorage.findByEmail(normalizedEmail);
+      if (!platformUser || platformUser.role !== 'hoi') {
+        return { success: false, error: 'No HOI account found with this email. Your account must be created by the SuperAdmin.' };
+      }
+      if (platformUser.status === 'suspended') {
+        return { success: false, error: 'Your account has been suspended. Please contact the SuperAdmin.' };
+      }
+      if (platformUser.status === 'inactive') {
+        return { success: false, error: 'Your account is inactive. Please contact the SuperAdmin.' };
       }
       const passwords = getStoredPasswords();
       if (passwords[normalizedEmail] !== password) {
         return { success: false, error: 'Incorrect password. Please try again.' };
       }
-      setCurrentUser(found);
-      localStorage.setItem('zaroda_current_user', JSON.stringify(found));
+      const user: AuthUser = {
+        id: platformUser.id,
+        email: platformUser.email,
+        fullName: platformUser.fullName,
+        role: 'hoi',
+        schoolCode: platformUser.schoolCode,
+        phone: platformUser.phone,
+      };
+      setCurrentUser(user);
+      localStorage.setItem('zaroda_current_user', JSON.stringify(user));
+      platformUsersStorage.recordLogin(platformUser.id);
+      activityStorage.add({
+        userId: platformUser.id,
+        email: platformUser.email,
+        fullName: platformUser.fullName,
+        role: 'hoi',
+        action: 'login',
+      });
       return { success: true };
     }
 
@@ -189,33 +238,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     saveUser(newUser, data.password);
     setCurrentUser(newUser);
     localStorage.setItem('zaroda_current_user', JSON.stringify(newUser));
-    return { success: true };
-  };
 
-  const signupHoi = (data: HoiSignupData): { success: boolean; error?: string } => {
-    const normalizedEmail = data.email.trim().toLowerCase();
-    const users = getStoredUsers();
-    const existing = users.find(u => u.email.toLowerCase() === normalizedEmail);
-    if (existing) {
-      return { success: false, error: 'An account with this email already exists. Please log in instead.' };
-    }
-
-    const newUser: AuthUser = {
-      id: `hoi-${Date.now()}`,
+    const schoolName = data.schoolCode.trim();
+    platformUsersStorage.add({
       email: normalizedEmail,
       fullName: data.fullName.trim(),
-      role: 'hoi',
+      role: 'teacher',
       schoolCode: data.schoolCode.trim(),
+      schoolName,
       phone: data.phone.trim(),
-    };
-
-    saveUser(newUser, data.password);
-    setCurrentUser(newUser);
-    localStorage.setItem('zaroda_current_user', JSON.stringify(newUser));
+      status: 'active',
+      subject: data.subject.trim(),
+      grade: data.grade,
+      createdBy: 'Self-registered',
+    });
+    activityStorage.add({
+      userId: newUser.id,
+      email: normalizedEmail,
+      fullName: data.fullName.trim(),
+      role: 'teacher',
+      action: 'account_created',
+      details: 'Teacher self-registered',
+    });
     return { success: true };
   };
 
   const logout = () => {
+    if (currentUser) {
+      activityStorage.add({
+        userId: currentUser.id,
+        email: currentUser.email,
+        fullName: currentUser.fullName,
+        role: currentUser.role,
+        action: 'logout',
+      });
+    }
     setCurrentUser(null);
     localStorage.removeItem('zaroda_current_user');
   };
@@ -228,7 +285,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         loading,
         login,
         signup,
-        signupHoi,
         logout,
       }}
     >

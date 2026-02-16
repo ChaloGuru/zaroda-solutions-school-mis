@@ -313,6 +313,129 @@ export const assessmentStorage = {
   },
 };
 
+export interface PlatformUser {
+  id: string;
+  email: string;
+  fullName: string;
+  role: 'hoi' | 'teacher' | 'dhoi' | 'student' | 'parent';
+  schoolCode: string;
+  schoolName: string;
+  phone: string;
+  status: 'active' | 'suspended' | 'inactive';
+  subject?: string;
+  grade?: string;
+  createdAt: string;
+  createdBy: string;
+  lastLogin: string | null;
+  loginCount: number;
+}
+
+export interface LoginActivity {
+  id: string;
+  userId: string;
+  email: string;
+  fullName: string;
+  role: string;
+  action: 'login' | 'logout' | 'account_created' | 'account_updated' | 'account_suspended' | 'account_activated';
+  timestamp: string;
+  details?: string;
+}
+
+const SEED_PLATFORM_USERS: PlatformUser[] = [
+  { id: 'pu1', email: 'hoi@greenwood.ac.ke', fullName: 'Dr. Samuel Kariuki', role: 'hoi', schoolCode: 'GWA-001', schoolName: 'Greenwood Academy', phone: '+254 711 100 001', status: 'active', createdAt: '2024-01-15', createdBy: 'SuperAdmin', lastLogin: '2026-02-15T08:30:00Z', loginCount: 45 },
+  { id: 'pu2', email: 'hoi@sunrise.ac.ke', fullName: 'Mary Wanjiku', role: 'hoi', schoolCode: 'SPS-002', schoolName: 'Sunrise Primary School', phone: '+254 723 456 789', status: 'active', createdAt: '2024-02-20', createdBy: 'SuperAdmin', lastLogin: '2026-02-14T10:15:00Z', loginCount: 38 },
+  { id: 'pu3', email: 'hoi@heritage.ac.ke', fullName: 'Peter Otieno', role: 'hoi', schoolCode: 'HHS-003', schoolName: 'Heritage High School', phone: '+254 734 567 890', status: 'active', createdAt: '2024-03-10', createdBy: 'SuperAdmin', lastLogin: '2026-02-13T14:20:00Z', loginCount: 32 },
+  { id: 'pu4', email: 'hoi@victory.ac.ke', fullName: 'Grace Kamau', role: 'hoi', schoolCode: 'VCS-004', schoolName: 'Victory Christian School', phone: '+254 745 678 901', status: 'suspended', createdAt: '2024-04-05', createdBy: 'SuperAdmin', lastLogin: '2025-12-01T09:00:00Z', loginCount: 12 },
+];
+
+const SEED_ACTIVITY: LoginActivity[] = [
+  { id: 'la1', userId: 'pu1', email: 'hoi@greenwood.ac.ke', fullName: 'Dr. Samuel Kariuki', role: 'hoi', action: 'login', timestamp: '2026-02-15T08:30:00Z' },
+  { id: 'la2', userId: 'pu2', email: 'hoi@sunrise.ac.ke', fullName: 'Mary Wanjiku', role: 'hoi', action: 'login', timestamp: '2026-02-14T10:15:00Z' },
+  { id: 'la3', userId: 'pu3', email: 'hoi@heritage.ac.ke', fullName: 'Peter Otieno', role: 'hoi', action: 'login', timestamp: '2026-02-13T14:20:00Z' },
+  { id: 'la4', userId: 'pu1', email: 'hoi@greenwood.ac.ke', fullName: 'Dr. Samuel Kariuki', role: 'hoi', action: 'account_created', timestamp: '2024-01-15T09:00:00Z', details: 'Account created by SuperAdmin' },
+  { id: 'la5', userId: 'pu4', email: 'hoi@victory.ac.ke', fullName: 'Grace Kamau', role: 'hoi', action: 'account_suspended', timestamp: '2025-12-15T11:00:00Z', details: 'Account suspended by SuperAdmin' },
+];
+
+export const platformUsersStorage = {
+  getAll: () => getCollection<PlatformUser>('zaroda_platform_users', SEED_PLATFORM_USERS),
+  save: (users: PlatformUser[]) => saveCollection('zaroda_platform_users', users),
+  add: (user: Omit<PlatformUser, 'id' | 'createdAt' | 'lastLogin' | 'loginCount'>) => {
+    const users = platformUsersStorage.getAll();
+    const newUser: PlatformUser = { ...user, id: generateId(), createdAt: new Date().toISOString().split('T')[0], lastLogin: null, loginCount: 0 };
+    users.push(newUser);
+    platformUsersStorage.save(users);
+    return newUser;
+  },
+  update: (id: string, data: Partial<PlatformUser>) => {
+    const users = platformUsersStorage.getAll();
+    const idx = users.findIndex(u => u.id === id);
+    if (idx !== -1) { users[idx] = { ...users[idx], ...data }; platformUsersStorage.save(users); }
+    return users[idx];
+  },
+  remove: (id: string) => {
+    const users = platformUsersStorage.getAll().filter(u => u.id !== id);
+    platformUsersStorage.save(users);
+  },
+  findByEmail: (email: string) => {
+    return platformUsersStorage.getAll().find(u => u.email.toLowerCase() === email.toLowerCase());
+  },
+  getByRole: (role: string) => {
+    return platformUsersStorage.getAll().filter(u => u.role === role);
+  },
+  getBySchool: (schoolCode: string) => {
+    return platformUsersStorage.getAll().filter(u => u.schoolCode === schoolCode);
+  },
+  recordLogin: (id: string) => {
+    const users = platformUsersStorage.getAll();
+    const idx = users.findIndex(u => u.id === id);
+    if (idx !== -1) {
+      users[idx].lastLogin = new Date().toISOString();
+      users[idx].loginCount = (users[idx].loginCount || 0) + 1;
+      platformUsersStorage.save(users);
+    }
+  },
+};
+
+export const activityStorage = {
+  getAll: () => getCollection<LoginActivity>('zaroda_activity_log', SEED_ACTIVITY),
+  save: (logs: LoginActivity[]) => saveCollection('zaroda_activity_log', logs),
+  add: (log: Omit<LoginActivity, 'id' | 'timestamp'>) => {
+    const logs = activityStorage.getAll();
+    const newLog: LoginActivity = { ...log, id: generateId(), timestamp: new Date().toISOString() };
+    logs.push(newLog);
+    activityStorage.save(logs);
+    return newLog;
+  },
+  getByUser: (userId: string) => {
+    return activityStorage.getAll().filter(l => l.userId === userId);
+  },
+  getRecent: (limit = 50) => {
+    return activityStorage.getAll().sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, limit);
+  },
+};
+
+export const initSeedPasswords = () => {
+  const key = 'zaroda_passwords';
+  const existing = localStorage.getItem(key);
+  const passwords: Record<string, string> = existing ? JSON.parse(existing) : {};
+  let changed = false;
+  const seedPasswords: Record<string, string> = {
+    'hoi@greenwood.ac.ke': 'greenwood2024',
+    'hoi@sunrise.ac.ke': 'sunrise2024',
+    'hoi@heritage.ac.ke': 'heritage2024',
+    'hoi@victory.ac.ke': 'victory2024',
+  };
+  for (const [email, pwd] of Object.entries(seedPasswords)) {
+    if (!passwords[email]) {
+      passwords[email] = pwd;
+      changed = true;
+    }
+  }
+  if (changed) {
+    localStorage.setItem(key, JSON.stringify(passwords));
+  }
+};
+
 export const settingsStorage = {
   get: (): PlatformSettings => {
     const stored = localStorage.getItem('zaroda_settings');

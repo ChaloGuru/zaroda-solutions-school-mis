@@ -9,11 +9,13 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
+  UserCog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", id: "dashboard" },
+  { icon: UserCog, label: "User Management", id: "users" },
   { icon: School, label: "Schools", id: "schools" },
   { icon: Users, label: "Student Registry", id: "students" },
   { icon: GraduationCap, label: "Faculty", id: "faculty" },

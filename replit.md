@@ -4,8 +4,8 @@
 A multi-tenant school management platform built with React, TypeScript, Vite, and Tailwind CSS. Features include multi-school sync, automated billing, parent-teacher portals, elections, sports management, and more.
 
 ## Recent Changes
+- 2026-02-16: Connected auth so SuperAdmin creates HOI accounts. Added User Management section to SuperAdmin dashboard (create/edit/suspend/track users). HOI can no longer self-register - must use credentials assigned by SuperAdmin. Added PlatformUser & LoginActivity tracking, activity log, login history, and status checks (suspended accounts blocked). Teacher login also supports SuperAdmin-created accounts.
 - 2026-02-16: Built complete HOI (Head of Institution) Dashboard with 15 sections: Overview, School Management, Classes & Streams, Teacher Management, Student Management, Officials Management, Subjects, Timetable, Attendance Summary, Finances, Library, Sports, Elections, Reports, Settings. All with full CRUD, search/filter, pagination, modal dialogs, charts, and localStorage persistence.
-- 2026-02-16: Enabled HOI signup/login flow in AuthContext and Login page. HOI can now register and login.
 - 2026-02-16: Created HOI data layer (src/lib/hoiStorage.ts) with generic localStorage helpers, 22 typed interfaces, and seed data for all HOI entities.
 - 2026-02-16: Implemented complete CBC Assessment Book for Teacher Dashboard with grade/subject assignment during signup, comprehensive curriculum data for all 12 grades (Playgroup-Grade 9), assessment records storage, dynamic scoring forms (EE/ME/AE/BE or CAT1/CAT2/END TERM), and tab-based dashboard navigation.
 - 2026-02-16: Built all 5 SuperAdmin dashboard sections: Schools Management, Student Registry, Faculty Management, Finance & Billing, System Settings. Each has full CRUD, search/filter, and uses localStorage for data persistence with seed data.
@@ -25,12 +25,13 @@ A multi-tenant school management platform built with React, TypeScript, Vite, an
 - **State/Data**: TanStack React Query + localStorage
 
 ### Authentication System
-- `src/context/AuthContext.tsx` - Auth provider with login/signup/signupHoi/logout
+- `src/context/AuthContext.tsx` - Auth provider with login/signup/logout + activity tracking
 - `src/components/ProtectedRoute.tsx` - Role-based route guard
 - SuperAdmin credentials: Zaroda001 / oduorongo@gmail.com / ongo123
-- Teacher: Can sign up and log in, data stored in localStorage
-- HOI: Can sign up and log in, data stored in localStorage
-- DHOI, Student, Parent: Placeholder dashboards, no self-registration
+- HOI: Account created by SuperAdmin only. Logs in with assigned email/password. Status-checked (suspended accounts blocked).
+- Teacher: Can self-register (signup) or be created by SuperAdmin. Both paths work for login. Status-checked.
+- DHOI, Student, Parent: Placeholder dashboards, accounts can be created by SuperAdmin but login not yet implemented
+- Seed HOI accounts (created on first load): hoi@greenwood.ac.ke/greenwood2024, hoi@sunrise.ac.ke/sunrise2024, hoi@heritage.ac.ke/heritage2024, hoi@victory.ac.ke/victory2024
 
 ### Data Layer
 #### Platform-wide (src/lib/storage.ts)

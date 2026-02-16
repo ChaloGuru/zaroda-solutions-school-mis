@@ -15,6 +15,7 @@ import StudentsSection from '@/components/superadmin/sections/StudentsSection';
 import FacultySection from '@/components/superadmin/sections/FacultySection';
 import FinanceSection from '@/components/superadmin/sections/FinanceSection';
 import SettingsSection from '@/components/superadmin/sections/SettingsSection';
+import UsersSection from '@/components/superadmin/sections/UsersSection';
 import { schoolsStorage, studentsStorage, facultyStorage, invoicesStorage } from '@/lib/storage';
 
 const SuperAdmin = () => {
@@ -192,10 +193,10 @@ const SuperAdmin = () => {
                   View Students
                 </button>
                 <button
-                  onClick={() => setActiveSection('finance')}
+                  onClick={() => setActiveSection('users')}
                   className="w-full py-2.5 px-4 rounded-xl bg-secondary text-secondary-foreground font-medium hover:bg-secondary/80 transition-colors text-sm border border-border/50"
                 >
-                  Finance Overview
+                  Manage Users
                 </button>
               </div>
             </div>
@@ -248,6 +249,8 @@ const SuperAdmin = () => {
     switch (activeSection) {
       case 'dashboard':
         return renderDashboardContent();
+      case 'users':
+        return <UsersSection />;
       case 'schools':
         return <SchoolsSection />;
       case 'students':
