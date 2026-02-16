@@ -225,7 +225,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         : (dhoiAccounts?.email?.toLowerCase() === normalizedEmail ? dhoiAccounts : null);
 
       if (!dhoiAccount) {
-        return { success: false, error: 'No DHOI account found with this email. Your account must be created by the HOI.' };
+        return { success: false, error: 'No DHOI account found with this email. Your account must be created by the HOI or SuperAdmin.' };
       }
       if (dhoiAccount.status === 'suspended') {
         return { success: false, error: 'Your account has been suspended. Please contact the HOI.' };

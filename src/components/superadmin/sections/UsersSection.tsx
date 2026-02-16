@@ -16,7 +16,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 const ROLE_OPTIONS = [
   { value: 'hoi', label: 'HOI (Head of Institution)', loginEnabled: true },
   { value: 'teacher', label: 'Teacher', loginEnabled: true },
-  { value: 'dhoi', label: 'DHOI (Deputy Head)', loginEnabled: false },
+  { value: 'dhoi', label: 'DHOI (Deputy Head)', loginEnabled: true },
   { value: 'student', label: 'Student', loginEnabled: false },
   { value: 'parent', label: 'Parent', loginEnabled: false },
 ];
@@ -171,6 +171,25 @@ export default function UsersSection() {
     });
 
     savePassword(formData.email.trim().toLowerCase(), formData.password);
+
+    if (formData.role === 'dhoi') {
+      try {
+        const existing = JSON.parse(localStorage.getItem('zaroda_dhoi_account') || '[]');
+        const accounts = Array.isArray(existing) ? existing : existing ? [existing] : [];
+        accounts.push({
+          id: newUser.id,
+          email: newUser.email,
+          fullName: newUser.fullName,
+          password: formData.password,
+          schoolCode: formData.schoolCode.trim(),
+          phone: formData.phone.trim(),
+          status: 'active',
+          createdBy: 'SuperAdmin',
+          createdAt: new Date().toISOString(),
+        });
+        localStorage.setItem('zaroda_dhoi_account', JSON.stringify(accounts));
+      } catch {}
+    }
 
     activityStorage.add({
       userId: newUser.id,
