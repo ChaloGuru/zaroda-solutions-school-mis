@@ -276,7 +276,7 @@ export default function UsersSection() {
   const handleDeleteUser = () => {
     if (!selectedUser) return;
 
-    platformUsersStorage.delete(selectedUser.id);
+    platformUsersStorage.remove(selectedUser.id);
 
     // Also remove from password storage
     const passwords = getStoredPasswords();
