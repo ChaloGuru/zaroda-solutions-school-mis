@@ -59,6 +59,8 @@ import { useToast } from '@/hooks/use-toast';
 const PAGE_SIZE = 10;
 
 const ROLES: HoiOfficial['role'][] = ['Deputy Head', 'HOD', 'Senior Teacher', 'Prefect', 'Games Captain'];
+const TEACHER_ADMIN_ROLES: HoiOfficial['role'][] = ['Deputy Head', 'HOD', 'Senior Teacher'];
+const STUDENT_OFFICIAL_ROLES: HoiOfficial['role'][] = ['Prefect', 'Games Captain'];
 
 const ROLE_COLORS: Record<string, string> = {
   'Deputy Head': 'bg-purple-500/20 text-purple-700 border-purple-500/30',
@@ -90,7 +92,8 @@ export default function HoiOfficials() {
 
   const [officials, setOfficials] = useState<HoiOfficial[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [page, setPage] = useState(1);
+  const [adminPage, setAdminPage] = useState(1);
+  const [studentPage, setStudentPage] = useState(1);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingOfficial, setEditingOfficial] = useState<HoiOfficial | null>(null);
@@ -110,13 +113,19 @@ export default function HoiOfficials() {
     (o.department || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const totalPages = Math.max(1, Math.ceil(filteredOfficials.length / PAGE_SIZE));
-  const pagedOfficials = filteredOfficials.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const filteredTeacherAdmins = filteredOfficials.filter((o) => TEACHER_ADMIN_ROLES.includes(o.role));
+  const filteredStudentOfficials = filteredOfficials.filter((o) => STUDENT_OFFICIAL_ROLES.includes(o.role));
 
-  const roleCounts = ROLES.reduce((acc, role) => {
-    acc[role] = officials.filter((o) => o.role === role).length;
-    return acc;
-  }, {} as Record<string, number>);
+  const adminTotalPages = Math.max(1, Math.ceil(filteredTeacherAdmins.length / PAGE_SIZE));
+  const studentTotalPages = Math.max(1, Math.ceil(filteredStudentOfficials.length / PAGE_SIZE));
+
+  const pagedTeacherAdmins = filteredTeacherAdmins.slice((adminPage - 1) * PAGE_SIZE, adminPage * PAGE_SIZE);
+  const pagedStudentOfficials = filteredStudentOfficials.slice((studentPage - 1) * PAGE_SIZE, studentPage * PAGE_SIZE);
+
+  useEffect(() => {
+    setAdminPage(1);
+    setStudentPage(1);
+  }, [searchTerm]);
 
   const statusBadge = (status: HoiOfficial['status']) => {
     const colors: Record<string, string> = {
@@ -189,45 +198,60 @@ export default function HoiOfficials() {
     <div>
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-foreground mb-1">Officials Management</h1>
-        <p className="text-muted-foreground">Manage school officials, HODs, prefects, and other leaders</p>
+        <p className="text-muted-foreground">Manage teacher administrators and student body officials separately</p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-        {ROLES.map((role) => {
-          const Icon = ROLE_ICONS[role];
-          return (
-            <Card key={role}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${ROLE_COLORS[role].split(' ')[0]}`}>
-                    <Icon className={`w-5 h-5 ${ROLE_COLORS[role].split(' ')[1]}`} />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{roleCounts[role]}</p>
-                    <p className="text-xs text-muted-foreground">{role}{roleCounts[role] !== 1 ? 's' : ''}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Shield className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{filteredTeacherAdmins.length}</p>
+                <p className="text-xs text-muted-foreground">Teacher Administrators</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                <Users className="w-5 h-5 text-amber-700" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{filteredStudentOfficials.length}</p>
+                <p className="text-xs text-muted-foreground">Student Officials</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <Card>
+      <Card className="mb-4">
         <CardHeader className="pb-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <CardTitle className="text-lg flex items-center gap-2">
               <Shield className="w-5 h-5" />
-              All Officials ({filteredOfficials.length})
+              Officials ({filteredOfficials.length})
             </CardTitle>
             <div className="flex gap-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Search officials..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }} className="pl-9 w-60" />
+                <Input placeholder="Search officials..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-9 w-60" />
               </div>
               <Button onClick={openAdd} className="gap-2"><Plus className="w-4 h-4" />Add Official</Button>
             </div>
           </div>
+        </CardHeader>
+      </Card>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Teacher Administrators</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
@@ -243,9 +267,9 @@ export default function HoiOfficials() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {pagedOfficials.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No officials found.</TableCell></TableRow>
-              ) : pagedOfficials.map((o) => (
+              {pagedTeacherAdmins.length === 0 ? (
+                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No teacher administrators found.</TableCell></TableRow>
+              ) : pagedTeacherAdmins.map((o) => (
                 <TableRow key={o.id}>
                   <TableCell className="font-medium">{o.full_name}</TableCell>
                   <TableCell><Badge variant="outline" className={ROLE_COLORS[o.role]}>{o.role}</Badge></TableCell>
@@ -264,14 +288,63 @@ export default function HoiOfficials() {
             </TableBody>
           </Table>
           <div className="flex items-center justify-between mt-4">
-            <p className="text-sm text-muted-foreground">Page {page} of {totalPages}</p>
+            <p className="text-sm text-muted-foreground">Page {adminPage} of {adminTotalPages}</p>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}><ChevronLeft className="w-4 h-4" /></Button>
-              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}><ChevronRight className="w-4 h-4" /></Button>
+              <Button variant="outline" size="sm" disabled={adminPage <= 1} onClick={() => setAdminPage(adminPage - 1)}><ChevronLeft className="w-4 h-4" /></Button>
+              <Button variant="outline" size="sm" disabled={adminPage >= adminTotalPages} onClick={() => setAdminPage(adminPage + 1)}><ChevronRight className="w-4 h-4" /></Button>
             </div>
           </div>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Student Officials</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Department</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pagedStudentOfficials.length === 0 ? (
+                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No student officials found.</TableCell></TableRow>
+              ) : pagedStudentOfficials.map((o) => (
+                <TableRow key={o.id}>
+                  <TableCell className="font-medium">{o.full_name}</TableCell>
+                  <TableCell><Badge variant="outline" className={ROLE_COLORS[o.role]}>{o.role}</Badge></TableCell>
+                  <TableCell>{o.department || '—'}</TableCell>
+                  <TableCell>{o.email || '—'}</TableCell>
+                  <TableCell>{o.phone || '—'}</TableCell>
+                  <TableCell>{statusBadge(o.status)}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button variant="ghost" size="sm" onClick={() => openEdit(o)}><Pencil className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="sm" onClick={() => setDeleteDialog({ open: true, official: o })}><Trash2 className="w-4 h-4 text-red-600" /></Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <div className="flex items-center justify-between mt-4">
+            <p className="text-sm text-muted-foreground">Page {studentPage} of {studentTotalPages}</p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={studentPage <= 1} onClick={() => setStudentPage(studentPage - 1)}><ChevronLeft className="w-4 h-4" /></Button>
+              <Button variant="outline" size="sm" disabled={studentPage >= studentTotalPages} onClick={() => setStudentPage(studentPage + 1)}><ChevronRight className="w-4 h-4" /></Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg">

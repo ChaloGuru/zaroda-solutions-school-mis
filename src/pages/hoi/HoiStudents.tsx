@@ -53,6 +53,7 @@ const PAGE_SIZE = 10;
 const emptyStudentForm = {
   full_name: '',
   admission_no: '',
+  upi: '',
   class_id: '',
   stream_id: '',
   gender: 'Male' as HoiStudent['gender'],
@@ -129,6 +130,7 @@ export default function HoiStudents() {
     setStudentForm({
       full_name: s.full_name,
       admission_no: s.admission_no,
+      upi: s.upi || '',
       class_id: s.class_id,
       stream_id: s.stream_id,
       gender: s.gender,
@@ -265,6 +267,7 @@ export default function HoiStudents() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Admission No</TableHead>
+                <TableHead>UPI</TableHead>
                 <TableHead>Class</TableHead>
                 <TableHead>Stream</TableHead>
                 <TableHead>Gender</TableHead>
@@ -275,11 +278,12 @@ export default function HoiStudents() {
             </TableHeader>
             <TableBody>
               {pagedStudents.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No students found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">No students found.</TableCell></TableRow>
               ) : pagedStudents.map((s) => (
                 <TableRow key={s.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openProfile(s)}>
                   <TableCell className="font-medium">{s.full_name}</TableCell>
                   <TableCell>{s.admission_no}</TableCell>
+                  <TableCell>{s.upi || '—'}</TableCell>
                   <TableCell>{s.class_name}</TableCell>
                   <TableCell>{s.stream_name}</TableCell>
                   <TableCell>{s.gender}</TableCell>
@@ -321,6 +325,10 @@ export default function HoiStudents() {
                 <Label>Admission No *</Label>
                 <Input value={studentForm.admission_no} onChange={(e) => setStudentForm({ ...studentForm, admission_no: e.target.value })} />
               </div>
+            </div>
+            <div>
+              <Label>UPI (Optional)</Label>
+              <Input value={studentForm.upi} onChange={(e) => setStudentForm({ ...studentForm, upi: e.target.value })} placeholder="e.g. 1234567890" />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -450,6 +458,10 @@ export default function HoiStudents() {
                   <p className="font-medium">{viewingStudent.date_of_birth || '—'}</p>
                 </div>
                 <div>
+                  <p className="text-muted-foreground">UPI</p>
+                  <p className="font-medium">{viewingStudent.upi || '—'}</p>
+                </div>
+                <div>
                   <p className="text-muted-foreground">Enrolled</p>
                   <p className="font-medium">{viewingStudent.enrolled_at}</p>
                 </div>
@@ -488,7 +500,7 @@ export default function HoiStudents() {
             <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
               <Upload className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
               <p className="text-sm text-muted-foreground mb-3">Upload a CSV file with student data</p>
-              <p className="text-xs text-muted-foreground mb-4">Columns: full_name, admission_no, class, stream, gender, date_of_birth, guardian_name, guardian_phone, guardian_email</p>
+              <p className="text-xs text-muted-foreground mb-4">Columns: full_name, admission_no, upi, class, stream, gender, date_of_birth, guardian_name, guardian_phone, guardian_email</p>
               <Input
                 ref={fileInputRef}
                 type="file"

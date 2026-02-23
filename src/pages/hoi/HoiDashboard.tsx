@@ -22,6 +22,7 @@ import HoiOverview from './HoiOverview';
 import HoiSchool from './HoiSchool';
 import HoiClasses from './HoiClasses';
 import HoiTeachers from './HoiTeachers';
+import HoiHods from './HoiHods';
 import HoiStudents from './HoiStudents';
 import HoiOfficials from './HoiOfficials';
 import HoiSubjects from './HoiSubjects';
@@ -53,6 +54,7 @@ const menuGroups: MenuGroup[] = [
     items: [
       { id: 'classes', label: 'Classes & Streams', icon: Layers },
       { id: 'teachers', label: 'Teachers', icon: Users },
+      { id: 'hods', label: 'Manage HODs', icon: Users },
       { id: 'students', label: 'Students', icon: GraduationCap },
       { id: 'officials', label: 'Officials', icon: Shield },
     ],
@@ -94,6 +96,7 @@ const HoiDashboard = () => {
       case 'school': return <HoiSchool />;
       case 'classes': return <HoiClasses />;
       case 'teachers': return <HoiTeachers />;
+      case 'hods': return <HoiHods />;
       case 'students': return <HoiStudents />;
       case 'officials': return <HoiOfficials />;
       case 'subjects': return <HoiSubjects />;

@@ -28,6 +28,10 @@ interface StudentSubjectScore {
   rank: number;
 }
 
+type AssessmentScore = {
+  score: number | string;
+};
+
 export default function ClassReports({ classId, className, streamId, streamName }: ClassReportsProps) {
   const [students, setStudents] = useState<HoiStudent[]>([]);
   const [assignments, setAssignments] = useState<HoiSubjectAssignment[]>([]);
@@ -46,7 +50,7 @@ export default function ClassReports({ classId, className, streamId, streamName 
 
   const subjectNames = [...new Set(assignments.map(a => a.subject_name))];
 
-  const getScoreValue = (scores: any[]): number => {
+  const getScoreValue = (scores: AssessmentScore[]): number => {
     if (!scores || scores.length === 0) return 0;
     const numericScores = scores.filter(s => typeof s.score === 'number');
     if (numericScores.length > 0) {
@@ -72,7 +76,7 @@ export default function ClassReports({ classId, className, streamId, streamName 
         r.term === parseInt(selectedTerm)
       );
       if (records.length > 0) {
-        const scores = records.flatMap(r => r.scores || []);
+        const scores = records.flatMap(r => (r.scores || []) as AssessmentScore[]);
         const avg = getScoreValue(scores);
         subjects[subj] = { total: avg, count: records.length, avg };
         totalScore += avg;

@@ -46,7 +46,7 @@ const SuperAdminLogin = () => {
       });
       
       navigate('/super-admin');
-    } catch (error: any) {
+    } catch {
       toast({
         title: "Login failed",
         description: "Connection error. Please check Replit backend.",

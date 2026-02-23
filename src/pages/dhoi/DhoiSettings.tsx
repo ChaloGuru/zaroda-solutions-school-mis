@@ -65,7 +65,7 @@ export default function DhoiSettings({ onSignOut }: DhoiSettingsProps) {
       if (dhoiAccountsStr) {
         const dhoiAccounts = JSON.parse(dhoiAccountsStr);
         if (Array.isArray(dhoiAccounts)) {
-          const idx = dhoiAccounts.findIndex((a: any) => a.email?.toLowerCase() === email);
+          const idx = (dhoiAccounts as DhoiStoredAccount[]).findIndex((a) => a.email?.toLowerCase() === email);
           if (idx !== -1) {
             dhoiAccounts[idx] = { ...dhoiAccounts[idx], password: newPassword };
             localStorage.setItem('zaroda_dhoi_account', JSON.stringify(dhoiAccounts));
@@ -178,3 +178,8 @@ export default function DhoiSettings({ onSignOut }: DhoiSettingsProps) {
     </div>
   );
 }
+
+type DhoiStoredAccount = {
+  email?: string;
+  password?: string;
+};

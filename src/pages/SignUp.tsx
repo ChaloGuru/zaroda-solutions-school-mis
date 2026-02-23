@@ -97,7 +97,7 @@ const SignUp = () => {
       });
       
       navigate('/login');
-    } catch (error: any) {
+    } catch {
       toast({
         title: "Registration failed",
         description: "Connection error. Please check Replit backend.",
@@ -155,7 +155,7 @@ const SignUp = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="schoolCode">School Code *</Label>
+                  <Label htmlFor="schoolCode">SCHOOL KNEC CODE *</Label>
                   <Input
                     id="schoolCode"
                     name="schoolCode"
@@ -167,14 +167,15 @@ const SignUp = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="schoolType">School Type *</Label>
+                  <Label htmlFor="schoolType">School Category *</Label>
                   <Select onValueChange={(value) => handleSelectChange('schoolType', value)} required>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
+                      <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="public">Public</SelectItem>
-                      <SelectItem value="private">Private</SelectItem>
+                      <SelectItem value="ecde">ECDE</SelectItem>
+                      <SelectItem value="primary">Primary</SelectItem>
+                      <SelectItem value="junior_secondary">Junior Secondary</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

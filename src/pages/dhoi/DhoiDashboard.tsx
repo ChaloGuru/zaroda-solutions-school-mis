@@ -19,6 +19,7 @@ import DashboardLayout, { type MenuGroup } from '@/components/DashboardLayout';
 import DhoiOverview from './DhoiOverview';
 import DhoiTeachers from './DhoiTeachers';
 import DhoiStudents from './DhoiStudents';
+import DhoiHods from './DhoiHods';
 import DhoiClasses from './DhoiClasses';
 import DhoiSubjects from './DhoiSubjects';
 import DhoiTimetable from './DhoiTimetable';
@@ -47,6 +48,7 @@ const menuGroups: MenuGroup[] = [
     label: 'People',
     items: [
       { id: 'teachers', label: 'Teachers', icon: Users },
+      { id: 'hods', label: 'Manage HODs', icon: Users },
       { id: 'students', label: 'Students', icon: GraduationCap },
       { id: 'classes', label: 'Classes & Streams', icon: Layers },
       { id: 'officials', label: 'Officials', icon: Shield },
@@ -86,6 +88,7 @@ const DhoiDashboard = () => {
     switch (activeSection) {
       case 'overview': return <DhoiOverview onNavigate={(s: string) => setActiveSection(s as SectionId)} />;
       case 'teachers': return <DhoiTeachers />;
+      case 'hods': return <DhoiHods />;
       case 'students': return <DhoiStudents />;
       case 'classes': return <DhoiClasses />;
       case 'officials': return <DhoiOfficials />;

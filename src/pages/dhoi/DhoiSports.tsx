@@ -4,6 +4,7 @@ import {
   hoiSportsTeamsStorage,
   hoiSportsEventsStorage,
   hoiStudentsStorage,
+  hoiSchoolProfileStorage,
   HoiSport,
   HoiSportsTeam,
   HoiSportsEvent,
@@ -48,6 +49,7 @@ import {
   Users,
   CalendarDays,
   UserMinus,
+  Printer,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -68,6 +70,7 @@ export default function DhoiSports() {
   const [sportsSearch, setSportsSearch] = useState('');
 
   const [selectedTeamSport, setSelectedTeamSport] = useState('');
+  const [selectedTeamClass, setSelectedTeamClass] = useState('all');
   const [teamDialogOpen, setTeamDialogOpen] = useState(false);
   const [teamForm, setTeamForm] = useState({ student_id: '', position: '' });
   const [teamsPage, setTeamsPage] = useState(1);
@@ -98,11 +101,18 @@ export default function DhoiSports() {
     s.name.toLowerCase().includes(sportsSearch.toLowerCase()) ||
     (s.coach_name || '').toLowerCase().includes(sportsSearch.toLowerCase())
   );
-  const sportsTotal = Math.max(1, Math.ceil(filteredSports.length / PAGE_SIZE));
+  const sportsTotal = Math.ceil(filteredSports.length / PAGE_SIZE);
   const pagedSports = filteredSports.slice((sportsPage - 1) * PAGE_SIZE, sportsPage * PAGE_SIZE);
 
   const teamMembers = teams.filter(t => t.sport_id === selectedTeamSport);
-  const teamsTotal = Math.max(1, Math.ceil(teamMembers.length / PAGE_SIZE));
+  const selectedSportName = sports.find((s) => s.id === selectedTeamSport)?.name || '';
+  const schoolName = hoiSchoolProfileStorage.get().name;
+  const filteredTeamStudents = students.filter((s) => {
+    if (s.status !== 'active') return false;
+    if (selectedTeamClass === 'all') return true;
+    return s.class_id === selectedTeamClass;
+  });
+  const teamsTotal = Math.ceil(teamMembers.length / PAGE_SIZE);
   const pagedTeams = teamMembers.slice((teamsPage - 1) * PAGE_SIZE, teamsPage * PAGE_SIZE);
 
   const filteredEvents = events.filter(e => {
@@ -112,7 +122,7 @@ export default function DhoiSports() {
     const matchStatus = eventStatusFilter === 'all' || e.status === eventStatusFilter;
     return matchSearch && matchSport && matchStatus;
   });
-  const eventsTotal = Math.max(1, Math.ceil(filteredEvents.length / PAGE_SIZE));
+  const eventsTotal = Math.ceil(filteredEvents.length / PAGE_SIZE);
   const pagedEvents = filteredEvents.slice((eventsPage - 1) * PAGE_SIZE, eventsPage * PAGE_SIZE);
 
   const openAddSport = () => {
@@ -167,6 +177,11 @@ export default function DhoiSports() {
       sport_name: sport.name,
       student_id: student.id,
       student_name: student.full_name,
+      admission_no: student.admission_no,
+      class_name: student.class_name,
+      stream_name: student.stream_name,
+      date_of_birth: student.date_of_birth,
+      upi: student.upi || '',
       position: teamForm.position || undefined,
     });
     toast({ title: 'Student Added to Team' });
@@ -179,6 +194,14 @@ export default function DhoiSports() {
     hoiSportsTeamsStorage.remove(id);
     toast({ title: 'Student Removed from Team' });
     reload();
+  };
+
+  const handlePrintOfficialTeamList = () => {
+    if (!selectedTeamSport) {
+      toast({ title: 'Select Sport', description: 'Choose a sport first to print its official team list.', variant: 'destructive' });
+      return;
+    }
+    window.print();
   };
 
   const openAddEvent = () => {
@@ -240,13 +263,15 @@ export default function DhoiSports() {
   };
 
   const Pagination = ({ page, total, setPage }: { page: number; total: number; setPage: (p: number) => void }) => (
-    <div className="flex items-center justify-between mt-4">
-      <span className="text-sm text-muted-foreground">Page {page} of {total}</span>
-      <div className="flex gap-2">
-        <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}><ChevronLeft className="w-4 h-4" /></Button>
-        <Button variant="outline" size="sm" disabled={page >= total} onClick={() => setPage(page + 1)}><ChevronRight className="w-4 h-4" /></Button>
+    total > 1 ? (
+      <div className="flex items-center justify-between mt-4">
+        <span className="text-sm text-muted-foreground">Page {page} of {total}</span>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}><ChevronLeft className="w-4 h-4" /></Button>
+          <Button variant="outline" size="sm" disabled={page >= total} onClick={() => setPage(page + 1)}><ChevronRight className="w-4 h-4" /></Button>
+        </div>
       </div>
-    </div>
+    ) : null
   );
 
   return (
@@ -257,13 +282,13 @@ export default function DhoiSports() {
       </div>
 
       <Tabs defaultValue="sports">
-        <TabsList className="mb-4">
+        <TabsList className="mb-4 print:hidden">
           <TabsTrigger value="sports" className="gap-2"><Trophy className="w-4 h-4" />Sports</TabsTrigger>
           <TabsTrigger value="teams" className="gap-2"><Users className="w-4 h-4" />Teams</TabsTrigger>
           <TabsTrigger value="events" className="gap-2"><CalendarDays className="w-4 h-4" />Events</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="sports">
+        <TabsContent value="sports" className="print:hidden">
           <Card>
             <CardHeader className="pb-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -294,7 +319,7 @@ export default function DhoiSports() {
                     <TableRow key={s.id}>
                       <TableCell className="font-medium">{s.name}</TableCell>
                       <TableCell><Badge variant="outline" className="capitalize">{s.category}</Badge></TableCell>
-                      <TableCell>{s.coach_name || '\u2014'}</TableCell>
+                      <TableCell>{s.coach_name || '—'}</TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="sm" onClick={() => openEditSport(s)}><Pencil className="w-4 h-4" /></Button>
                         <Button variant="ghost" size="sm" onClick={() => deleteSport(s.id)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
@@ -313,16 +338,30 @@ export default function DhoiSports() {
             <CardHeader className="pb-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <CardTitle>Team Members</CardTitle>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 print:hidden">
                   <Select value={selectedTeamSport} onValueChange={v => { setSelectedTeamSport(v); setTeamsPage(1); }}>
                     <SelectTrigger className="w-[200px]"><SelectValue placeholder="Select sport" /></SelectTrigger>
                     <SelectContent>
                       {sports.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                  <Select value={selectedTeamClass} onValueChange={setSelectedTeamClass}>
+                    <SelectTrigger className="w-[180px]"><SelectValue placeholder="Select class" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Classes</SelectItem>
+                      {Array.from(new Map(students.map((s) => [s.class_id, s.class_name])).entries()).map(([classId, className]) => (
+                        <SelectItem key={classId} value={classId}>{className}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {selectedTeamSport && (
                     <Button onClick={() => { setTeamForm({ student_id: '', position: '' }); setTeamDialogOpen(true); }}>
                       <Plus className="w-4 h-4 mr-1" />Add Member
+                    </Button>
+                  )}
+                  {selectedTeamSport && (
+                    <Button variant="outline" onClick={handlePrintOfficialTeamList}>
+                      <Printer className="w-4 h-4 mr-1" />Print Official Team List
                     </Button>
                   )}
                 </div>
@@ -333,36 +372,51 @@ export default function DhoiSports() {
                 <p className="text-center text-muted-foreground py-8">Select a sport to view team members</p>
               ) : (
                 <>
+                  <div className="hidden print:block mb-4">
+                    <h2 className="text-xl font-bold text-center">{schoolName}</h2>
+                    <p className="text-center font-semibold">OFFICIAL TEAM LIST — {selectedSportName}</p>
+                    <p className="text-center text-sm">Generated on {new Date().toLocaleDateString()}</p>
+                  </div>
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Student Name</TableHead>
+                        <TableHead>Class</TableHead>
+                        <TableHead>Admission No</TableHead>
+                        <TableHead>DOB</TableHead>
+                        <TableHead>UPI</TableHead>
                         <TableHead>Position</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                        <TableHead className="text-right print:hidden">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {pagedTeams.length === 0 ? (
-                        <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-8">No team members</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No team members</TableCell></TableRow>
                       ) : pagedTeams.map(t => (
                         <TableRow key={t.id}>
                           <TableCell className="font-medium">{t.student_name}</TableCell>
-                          <TableCell>{t.position || '\u2014'}</TableCell>
-                          <TableCell className="text-right">
+                          <TableCell>{[t.class_name, t.stream_name].filter(Boolean).join(' - ') || '—'}</TableCell>
+                          <TableCell>{t.admission_no || '—'}</TableCell>
+                          <TableCell>{t.date_of_birth || '—'}</TableCell>
+                          <TableCell>{t.upi || '—'}</TableCell>
+                          <TableCell>{t.position || '—'}</TableCell>
+                          <TableCell className="text-right print:hidden">
                             <Button variant="ghost" size="sm" onClick={() => removeTeamMember(t.id)}><UserMinus className="w-4 h-4 text-red-500" /></Button>
                           </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
-                  <Pagination page={teamsPage} total={teamsTotal} setPage={setTeamsPage} />
+                  <div className="print:hidden">
+                    <Pagination page={teamsPage} total={teamsTotal} setPage={setTeamsPage} />
+                  </div>
                 </>
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="events">
+        <TabsContent value="events" className="print:hidden">
           <Card>
             <CardHeader className="pb-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -417,7 +471,7 @@ export default function DhoiSports() {
                       <TableCell>{e.venue}</TableCell>
                       <TableCell className="max-w-[150px] truncate">{e.teams_involved}</TableCell>
                       <TableCell>{statusBadge(e.status)}</TableCell>
-                      <TableCell>{e.results || '\u2014'}</TableCell>
+                      <TableCell>{e.results || '—'}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <Button variant="ghost" size="sm" onClick={() => openEditEvent(e)}><Pencil className="w-4 h-4" /></Button>
@@ -474,8 +528,8 @@ export default function DhoiSports() {
               <Select value={teamForm.student_id} onValueChange={v => setTeamForm({ ...teamForm, student_id: v })}>
                 <SelectTrigger><SelectValue placeholder="Select student" /></SelectTrigger>
                 <SelectContent>
-                  {students.filter(s => s.status === 'active').map(s => (
-                    <SelectItem key={s.id} value={s.id}>{s.full_name} ({s.class_name})</SelectItem>
+                  {filteredTeamStudents.map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.full_name} ({s.class_name} - {s.stream_name} • DOB: {s.date_of_birth || '—'} • UPI: {s.upi || '—'})</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -542,7 +596,7 @@ export default function DhoiSports() {
 
       <Dialog open={resultDialogOpen} onOpenChange={setResultDialogOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Record Results - {resultEvent?.name}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Record Results — {resultEvent?.name}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div>
               <Label>Results</Label>

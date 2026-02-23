@@ -53,9 +53,15 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
+const LEVEL_LABELS: Record<HoiClass['level'], string> = {
+  ecde: 'ECDE',
+  primary: 'Primary',
+  junior_secondary: 'JS',
+};
+
 const emptyClassForm = {
   name: '',
-  level: 'secondary' as HoiClass['level'],
+  level: 'primary' as HoiClass['level'],
 };
 
 const emptyStreamForm = {
@@ -277,8 +283,9 @@ export default function HoiClasses() {
               </div>
               <div className="flex gap-2 flex-wrap">
                 <Button variant={levelFilter === 'all' ? 'default' : 'outline'} onClick={() => setLevelFilter('all')} size="sm">All</Button>
+                <Button variant={levelFilter === 'ecde' ? 'default' : 'outline'} onClick={() => setLevelFilter('ecde')} size="sm">ECDE</Button>
                 <Button variant={levelFilter === 'primary' ? 'default' : 'outline'} onClick={() => setLevelFilter('primary')} size="sm">Primary</Button>
-                <Button variant={levelFilter === 'secondary' ? 'default' : 'outline'} onClick={() => setLevelFilter('secondary')} size="sm">Secondary</Button>
+                <Button variant={levelFilter === 'junior_secondary' ? 'default' : 'outline'} onClick={() => setLevelFilter('junior_secondary')} size="sm">JS</Button>
               </div>
             </div>
           </CardHeader>
@@ -307,7 +314,7 @@ export default function HoiClasses() {
                           <div>
                             <h3 className="font-semibold text-foreground">{cls.name}</h3>
                             <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                              <Badge variant="outline" className="capitalize">{cls.level}</Badge>
+                              <Badge variant="outline">{LEVEL_LABELS[cls.level]}</Badge>
                               <span>{classStreams.length} stream{classStreams.length !== 1 ? 's' : ''}</span>
                               <span>{studentCount} student{studentCount !== 1 ? 's' : ''}</span>
                             </div>
@@ -422,8 +429,9 @@ export default function HoiClasses() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="ecde">ECDE</SelectItem>
                   <SelectItem value="primary">Primary</SelectItem>
-                  <SelectItem value="secondary">Secondary</SelectItem>
+                  <SelectItem value="junior_secondary">JS</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -4,9 +4,6 @@ import { Bot, Sparkles, MessageSquare, Zap, Send } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 
-// TODO: Replace with Replit backend API
-const API_BASE = 'https://your-replit.replit.dev/api';
-
 const AskAI = () => {
   const [inputValue, setInputValue] = useState('');
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([
@@ -49,25 +46,96 @@ const AskAI = () => {
     }
 
     const userMessage = inputValue.trim();
+    const nextMessages = [...messages, { role: 'user' as const, content: userMessage }];
     setInputValue('');
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setIsLoading(true);
 
     try {
-      // TODO: Replace with fetch(`${API_BASE}/ask-ai`)
-      // const response = await fetch(`${API_BASE}/ask-ai`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     messages: [...messages, { role: 'user', content: userMessage }],
-      //     schoolId: user?.id
-      //   })
-      // });
-      
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: 'AI assistant is not connected yet. Please connect to Replit backend to enable this feature.' 
-      }]);
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error('Supabase environment variables are not configured.');
+      }
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/ask-ai`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${supabaseAnonKey}`,
+        },
+        body: JSON.stringify({
+          messages: nextMessages,
+          schoolId: user?.id,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'AI service request failed');
+      }
+
+      if (!response.body) {
+        throw new Error('No response stream from AI service.');
+      }
+
+      let assistantResponse = '';
+      setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith('data:')) continue;
+
+          const data = trimmed.slice(5).trim();
+          if (!data || data === '[DONE]') continue;
+
+          try {
+            const parsed = JSON.parse(data);
+            const token = parsed?.choices?.[0]?.delta?.content;
+            if (token) {
+              assistantResponse += token;
+              setMessages((prev) => {
+                const next = [...prev];
+                const lastIndex = next.length - 1;
+                if (lastIndex >= 0 && next[lastIndex].role === 'assistant') {
+                  next[lastIndex] = { ...next[lastIndex], content: assistantResponse };
+                }
+                return next;
+              });
+            }
+          } catch {
+            continue;
+          }
+        }
+      }
+
+      if (!assistantResponse.trim()) {
+        setMessages((prev) => {
+          const next = [...prev];
+          const lastIndex = next.length - 1;
+          if (lastIndex >= 0 && next[lastIndex].role === 'assistant') {
+            next[lastIndex] = {
+              ...next[lastIndex],
+              content: 'I could not generate a response right now. Please try again.',
+            };
+          }
+          return next;
+        });
+      }
     } catch (error) {
       console.error('AI error:', error);
       toast({
@@ -75,10 +143,23 @@ const AskAI = () => {
         description: error instanceof Error ? error.message : "Failed to get response from AI",
         variant: "destructive",
       });
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: "I'm sorry, I couldn't process that request. Please try again or contact support if the issue persists." 
-      }]);
+
+      setMessages((prev) => {
+        const next = [...prev];
+        const lastIndex = next.length - 1;
+        if (lastIndex >= 0 && next[lastIndex].role === 'assistant' && next[lastIndex].content === '') {
+          next[lastIndex] = {
+            ...next[lastIndex],
+            content: "I'm sorry, I couldn't process that request. Please try again or contact support if the issue persists.",
+          };
+          return next;
+        }
+
+        return [...next, {
+          role: 'assistant',
+          content: "I'm sorry, I couldn't process that request. Please try again or contact support if the issue persists.",
+        }];
+      });
     } finally {
       setIsLoading(false);
     }

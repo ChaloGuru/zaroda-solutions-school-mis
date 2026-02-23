@@ -5,6 +5,7 @@ import {
   hoiSubjectAssignmentsStorage,
   hoiClassesStorage,
   hoiStreamsStorage,
+  hoiSchoolProfileStorage,
   HoiClass,
   HoiStream,
   HoiSubject,
@@ -14,6 +15,7 @@ import {
 import {
   MasterTimetableSlot,
   TimetableConfig,
+  LOWER_PRIMARY_CONFIG,
   UPPER_PRIMARY_CONFIG,
   JUNIOR_CONFIG,
   ECDE_CONFIG,
@@ -63,12 +65,14 @@ const DAY_LABELS: Record<string, string> = {
 };
 
 const CONFIG_MAP: Record<string, TimetableConfig> = {
+  lower_primary: LOWER_PRIMARY_CONFIG,
   upper_primary: UPPER_PRIMARY_CONFIG,
   junior: JUNIOR_CONFIG,
   ecde: ECDE_CONFIG,
 };
 
 const TYPE_LABELS: Record<string, string> = {
+  lower_primary: 'Lower Primary',
   upper_primary: 'Upper Primary',
   junior: 'Junior School',
   ecde: 'ECDE',
@@ -81,13 +85,14 @@ function getVerticalLetters(label: string): string[] {
 export default function DhoiTimetable() {
   const { toast } = useToast();
 
-  const [timetableType, setTimetableType] = useState<'upper_primary' | 'junior' | 'ecde'>('upper_primary');
+  const [timetableType, setTimetableType] = useState<'ecde' | 'lower_primary' | 'upper_primary' | 'junior'>('upper_primary');
   const [classes, setClasses] = useState<HoiClass[]>([]);
   const [streams, setStreams] = useState<HoiStream[]>([]);
   const [subjects, setSubjects] = useState<HoiSubject[]>([]);
   const [teachers, setTeachers] = useState<HoiTeacher[]>([]);
   const [assignments, setAssignments] = useState<HoiSubjectAssignment[]>([]);
   const [teacherCodes, setTeacherCodes] = useState<Record<string, string>>({});
+  const [schoolName, setSchoolName] = useState('School');
 
   const [selectedClassId, setSelectedClassId] = useState('');
   const [selectedStreamId, setSelectedStreamId] = useState('');
@@ -95,6 +100,7 @@ export default function DhoiTimetable() {
   const [allSlots, setAllSlots] = useState<MasterTimetableSlot[]>([]);
   const [generating, setGenerating] = useState(false);
   const [isGenerated, setIsGenerated] = useState(false);
+  const [dataReady, setDataReady] = useState(false);
 
   const [grade, setGrade] = useState('');
   const [term, setTerm] = useState('');
@@ -113,6 +119,7 @@ export default function DhoiTimetable() {
     setSubjects(hoiSubjectsStorage.getAll());
     setTeachers(hoiTeachersStorage.getAll().filter((t) => t.status === 'active'));
     setAssignments(hoiSubjectAssignmentsStorage.getAll());
+    setSchoolName(hoiSchoolProfileStorage.get().name || 'School');
 
     const storedCodes = localStorage.getItem(TEACHER_CODES_KEY);
     if (storedCodes) {
@@ -123,8 +130,9 @@ export default function DhoiTimetable() {
     if (storedSlots) {
       const parsed: MasterTimetableSlot[] = JSON.parse(storedSlots);
       setAllSlots(parsed);
-      setIsGenerated(parsed.length > 0);
     }
+
+    setDataReady(true);
   }, []);
 
   useEffect(() => {
@@ -175,28 +183,58 @@ export default function DhoiTimetable() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(slots));
   };
 
+  const generateForType = useCallback((type: 'ecde' | 'lower_primary' | 'upper_primary' | 'junior', showToast = false) => {
+    const configForType = CONFIG_MAP[type];
+    const relevantAssignments = assignments.filter(() => true);
+
+    if (relevantAssignments.length === 0) {
+      if (showToast) {
+        toast({
+          title: 'Generation Skipped',
+          description: 'No subject assignments found. Add assignments to auto-generate timetable slots.',
+          variant: 'destructive',
+        });
+      }
+      return;
+    }
+
+    const generated = generateTimetable(configForType, relevantAssignments, teacherCodes);
+
+    const storedSlots = localStorage.getItem(STORAGE_KEY);
+    const existing: MasterTimetableSlot[] = storedSlots ? JSON.parse(storedSlots) : [];
+    const otherSlots = existing.filter((s) => s.timetableType !== type);
+    const newAll = [...otherSlots, ...generated];
+
+    saveSlots(newAll);
+
+    if (showToast) {
+      toast({
+        title: 'Timetable Regenerated',
+        description: `${TYPE_LABELS[type]} master timetable has been regenerated successfully.`,
+      });
+    }
+  }, [assignments, teacherCodes, toast]);
+
   const handleGenerate = async () => {
     setGenerating(true);
-    await new Promise((r) => setTimeout(r, 800));
 
     try {
-      const relevantAssignments = assignments.filter((a) => {
-        return true;
-      });
-
-      const generated = generateTimetable(config, relevantAssignments, teacherCodes);
-
-      const otherSlots = allSlots.filter((s) => s.timetableType !== timetableType);
-      const newAll = [...otherSlots, ...generated];
-      saveSlots(newAll);
-      setIsGenerated(true);
-      toast({ title: 'Timetable Generated', description: `${TYPE_LABELS[timetableType]} master timetable has been generated successfully.` });
+      generateForType(timetableType, true);
     } catch (e) {
       toast({ title: 'Generation Failed', description: 'An error occurred while generating the timetable.', variant: 'destructive' });
     } finally {
       setGenerating(false);
     }
   };
+
+  useEffect(() => {
+    if (!dataReady) return;
+    generateForType(timetableType, false);
+  }, [dataReady, timetableType, assignments, teacherCodes, generateForType]);
+
+  useEffect(() => {
+    setIsGenerated(allSlots.some((slot) => slot.timetableType === timetableType));
+  }, [allSlots, timetableType]);
 
   const openCellEdit = (day: MasterTimetableSlot['day'], periodIdx: number) => {
     const existing = getSlot(day, periodIdx);
@@ -357,12 +395,12 @@ export default function DhoiTimetable() {
           )}
           <Button onClick={handleGenerate} disabled={generating} className="gap-2">
             {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-            {generating ? 'Generating...' : 'Generate Master Timetable'}
+            {generating ? 'Regenerating...' : 'Regenerate Timetable'}
           </Button>
           <Button variant="outline" className="gap-2" onClick={() => window.print()}>
             <Printer className="w-4 h-4" /> Print
           </Button>
-          <Button variant="default" className="gap-2" onClick={() => exportToPdf('dhoi-timetable-grid', { title: 'Master Timetable', subtitle: `${TYPE_LABELS[timetableType]} | ${classes.find(c => c.id === selectedClassId)?.name || ''} - ${streams.find(s => s.id === selectedStreamId)?.name || ''} | ${term} ${year}`, filename: 'Master_Timetable.pdf', orientation: 'landscape' })}>
+          <Button variant="default" className="gap-2" onClick={() => exportToPdf('dhoi-timetable-grid', { title: schoolName, subtitle: `Master Timetable | ${TYPE_LABELS[timetableType]} | ${classes.find(c => c.id === selectedClassId)?.name || ''} - ${streams.find(s => s.id === selectedStreamId)?.name || ''} | ${term} ${year}`, filename: 'Master_Timetable.pdf', orientation: 'landscape', fitToOnePage: true })}>
             <FileDown className="w-4 h-4" /> PDF
           </Button>
         </div>
@@ -373,14 +411,15 @@ export default function DhoiTimetable() {
           <div className="flex items-end gap-4 flex-wrap">
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Timetable Type</Label>
-              <Select value={timetableType} onValueChange={(v) => setTimetableType(v as 'upper_primary' | 'junior' | 'ecde')}>
+              <Select value={timetableType} onValueChange={(v) => setTimetableType(v as 'ecde' | 'lower_primary' | 'upper_primary' | 'junior')}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="ecde">ECDE</SelectItem>
+                  <SelectItem value="lower_primary">Lower Primary</SelectItem>
                   <SelectItem value="upper_primary">Upper Primary</SelectItem>
                   <SelectItem value="junior">Junior School</SelectItem>
-                  <SelectItem value="ecde">ECDE</SelectItem>
                 </SelectContent>
               </Select>
             </div>

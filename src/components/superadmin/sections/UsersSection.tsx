@@ -11,6 +11,7 @@ import {
   Shield, GraduationCap, Clock, Activity, UserPlus, Filter, X, Trash2
 } from 'lucide-react';
 import { platformUsersStorage, activityStorage, schoolsStorage } from '@/lib/storage';
+import { sendWelcomeEmail } from '@/lib/email';
 import type { PlatformUser, LoginActivity } from '@/lib/storage';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 
@@ -192,7 +193,9 @@ export default function UsersSection() {
           createdAt: new Date().toISOString(),
         });
         localStorage.setItem('zaroda_dhoi_account', JSON.stringify(accounts));
-      } catch {}
+      } catch {
+        setFormData((current) => current);
+      }
     }
 
     activityStorage.add({
@@ -202,6 +205,15 @@ export default function UsersSection() {
       role: newUser.role,
       action: 'account_created',
       details: `Account created by SuperAdmin with role: ${newUser.role.toUpperCase()}`,
+    });
+
+    void sendWelcomeEmail({
+      email: newUser.email,
+      fullName: newUser.fullName,
+      role: newUser.role,
+      schoolName: newUser.schoolName,
+      schoolCode: newUser.schoolCode,
+      createdBy: 'SuperAdmin',
     });
 
     toast({ title: 'User created', description: `${newUser.fullName} (${newUser.role.toUpperCase()}) account has been created successfully. They can now log in with the assigned credentials.` });
@@ -442,7 +454,7 @@ export default function UsersSection() {
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="suspended">Suspended</SelectItem>
                 <SelectItem value="inactive">Inactive</SelectItem>
@@ -831,7 +843,7 @@ export default function UsersSection() {
                   <p className="text-sm font-medium">{selectedUser.schoolName}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">School Code</p>
+                  <p className="text-xs text-muted-foreground">SCHOOL KNEC CODE</p>
                   <p className="text-sm font-medium">{selectedUser.schoolCode}</p>
                 </div>
                 <div>

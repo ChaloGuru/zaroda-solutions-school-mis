@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import { motion } from 'framer-motion';
+import { useAuthContext } from '@/context/AuthContext';
 import {
   hoiStudentsStorage,
   hoiTeachersStorage,
@@ -9,9 +10,18 @@ import {
   hoiAnnouncementsStorage,
   HoiAnnouncement,
 } from '@/lib/hoiStorage';
+import { adminAnnouncementsStorage, adminAnnouncementReadStorage, type AdminAnnouncement } from '@/lib/storage';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   GraduationCap,
   Users,
@@ -23,7 +33,7 @@ import {
   ArrowUpRight,
   Megaphone,
 } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, LabelList } from 'recharts';
 
 interface HoiOverviewProps {
   onNavigate: (section: 'overview' | 'school' | 'classes' | 'teachers' | 'students' | 'officials' | 'subjects' | 'timetable' | 'attendance' | 'finances' | 'library' | 'sports' | 'elections' | 'reports' | 'settings') => void;
@@ -37,13 +47,100 @@ const priorityConfig: Record<string, { color: string; bg: string }> = {
 };
 
 export default function HoiOverview({ onNavigate }: HoiOverviewProps) {
+  const { currentUser } = useAuthContext();
   const [totalStudents, setTotalStudents] = useState(0);
   const [totalTeachers, setTotalTeachers] = useState(0);
   const [totalClasses, setTotalClasses] = useState(0);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [attendanceRate, setAttendanceRate] = useState(0);
   const [announcements, setAnnouncements] = useState<HoiAnnouncement[]>([]);
+  const [adminAnnouncements, setAdminAnnouncements] = useState<AdminAnnouncement[]>([]);
+  const [readAdminAnnouncementIds, setReadAdminAnnouncementIds] = useState<string[]>([]);
   const [chartData, setChartData] = useState<{ name: string; revenue: number; attendance: number }[]>([]);
+
+  const adminAnnouncementUserKey = useMemo(() => {
+    const identity = currentUser?.id || currentUser?.email || 'hoi_guest';
+    return `hoi:${identity}`;
+  }, [currentUser]);
+
+  const students = useMemo(() => hoiStudentsStorage.getAll(), []);
+
+  const normalizeRollClass = (value: string): string => {
+    const normalized = (value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    const compact = normalized.replace(/\s+/g, '');
+    const classMap: Record<string, string> = {
+      pp1: 'PP1',
+      'pp 1': 'PP1',
+      pp2: 'PP2',
+      'pp 2': 'PP2',
+      grade1: 'Grade 1',
+      'grade 1': 'Grade 1',
+      grade2: 'Grade 2',
+      'grade 2': 'Grade 2',
+      grade3: 'Grade 3',
+      'grade 3': 'Grade 3',
+      grade4: 'Grade 4',
+      'grade 4': 'Grade 4',
+      grade5: 'Grade 5',
+      'grade 5': 'Grade 5',
+      grade6: 'Grade 6',
+      'grade 6': 'Grade 6',
+      grade7: 'Grade 7',
+      'grade 7': 'Grade 7',
+      jss1: 'Grade 7',
+      'jss 1': 'Grade 7',
+      form1: 'Grade 7',
+      'form 1': 'Grade 7',
+      grade8: 'Grade 8',
+      'grade 8': 'Grade 8',
+      jss2: 'Grade 8',
+      'jss 2': 'Grade 8',
+      form2: 'Grade 8',
+      'form 2': 'Grade 8',
+      grade9: 'Grade 9',
+      'grade 9': 'Grade 9',
+      jss3: 'Grade 9',
+      'jss 3': 'Grade 9',
+      form3: 'Grade 9',
+      'form 3': 'Grade 9',
+      form4: 'Grade 9',
+      'form 4': 'Grade 9',
+    };
+    return classMap[normalized] || classMap[compact] || value;
+  };
+
+  const schoolRollGroups = useMemo(() => {
+    const groups = [
+      { section: 'ECDE', classes: ['PP1', 'PP2'] },
+      { section: 'Primary', classes: ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'] },
+      { section: 'Junior Secondary', classes: ['Grade 7', 'Grade 8', 'Grade 9'] },
+    ];
+
+    return groups.map((group) => {
+      const rows = group.classes.map((className) => {
+        const classStudents = students.filter((student) => normalizeRollClass(student.class_name) === className);
+        const boys = classStudents.filter((student) => student.gender === 'Male').length;
+        const girls = classStudents.filter((student) => student.gender === 'Female').length;
+        return {
+          className,
+          boys,
+          girls,
+          total: boys + girls,
+        };
+      });
+
+      const subtotal = rows.reduce(
+        (acc, row) => ({
+          boys: acc.boys + row.boys,
+          girls: acc.girls + row.girls,
+          total: acc.total + row.total,
+        }),
+        { boys: 0, girls: 0, total: 0 }
+      );
+
+      return { ...group, rows, subtotal };
+    });
+  }, [students]);
 
   useEffect(() => {
     const students = hoiStudentsStorage.getAll();
@@ -75,6 +172,7 @@ export default function HoiOverview({ onNavigate }: HoiOverviewProps) {
     setAttendanceRate(rate);
 
     setAnnouncements(anns.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+    setAdminAnnouncements(adminAnnouncementsStorage.getByTargetRole('hoi'));
 
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const cData = months.map((m, i) => {
@@ -85,7 +183,17 @@ export default function HoiOverview({ onNavigate }: HoiOverviewProps) {
       return { name: m, revenue: mFees / 1000, attendance: mRate };
     });
     setChartData(cData);
-  }, []);
+
+    setReadAdminAnnouncementIds(adminAnnouncementReadStorage.getReadIds(adminAnnouncementUserKey));
+  }, [adminAnnouncementUserKey]);
+
+  const unreadAdminCount = adminAnnouncements.filter((announcement) => !readAdminAnnouncementIds.includes(announcement.id)).length;
+
+  const markAllAdminAnnouncementsRead = () => {
+    const ids = adminAnnouncements.map((announcement) => announcement.id);
+    adminAnnouncementReadStorage.markManyRead(adminAnnouncementUserKey, ids);
+    setReadAdminAnnouncementIds(adminAnnouncementReadStorage.getReadIds(adminAnnouncementUserKey));
+  };
 
   const statCards = [
     { label: 'Total Students', value: totalStudents, icon: GraduationCap, color: 'text-primary', bg: 'bg-primary/10' },
@@ -150,9 +258,34 @@ export default function HoiOverview({ onNavigate }: HoiOverviewProps) {
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-                  <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 12 }}
+                    stroke="hsl(var(--muted-foreground))"
+                    label={{ value: 'Month', position: 'insideBottom', offset: -4, style: { fill: 'hsl(var(--muted-foreground))', fontSize: 11 } }}
+                  />
+                  <YAxis
+                    yAxisId="left"
+                    tick={{ fontSize: 12 }}
+                    stroke="hsl(var(--muted-foreground))"
+                    tickFormatter={(v) => `${v}K`}
+                    label={{ value: 'Revenue (KES Thousands)', angle: -90, position: 'insideLeft', style: { fill: 'hsl(var(--muted-foreground))', fontSize: 11 } }}
+                  />
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    domain={[0, 100]}
+                    tick={{ fontSize: 12 }}
+                    stroke="#10b981"
+                    tickFormatter={(v) => `${v}%`}
+                    label={{ value: 'Attendance (%)', angle: 90, position: 'insideRight', style: { fill: '#10b981', fontSize: 11 } }}
+                  />
                   <Tooltip
+                    formatter={(value: number, name: string) => {
+                      if (name === 'Revenue') return [`KES ${(value * 1000).toLocaleString()}`, 'Revenue'];
+                      return [`${value}%`, 'Attendance'];
+                    }}
+                    labelFormatter={(label) => `Month: ${label}`}
                     contentStyle={{
                       backgroundColor: 'hsl(var(--card))',
                       border: '1px solid hsl(var(--border))',
@@ -160,8 +293,13 @@ export default function HoiOverview({ onNavigate }: HoiOverviewProps) {
                       fontSize: '12px',
                     }}
                   />
-                  <Bar dataKey="revenue" name="Revenue (K)" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="attendance" name="Attendance %" fill="#10b981" radius={[4, 4, 0, 0]} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Bar yAxisId="left" dataKey="revenue" name="Revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]}>
+                    <LabelList dataKey="revenue" position="top" formatter={(v: number) => `${v}K`} style={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                  </Bar>
+                  <Bar yAxisId="right" dataKey="attendance" name="Attendance" fill="#10b981" radius={[4, 4, 0, 0]}>
+                    <LabelList dataKey="attendance" position="top" formatter={(v: number) => `${v}%`} style={{ fontSize: 10, fill: '#0f766e' }} />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -195,6 +333,98 @@ export default function HoiOverview({ onNavigate }: HoiOverviewProps) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.56 }}
+          className="lg:col-span-2"
+        >
+          <Card className="glass-card">
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <Megaphone className="w-5 h-5 text-primary" />
+                <CardTitle className="text-lg">Admin Announcements</CardTitle>
+                {unreadAdminCount > 0 && (
+                  <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 text-[10px]">{unreadAdminCount} NEW</Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {unreadAdminCount > 0 && (
+                <div className="flex justify-end mb-2">
+                  <Button size="sm" variant="outline" onClick={markAllAdminAnnouncementsRead}>Mark all read</Button>
+                </div>
+              )}
+              {adminAnnouncements.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No admin announcements available.</p>
+              ) : (
+                <div className="space-y-2">
+                  {adminAnnouncements.slice(0, 4).map((announcement) => {
+                    const isNew = !readAdminAnnouncementIds.includes(announcement.id);
+                    return (
+                    <div key={announcement.id} className={`border rounded-lg p-3 ${isNew ? 'border-primary/40 bg-primary/5' : 'border-border/60'}`}>
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <p className="text-sm font-semibold">{announcement.title}</p>
+                        <div className="flex items-center gap-1">
+                          {isNew && <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">NEW</Badge>}
+                          <Badge variant="outline" className="text-[10px] capitalize">{announcement.targetRole}</Badge>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground whitespace-pre-wrap">{announcement.message}</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">{new Date(announcement.createdAt).toLocaleString()} • {announcement.author || 'SuperAdmin'}</p>
+                    </div>
+                  )})}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.58 }}
+          className="lg:col-span-2"
+        >
+          <Card className="glass-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">School Roll Summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[220px]">Level / Class</TableHead>
+                    <TableHead className="text-right">Boys</TableHead>
+                    <TableHead className="text-right">Girls</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {schoolRollGroups.map((group) => (
+                    <Fragment key={`${group.section}-group`}>
+                      <TableRow key={`${group.section}-header`} className="bg-muted/40">
+                        <TableCell className="font-semibold">{group.section}</TableCell>
+                        <TableCell className="text-right font-semibold">{group.subtotal.boys}</TableCell>
+                        <TableCell className="text-right font-semibold">{group.subtotal.girls}</TableCell>
+                        <TableCell className="text-right font-semibold">{group.subtotal.total}</TableCell>
+                      </TableRow>
+                      {group.rows.map((row) => (
+                        <TableRow key={`${group.section}-${row.className}`}>
+                          <TableCell className="pl-6">{row.className}</TableCell>
+                          <TableCell className="text-right">{row.boys}</TableCell>
+                          <TableCell className="text-right">{row.girls}</TableCell>
+                          <TableCell className="text-right">{row.total}</TableCell>
+                        </TableRow>
+                      ))}
+                    </Fragment>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </motion.div>
+
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

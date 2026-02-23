@@ -5,6 +5,7 @@ import {
   hoiStreamsStorage,
   hoiSubjectsStorage,
   hoiTeachersStorage,
+  hoiSchoolProfileStorage,
   HoiTimetableSlot,
   HoiClass,
   HoiStream,
@@ -51,7 +52,13 @@ import { useToast } from '@/hooks/use-toast';
 import { exportToPdf } from '@/lib/pdfExport';
 
 const DAYS: HoiTimetableSlot['day'][] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-const DAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+const DAY_LABELS: Record<HoiTimetableSlot['day'], string> = {
+  Monday: 'MONDAY',
+  Tuesday: 'TUESDAY',
+  Wednesday: 'WEDNESDAY',
+  Thursday: 'THURSDAY',
+  Friday: 'FRIDAY',
+};
 
 const PERIODS = [
   { period: 1, start: '08:00', end: '08:40' },
@@ -100,6 +107,10 @@ export default function HoiTimetable() {
   const [clickedPeriod, setClickedPeriod] = useState(1);
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [grade, setGrade] = useState('');
+  const [term, setTerm] = useState('');
+  const [year, setYear] = useState(new Date().getFullYear().toString());
+  const [classTeacher, setClassTeacher] = useState('');
 
   const reload = () => {
     const c = hoiClassesStorage.getAll();
@@ -140,6 +151,16 @@ export default function HoiTimetable() {
 
   const selectedClass = classes.find((c) => c.id === selectedClassId);
   const selectedStream = streams.find((s) => s.id === selectedStreamId);
+  const schoolName = hoiSchoolProfileStorage.get().name || 'School';
+
+  useEffect(() => {
+    if (selectedClass) setGrade(selectedClass.name);
+    if (selectedStream && selectedStream.class_teacher_name) {
+      setClassTeacher(selectedStream.class_teacher_name);
+    } else {
+      setClassTeacher('');
+    }
+  }, [selectedClass, selectedStream]);
 
   const validate = () => {
     const e: Record<string, string> = {};
@@ -229,27 +250,27 @@ export default function HoiTimetable() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
             <CalendarDays className="w-8 h-8 text-primary" />
-            Timetable Management
+            Master Timetable
           </h1>
-          <p className="text-muted-foreground mt-1">Weekly class timetable and scheduling</p>
+          <p className="text-muted-foreground mt-1">HOI Timetable Builder</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" className="gap-2" onClick={() => window.print()}>
             <Printer className="w-4 h-4" /> Print
           </Button>
-          <Button variant="default" className="gap-2" onClick={() => exportToPdf('hoi-timetable-grid', { title: 'Weekly Timetable', subtitle: `Class: ${classes.find(c => c.id === selectedClassId)?.name || ''} | Stream: ${streams.find(s => s.id === selectedStreamId)?.name || ''}`, filename: 'Timetable.pdf', orientation: 'landscape' })}>
+          <Button variant="default" className="gap-2" onClick={() => exportToPdf('hoi-timetable-grid', { title: schoolName, subtitle: `Master Timetable | ${classes.find(c => c.id === selectedClassId)?.name || ''} - ${streams.find(s => s.id === selectedStreamId)?.name || ''} | ${term} ${year}`, filename: 'Master_Timetable.pdf', orientation: 'landscape', fitToOnePage: true })}>
             <FileDown className="w-4 h-4" /> PDF
           </Button>
         </div>
       </div>
 
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-4 flex-wrap">
+      <Card className="mb-4">
+        <CardContent className="pt-4 pb-4">
+          <div className="flex items-end gap-4 flex-wrap">
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">Class</Label>
               <Select value={selectedClassId} onValueChange={setSelectedClassId}>
@@ -276,52 +297,92 @@ export default function HoiTimetable() {
                 </SelectContent>
               </Select>
             </div>
-            {selectedClass && selectedStream && (
-              <div className="ml-auto text-sm text-muted-foreground">
-                Showing: <span className="font-medium text-foreground">{selectedClass.name} - {selectedStream.name}</span>
-              </div>
-            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-4">
+        <CardContent className="pt-4 pb-4">
+          <div className="flex items-center gap-6 flex-wrap">
+            <div className="w-14 h-14 bg-gray-200 rounded-lg flex items-center justify-center text-gray-400 text-[10px] font-medium border">
+              LOGO
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Grade</Label>
+              <Input value={grade} onChange={(e) => setGrade(e.target.value)} className="w-[140px] h-8 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Term</Label>
+              <Input value={term} onChange={(e) => setTerm(e.target.value)} placeholder="e.g. Term 1" className="w-[120px] h-8 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Year</Label>
+              <Input value={year} onChange={(e) => setYear(e.target.value)} className="w-[100px] h-8 text-sm" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Class Teacher</Label>
+              <Input value={classTeacher} onChange={(e) => setClassTeacher(e.target.value)} className="w-[200px] h-8 text-sm" />
+            </div>
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardContent className="p-4 overflow-x-auto" id="hoi-timetable-grid">
-          <table className="w-full border-collapse min-w-[700px]">
+        <CardContent className="p-2 overflow-x-auto" id="hoi-timetable-grid">
+          <table className="w-full border-collapse min-w-[800px]" style={{ tableLayout: 'fixed' }}>
             <thead>
               <tr>
-                <th className="p-2 text-left text-sm font-semibold text-muted-foreground border-b w-[120px]">Period</th>
-                {DAYS.map((day, i) => (
-                  <th key={day} className="p-2 text-center text-sm font-semibold text-foreground border-b">{DAY_SHORT[i]}</th>
+                <th
+                  className="border border-gray-300 p-2 text-sm font-bold text-white"
+                  style={{ backgroundColor: '#1E3A5F', width: 90 }}
+                >
+                  DAY / TIME
+                </th>
+                {PERIODS.map((period) => (
+                  <th
+                    key={period.period}
+                    className="border border-gray-300 p-1 text-center"
+                    style={{ backgroundColor: '#0D9488', color: 'white', minWidth: 70 }}
+                  >
+                    <div className="text-[10px] font-semibold leading-tight">{period.start}</div>
+                    <div className="text-[9px] opacity-80">-</div>
+                    <div className="text-[10px] font-semibold leading-tight">{period.end}</div>
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {PERIODS.map((p) => (
-                <tr key={p.period}>
-                  <td className="p-2 border-b">
-                    <div className="text-sm font-medium">Period {p.period}</div>
-                    <div className="text-xs text-muted-foreground">{p.start} - {p.end}</div>
+              {DAYS.map((day) => (
+                <tr key={day}>
+                  <td
+                    className="border border-gray-300 p-2 text-center font-bold text-white text-sm"
+                    style={{ backgroundColor: '#1E3A5F' }}
+                  >
+                    {DAY_LABELS[day]}
                   </td>
-                  {DAYS.map((day) => {
-                    const slot = getSlot(day, p.period);
+                  {PERIODS.map((period) => {
+                    const slot = getSlot(day, period.period);
                     return (
-                      <td key={day} className="p-1 border-b">
+                      <td
+                        key={period.period}
+                        className="border border-gray-300 p-1 bg-white"
+                        style={{ minWidth: 70 }}
+                      >
                         {slot ? (
                           <div
-                            className={`rounded-lg border p-2 cursor-pointer transition-colors ${subjectColorMap[slot.subject_id] || CELL_COLORS[0]}`}
+                            className={`rounded border p-1 cursor-pointer transition-colors ${subjectColorMap[slot.subject_id] || CELL_COLORS[0]}`}
                             onClick={() => openEditSlot(slot)}
                           >
-                            <div className="text-xs font-semibold truncate">{slot.subject_name}</div>
-                            <div className="text-[10px] text-muted-foreground truncate">{slot.teacher_name}</div>
-                            <div className="text-[10px] text-muted-foreground truncate">{slot.room}</div>
+                            <div className="text-xs font-bold text-gray-800 truncate leading-tight">{slot.subject_name}</div>
+                            <div className="text-[10px] text-gray-500 truncate">{slot.teacher_name}</div>
+                            <div className="text-[10px] text-gray-500 truncate">{slot.room}</div>
                           </div>
                         ) : (
                           <div
-                            className="rounded-lg border border-dashed border-muted-foreground/30 p-2 min-h-[60px] cursor-pointer hover:bg-muted/50 transition-colors flex items-center justify-center"
-                            onClick={() => openAddSlot(day, p.period)}
+                            className="min-h-[40px] flex items-center justify-center cursor-pointer hover:bg-gray-50 transition-colors rounded"
+                            onClick={() => openAddSlot(day, period.period)}
                           >
-                            <Plus className="w-4 h-4 text-muted-foreground/50" />
+                            <span className="text-[10px] text-gray-300">+</span>
                           </div>
                         )}
                       </td>

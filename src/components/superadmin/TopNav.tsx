@@ -28,7 +28,7 @@ export function TopNav({ onSearch }: TopNavProps) {
   };
 
   return (
-    <header className="h-20 glass-card border-b border-border/50 flex items-center justify-between px-8 sticky top-0 z-40">
+    <header className="h-16 bg-background/95 backdrop-blur border-b border-border/70 flex items-center justify-between px-6 sticky top-0 z-40 shadow-sm">
       <div className="flex items-center gap-4">
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -37,7 +37,7 @@ export function TopNav({ onSearch }: TopNavProps) {
             placeholder="Search schools, students, faculty..."
             value={searchTerm}
             onChange={handleSearch}
-            className="w-80 h-11 pl-11 pr-4 rounded-xl bg-secondary/50 border border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all outline-none text-sm placeholder:text-muted-foreground"
+            className="w-80 h-10 pl-11 pr-4 rounded-xl bg-muted border border-border/70 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all outline-none text-sm placeholder:text-muted-foreground"
           />
         </div>
       </div>
@@ -45,7 +45,7 @@ export function TopNav({ onSearch }: TopNavProps) {
       <div className="relative">
         <button
           onClick={() => setShowDropdown(!showDropdown)}
-          className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-secondary/50 hover:bg-secondary border border-border/50 transition-all group"
+          className="flex items-center gap-3 px-4 py-2 rounded-xl bg-muted hover:bg-muted/80 border border-border/70 transition-all group"
         >
           <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
             <School className="w-4 h-4 text-primary" />
@@ -67,7 +67,7 @@ export function TopNav({ onSearch }: TopNavProps) {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 8, scale: 0.96 }}
               transition={{ duration: 0.15 }}
-              className="absolute top-full mt-2 left-0 w-72 glass-card-elevated rounded-xl border border-border/50 overflow-hidden z-50"
+              className="absolute top-full mt-2 left-0 w-72 bg-popover rounded-xl border border-border shadow-md overflow-hidden z-50"
             >
               <div className="p-2">
                 <p className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -84,7 +84,7 @@ export function TopNav({ onSearch }: TopNavProps) {
                       "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-left",
                       selectedSchool.id === school.id
                         ? "bg-primary/10 text-primary"
-                        : "hover:bg-secondary text-foreground"
+                        : "hover:bg-muted text-foreground"
                     )}
                   >
                     <div className={cn(
@@ -106,7 +106,7 @@ export function TopNav({ onSearch }: TopNavProps) {
       </div>
 
       <div className="flex items-center gap-4">
-        <button className="relative w-11 h-11 rounded-xl bg-secondary/50 hover:bg-secondary border border-border/50 flex items-center justify-center transition-colors group">
+        <button className="relative w-10 h-10 rounded-xl bg-muted hover:bg-muted/80 border border-border/70 flex items-center justify-center transition-colors group">
           <Bell className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors" />
           {notifications > 0 && (
             <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs font-medium flex items-center justify-center">

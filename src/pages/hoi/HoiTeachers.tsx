@@ -14,6 +14,7 @@ import {
   HoiTeacherDuty,
 } from '@/lib/hoiStorage';
 import { platformUsersStorage } from '@/lib/storage';
+import { sendWelcomeEmail } from '@/lib/email';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -70,8 +71,16 @@ import { useToast } from '@/hooks/use-toast';
 
 const PAGE_SIZE = 10;
 
-const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-const DUTY_TYPES: HoiTeacherDuty['duty_type'][] = ['gate', 'dining', 'games', 'assembly', 'cleaning supervision'];
+const SYSTEM_CREATED_BY = new Set(['superadmin', 'system', 'hoi', 'dhoi']);
+
+type DhoiAccount = {
+  id?: string;
+  fullName: string;
+  email: string;
+  phone?: string;
+  employeeId?: string;
+  createdAt?: string;
+};
 
 const emptyTeacherForm = {
   full_name: '',
@@ -97,9 +106,10 @@ const emptyAssignmentForm = {
 
 const emptyDutyForm = {
   teacher_id: '',
-  duty_type: 'gate' as HoiTeacherDuty['duty_type'],
-  day: 'Monday',
-  time_slot: '',
+  teacher_two_id: '',
+  from_date: '',
+  to_date: '',
+  remarks: '',
 };
 
 export default function HoiTeachers() {
@@ -122,6 +132,7 @@ export default function HoiTeachers() {
   const [teacherForm, setTeacherForm] = useState(emptyTeacherForm);
 
   const [deactivateDialog, setDeactivateDialog] = useState<{ open: boolean; teacher: HoiTeacher | null }>({ open: false, teacher: null });
+  const [deleteTeacherDialog, setDeleteTeacherDialog] = useState<{ open: boolean; teacher: HoiTeacher | null }>({ open: false, teacher: null });
 
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [assignForm, setAssignForm] = useState(emptyAssignmentForm);
@@ -134,7 +145,7 @@ export default function HoiTeachers() {
 
   const [dhoiDialogOpen, setDhoiDialogOpen] = useState(false);
   const [dhoiForm, setDhoiForm] = useState({ fullName: '', email: '', password: '', phone: '', employeeId: '' });
-  const [existingDhoi, setExistingDhoi] = useState<any>(null);
+  const [existingDhoi, setExistingDhoi] = useState<DhoiAccount | null>(null);
 
   const loadData = () => {
     setTeachers(hoiTeachersStorage.getAll());
@@ -145,7 +156,7 @@ export default function HoiTeachers() {
     setDuties(hoiTeacherDutiesStorage.getAll());
     try {
       const stored = localStorage.getItem('zaroda_dhoi_account');
-      const accounts = stored ? JSON.parse(stored) : [];
+      const accounts = (stored ? JSON.parse(stored) : []) as DhoiAccount[];
       setExistingDhoi(Array.isArray(accounts) && accounts.length > 0 ? accounts[0] : null);
     } catch { setExistingDhoi(null); }
   };
@@ -187,6 +198,17 @@ export default function HoiTeachers() {
       passwords[email] = dhoiForm.password.trim();
       localStorage.setItem('zaroda_passwords', JSON.stringify(passwords));
     }
+
+    if (!existingDhoi) {
+      void sendWelcomeEmail({
+        email: account.email,
+        fullName: account.fullName,
+        role: 'dhoi',
+        schoolCode: account.schoolCode,
+        createdBy: 'HOI',
+      });
+    }
+
     toast({ title: existingDhoi ? 'DHOI Account Updated' : 'DHOI Account Created', description: `${account.fullName} can now log in as DHOI.` });
     setDhoiDialogOpen(false);
     loadData();
@@ -201,6 +223,11 @@ export default function HoiTeachers() {
 
   const totalTeacherPages = Math.max(1, Math.ceil(filteredTeachers.length / PAGE_SIZE));
   const pagedTeachers = filteredTeachers.slice((teacherPage - 1) * PAGE_SIZE, teacherPage * PAGE_SIZE);
+
+  const getTeacherRoleLabel = (teacher: HoiTeacher) => {
+    if (teacher.is_class_teacher) return 'Class Teacher';
+    return 'Subject Teacher';
+  };
 
   const totalAssignPages = Math.max(1, Math.ceil(assignments.length / PAGE_SIZE));
   const pagedAssignments = assignments.slice((assignPage - 1) * PAGE_SIZE, assignPage * PAGE_SIZE);
@@ -314,6 +341,14 @@ export default function HoiTeachers() {
           classTeacherStreamName: classTeacherFields.class_teacher_stream_name,
         });
       }
+
+      void sendWelcomeEmail({
+        email: teacherForm.email.trim().toLowerCase(),
+        fullName: teacherForm.full_name.trim(),
+        role: 'teacher',
+        createdBy: 'HOI',
+      });
+
       toast({ title: 'Teacher Added', description: `${teacherForm.full_name} has been added. They can now log in with their email and password.` });
     }
     setTeacherDialogOpen(false);
@@ -330,15 +365,83 @@ export default function HoiTeachers() {
     loadData();
   };
 
-  const saveAssignment = () => {
-    if (!assignForm.teacher_id || !assignForm.subject_id || !assignForm.class_id || !assignForm.stream_id) {
-      toast({ title: 'Validation Error', description: 'All fields are required.', variant: 'destructive' });
+  const isSystemCreatedTeacher = (teacher: HoiTeacher) => {
+    const platformUser = platformUsersStorage.findByEmail(teacher.email);
+    if (!platformUser) return true;
+    if (platformUser.role !== 'teacher') return false;
+    const createdBy = (platformUser.createdBy || '').trim().toLowerCase();
+    return SYSTEM_CREATED_BY.has(createdBy);
+  };
+
+  const deleteTeacher = () => {
+    const teacher = deleteTeacherDialog.teacher;
+    if (!teacher) return;
+
+    if (!isSystemCreatedTeacher(teacher)) {
+      toast({
+        title: 'Delete Not Allowed',
+        description: 'Only system-created teacher accounts can be deleted by HOI/DHOI.',
+        variant: 'destructive',
+      });
+      setDeleteTeacherDialog({ open: false, teacher: null });
       return;
     }
+
+    hoiSubjectAssignmentsStorage
+      .getAll()
+      .filter((assignment) => assignment.teacher_id === teacher.id)
+      .forEach((assignment) => hoiSubjectAssignmentsStorage.remove(assignment.id));
+
+    hoiTeacherDutiesStorage
+      .getAll()
+      .filter((duty) => duty.teacher_id === teacher.id)
+      .forEach((duty) => hoiTeacherDutiesStorage.remove(duty.id));
+
+    hoiStreamsStorage
+      .getAll()
+      .filter((stream) => stream.class_teacher_id === teacher.id)
+      .forEach((stream) => hoiStreamsStorage.update(stream.id, {
+        class_teacher_id: undefined,
+        class_teacher_name: undefined,
+      }));
+
+    hoiTeachersStorage.remove(teacher.id);
+
+    const teacherAccount = platformUsersStorage.findByEmail(teacher.email);
+    if (teacherAccount?.role === 'teacher') {
+      platformUsersStorage.remove(teacherAccount.id);
+    }
+
+    const email = teacher.email.trim().toLowerCase();
+    const passwords = JSON.parse(localStorage.getItem('zaroda_passwords') || '{}');
+    if (passwords[email]) {
+      delete passwords[email];
+      localStorage.setItem('zaroda_passwords', JSON.stringify(passwords));
+    }
+
+    toast({ title: 'Teacher Deleted', description: `${teacher.full_name} and related records have been removed.` });
+    setDeleteTeacherDialog({ open: false, teacher: null });
+    loadData();
+  };
+
+  const saveAssignment = () => {
+    if (!assignForm.teacher_id || !assignForm.subject_id || !assignForm.class_id) {
+      toast({ title: 'Validation Error', description: 'Teacher, subject, and class are required.', variant: 'destructive' });
+      return;
+    }
+
+    const classStreams = streams.filter((s) => s.class_id === assignForm.class_id);
+    const resolvedStreamId = assignForm.stream_id || (classStreams.length === 1 ? classStreams[0].id : '');
+
+    if (!resolvedStreamId) {
+      toast({ title: 'Validation Error', description: 'Stream is required when the selected class has multiple streams.', variant: 'destructive' });
+      return;
+    }
+
     const teacher = teachers.find((t) => t.id === assignForm.teacher_id);
     const subject = subjects.find((s) => s.id === assignForm.subject_id);
     const cls = classes.find((c) => c.id === assignForm.class_id);
-    const stream = streams.find((s) => s.id === assignForm.stream_id);
+    const stream = streams.find((s) => s.id === resolvedStreamId);
     if (!teacher || !subject || !cls || !stream) return;
     hoiSubjectAssignmentsStorage.add({
       teacher_id: teacher.id,
@@ -366,20 +469,32 @@ export default function HoiTeachers() {
   };
 
   const saveDuty = () => {
-    if (!dutyForm.teacher_id || !dutyForm.time_slot.trim()) {
-      toast({ title: 'Validation Error', description: 'Teacher and time slot are required.', variant: 'destructive' });
+    if (!dutyForm.teacher_id || !dutyForm.from_date || !dutyForm.to_date) {
+      toast({ title: 'Validation Error', description: 'Teacher, from date, and to date are required.', variant: 'destructive' });
+      return;
+    }
+    if (dutyForm.from_date > dutyForm.to_date) {
+      toast({ title: 'Validation Error', description: 'From date cannot be after to date.', variant: 'destructive' });
       return;
     }
     const teacher = teachers.find((t) => t.id === dutyForm.teacher_id);
+    const teacherTwo = dutyForm.teacher_two_id ? teachers.find((t) => t.id === dutyForm.teacher_two_id) : null;
     if (!teacher) return;
     hoiTeacherDutiesStorage.add({
       teacher_id: teacher.id,
       teacher_name: teacher.full_name,
-      duty_type: dutyForm.duty_type,
-      day: dutyForm.day,
-      time_slot: dutyForm.time_slot,
+      teacher_two_id: teacherTwo?.id || '',
+      teacher_two_name: teacherTwo?.full_name || '',
+      from_date: dutyForm.from_date,
+      to_date: dutyForm.to_date,
+      remarks: dutyForm.remarks.trim(),
     });
-    toast({ title: 'Duty Assigned', description: `${teacher.full_name} assigned ${dutyForm.duty_type} on ${dutyForm.day}` });
+    toast({
+      title: 'Weekly Rotation Saved',
+      description: teacherTwo
+        ? `${teacher.full_name} and ${teacherTwo.full_name} assigned for ${dutyForm.from_date} to ${dutyForm.to_date}`
+        : `${teacher.full_name} assigned for ${dutyForm.from_date} to ${dutyForm.to_date}`,
+    });
     setDutyDialogOpen(false);
     setDutyForm(emptyDutyForm);
     loadData();
@@ -394,7 +509,7 @@ export default function HoiTeachers() {
     }
   };
 
-  const uniqueTeachersInDuties = [...new Set(duties.map((d) => d.teacher_name))];
+  const rosterEntries = [...duties].sort((a, b) => a.from_date.localeCompare(b.from_date));
 
   const Pagination = ({ page, total, setPage }: { page: number; total: number; setPage: (p: number) => void }) => (
     <div className="flex items-center justify-between mt-4">
@@ -417,14 +532,14 @@ export default function HoiTeachers() {
           <h1 className="text-3xl font-bold text-foreground mb-1">Teacher Management</h1>
           <p className="text-muted-foreground">Manage teachers, subject assignments, and duty roster</p>
         </div>
-        <Button variant="outline" className="gap-2 border-indigo-300 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-700 dark:text-indigo-300 dark:hover:bg-indigo-950" onClick={openDhoiDialog}>
+        <Button variant="outline" className="gap-2" onClick={openDhoiDialog}>
           <Shield className="w-4 h-4" />
           {existingDhoi ? 'Edit DHOI Account' : 'Create DHOI Account'}
         </Button>
       </div>
 
       <Tabs defaultValue="teachers">
-        <TabsList className="mb-6">
+        <TabsList className="mb-6 w-full justify-start overflow-x-auto">
           <TabsTrigger value="teachers" className="gap-2"><Users className="w-4 h-4" />All Teachers</TabsTrigger>
           <TabsTrigger value="assignments" className="gap-2"><BookOpen className="w-4 h-4" />Subject Assignments</TabsTrigger>
           <TabsTrigger value="roster" className="gap-2"><ClipboardList className="w-4 h-4" />Duty Roster</TabsTrigger>
@@ -443,7 +558,7 @@ export default function HoiTeachers() {
                   <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setTeacherPage(1); }}>
                     <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="all">All Status</SelectItem>
                       <SelectItem value="active">Active</SelectItem>
                       <SelectItem value="on_leave">On Leave</SelectItem>
                       <SelectItem value="deactivated">Deactivated</SelectItem>
@@ -458,6 +573,7 @@ export default function HoiTeachers() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
+                    <TableHead>Role</TableHead>
                     <TableHead>Employee ID</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Phone</TableHead>
@@ -468,7 +584,7 @@ export default function HoiTeachers() {
                 </TableHeader>
                 <TableBody>
                   {pagedTeachers.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No teachers found.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No teachers found.</TableCell></TableRow>
                   ) : pagedTeachers.map((t) => (
                     <TableRow key={t.id}>
                       <TableCell className="font-medium">
@@ -476,6 +592,11 @@ export default function HoiTeachers() {
                         {t.is_class_teacher && (
                           <Badge className="ml-2 bg-amber-100 text-amber-800 border-amber-300 text-[10px]">Class Teacher</Badge>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="bg-blue-500/10 text-blue-700 border-blue-500/30">
+                          {getTeacherRoleLabel(t)}
+                        </Badge>
                       </TableCell>
                       <TableCell>{t.employee_id}</TableCell>
                       <TableCell>{t.email}</TableCell>
@@ -493,6 +614,11 @@ export default function HoiTeachers() {
                           <Button variant="ghost" size="sm" onClick={() => setDeactivateDialog({ open: true, teacher: t })}>
                             {t.status === 'deactivated' ? <UserCheck className="w-4 h-4 text-green-600" /> : <UserX className="w-4 h-4 text-red-600" />}
                           </Button>
+                          {isSystemCreatedTeacher(t) && (
+                            <Button variant="ghost" size="sm" onClick={() => setDeleteTeacherDialog({ open: true, teacher: t })}>
+                              <Trash2 className="w-4 h-4 text-red-600" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -550,71 +676,31 @@ export default function HoiTeachers() {
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg">Weekly Duty Roster</CardTitle>
-                  <Button onClick={() => { setDutyForm(emptyDutyForm); setDutyDialogOpen(true); }} className="gap-2"><Plus className="w-4 h-4" />Add Duty</Button>
+                  <Button onClick={() => { setDutyForm(emptyDutyForm); setDutyDialogOpen(true); }} className="gap-2"><Plus className="w-4 h-4" />Add Weekly Rotation</Button>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="min-w-[150px]">Teacher</TableHead>
-                        {DAYS.map((d) => <TableHead key={d} className="min-w-[140px]">{d}</TableHead>)}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {uniqueTeachersInDuties.length === 0 ? (
-                        <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No duties assigned yet.</TableCell></TableRow>
-                      ) : uniqueTeachersInDuties.map((tName) => (
-                        <TableRow key={tName}>
-                          <TableCell className="font-medium">{tName}</TableCell>
-                          {DAYS.map((day) => {
-                            const dayDuties = duties.filter((d) => d.teacher_name === tName && d.day === day);
-                            return (
-                              <TableCell key={day}>
-                                {dayDuties.length === 0 ? (
-                                  <span className="text-muted-foreground text-xs">—</span>
-                                ) : dayDuties.map((d) => (
-                                  <div key={d.id} className="mb-1">
-                                    <Badge variant="outline" className="text-xs capitalize">{d.duty_type}</Badge>
-                                    <p className="text-[10px] text-muted-foreground">{d.time_slot}</p>
-                                  </div>
-                                ))}
-                              </TableCell>
-                            );
-                          })}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg">All Duties ({duties.length})</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Teacher</TableHead>
-                      <TableHead>Duty</TableHead>
-                      <TableHead>Day</TableHead>
-                      <TableHead>Time Slot</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Teacher 2 (Optional)</TableHead>
+                      <TableHead>From Date</TableHead>
+                      <TableHead>To Date</TableHead>
+                      <TableHead>Remarks</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {duties.length === 0 ? (
-                      <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No duties assigned.</TableCell></TableRow>
-                    ) : duties.map((d) => (
+                    {rosterEntries.length === 0 ? (
+                      <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No weekly rotations assigned.</TableCell></TableRow>
+                    ) : rosterEntries.map((d) => (
                       <TableRow key={d.id}>
                         <TableCell className="font-medium">{d.teacher_name}</TableCell>
-                        <TableCell className="capitalize">{d.duty_type}</TableCell>
-                        <TableCell>{d.day}</TableCell>
-                        <TableCell>{d.time_slot}</TableCell>
+                        <TableCell>{d.teacher_two_name || '—'}</TableCell>
+                        <TableCell>{d.from_date}</TableCell>
+                        <TableCell>{d.to_date}</TableCell>
+                        <TableCell>{d.remarks || '—'}</TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="sm" onClick={() => setDeleteDutyDialog({ open: true, id: d.id })}><Trash2 className="w-4 h-4 text-red-600" /></Button>
                         </TableCell>
@@ -667,10 +753,6 @@ export default function HoiTeachers() {
             <div>
               <Label>Subject Specialization</Label>
               <Input value={teacherForm.subject_specialization} onChange={(e) => setTeacherForm({ ...teacherForm, subject_specialization: e.target.value })} />
-            </div>
-            <div>
-              <Label>Qualification</Label>
-              <Input value={teacherForm.qualification} onChange={(e) => setTeacherForm({ ...teacherForm, qualification: e.target.value })} />
             </div>
             <div>
               <Label>Status</Label>
@@ -745,6 +827,21 @@ export default function HoiTeachers() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={deleteTeacherDialog.open} onOpenChange={(open) => setDeleteTeacherDialog({ ...deleteTeacherDialog, open })}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Teacher?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {deleteTeacherDialog.teacher?.full_name}, including their subject assignments and duty records. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={deleteTeacher}>Delete Teacher</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -785,7 +882,7 @@ export default function HoiTeachers() {
               </Select>
             </div>
             <div>
-              <Label>Stream *</Label>
+              <Label>Stream (optional for single-stream classes)</Label>
               <Select value={assignForm.stream_id} onValueChange={(v) => setAssignForm({ ...assignForm, stream_id: v })}>
                 <SelectTrigger><SelectValue placeholder="Select stream" /></SelectTrigger>
                 <SelectContent>
@@ -819,11 +916,11 @@ export default function HoiTeachers() {
       <Dialog open={dutyDialogOpen} onOpenChange={setDutyDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Assign Duty</DialogTitle>
+            <DialogTitle>Add Weekly Duty Rotation</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Teacher *</Label>
+              <Label>Name *</Label>
               <Select value={dutyForm.teacher_id} onValueChange={(v) => setDutyForm({ ...dutyForm, teacher_id: v })}>
                 <SelectTrigger><SelectValue placeholder="Select teacher" /></SelectTrigger>
                 <SelectContent>
@@ -834,35 +931,35 @@ export default function HoiTeachers() {
               </Select>
             </div>
             <div>
-              <Label>Duty Type *</Label>
-              <Select value={dutyForm.duty_type} onValueChange={(v) => setDutyForm({ ...dutyForm, duty_type: v as HoiTeacherDuty['duty_type'] })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Label>Second Teacher (Optional)</Label>
+              <Select value={dutyForm.teacher_two_id || 'none'} onValueChange={(v) => setDutyForm({ ...dutyForm, teacher_two_id: v === 'none' ? '' : v })}>
+                <SelectTrigger><SelectValue placeholder="Select second teacher" /></SelectTrigger>
                 <SelectContent>
-                  {DUTY_TYPES.map((dt) => (
-                    <SelectItem key={dt} value={dt} className="capitalize">{dt}</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
+                  {teachers.filter((t) => t.status === 'active' && t.id !== dutyForm.teacher_id).map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.full_name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>Day *</Label>
-              <Select value={dutyForm.day} onValueChange={(v) => setDutyForm({ ...dutyForm, day: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {DAYS.map((d) => (
-                    <SelectItem key={d} value={d}>{d}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>From Date *</Label>
+                <Input type="date" value={dutyForm.from_date} onChange={(e) => setDutyForm({ ...dutyForm, from_date: e.target.value })} />
+              </div>
+              <div>
+                <Label>To Date *</Label>
+                <Input type="date" value={dutyForm.to_date} onChange={(e) => setDutyForm({ ...dutyForm, to_date: e.target.value })} />
+              </div>
             </div>
             <div>
-              <Label>Time Slot *</Label>
-              <Input placeholder="e.g. 6:30 AM - 7:30 AM" value={dutyForm.time_slot} onChange={(e) => setDutyForm({ ...dutyForm, time_slot: e.target.value })} />
+              <Label>Remarks</Label>
+              <Input placeholder="Optional notes for the week" value={dutyForm.remarks} onChange={(e) => setDutyForm({ ...dutyForm, remarks: e.target.value })} />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDutyDialogOpen(false)}>Cancel</Button>
-            <Button onClick={saveDuty}>Assign Duty</Button>
+            <Button onClick={saveDuty}>Save Rotation</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -870,8 +967,8 @@ export default function HoiTeachers() {
       <AlertDialog open={deleteDutyDialog.open} onOpenChange={(open) => setDeleteDutyDialog({ ...deleteDutyDialog, open })}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove Duty?</AlertDialogTitle>
-            <AlertDialogDescription>This will remove the duty assignment. This action cannot be undone.</AlertDialogDescription>
+            <AlertDialogTitle>Remove Weekly Rotation?</AlertDialogTitle>
+            <AlertDialogDescription>This will remove the weekly rotation entry. This action cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>

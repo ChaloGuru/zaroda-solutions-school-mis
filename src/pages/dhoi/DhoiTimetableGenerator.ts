@@ -1,6 +1,6 @@
 export interface MasterTimetableSlot {
   id: string;
-  timetableType: 'upper_primary' | 'junior' | 'ecde';
+  timetableType: 'ecde' | 'lower_primary' | 'upper_primary' | 'junior';
   classId: string;
   className: string;
   streamId: string;
@@ -19,9 +19,26 @@ export interface MasterTimetableSlot {
 }
 
 export interface TimetableConfig {
-  type: 'upper_primary' | 'junior' | 'ecde';
+  type: 'ecde' | 'lower_primary' | 'upper_primary' | 'junior';
   periods: { start: string; end: string; locked?: boolean; label?: string }[];
 }
+
+export const LOWER_PRIMARY_CONFIG: TimetableConfig = {
+  type: 'lower_primary',
+  periods: [
+    { start: '8:00', end: '8:20', locked: true, label: 'ASSEMBLY/HEALTH CHECK' },
+    { start: '8:20', end: '8:55' },
+    { start: '8:55', end: '9:30' },
+    { start: '9:30', end: '9:50', locked: true, label: 'BREAK' },
+    { start: '10:25', end: '11:00' },
+    { start: '11:00', end: '11:30', locked: true, label: 'BREAK' },
+    { start: '11:30', end: '12:05' },
+    { start: '12:05', end: '12:40' },
+    { start: '12:40', end: '2:00', locked: true, label: 'LUNCH' },
+    { start: '2:00', end: '2:35' },
+    { start: '2:35', end: '4:00' },
+  ],
+};
 
 export const UPPER_PRIMARY_CONFIG: TimetableConfig = {
   type: 'upper_primary',

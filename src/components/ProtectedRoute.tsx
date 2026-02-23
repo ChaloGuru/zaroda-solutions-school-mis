@@ -3,7 +3,7 @@ import { useAuthContext, UserRole, getDashboardForRole } from '@/context/AuthCon
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRole: UserRole;
+  allowedRole: UserRole | UserRole[];
 }
 
 const ProtectedRoute = ({ children, allowedRole }: ProtectedRouteProps) => {
@@ -21,7 +21,9 @@ const ProtectedRoute = ({ children, allowedRole }: ProtectedRouteProps) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (currentUser.role !== allowedRole) {
+  const allowedRoles = Array.isArray(allowedRole) ? allowedRole : [allowedRole];
+
+  if (!allowedRoles.includes(currentUser.role)) {
     return <Navigate to={getDashboardForRole(currentUser.role)} replace />;
   }
 

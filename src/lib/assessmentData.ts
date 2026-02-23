@@ -2432,9 +2432,61 @@ export const assessmentFramework: GradeAssessment[] = [
   grade9Assessment,
 ];
 
+function normalizeAssessmentGrade(grade: string): string {
+  const value = (grade || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const compact = value.replace(/\s+/g, '');
+
+  const aliases: Record<string, string> = {
+    playgroup: 'Playgroup',
+    pp1: 'PP1',
+    'pp 1': 'PP1',
+    pp2: 'PP2',
+    'pp 2': 'PP2',
+    grade1: 'Grade 1',
+    'grade 1': 'Grade 1',
+    grade2: 'Grade 2',
+    'grade 2': 'Grade 2',
+    grade3: 'Grade 3',
+    'grade 3': 'Grade 3',
+    grade4: 'Grade 4',
+    'grade 4': 'Grade 4',
+    grade5: 'Grade 5',
+    'grade 5': 'Grade 5',
+    grade6: 'Grade 6',
+    'grade 6': 'Grade 6',
+    grade7: 'Grade 7',
+    'grade 7': 'Grade 7',
+    jss1: 'Grade 7',
+    'jss 1': 'Grade 7',
+    form1: 'Grade 7',
+    'form 1': 'Grade 7',
+    grade8: 'Grade 8',
+    'grade 8': 'Grade 8',
+    jss2: 'Grade 8',
+    'jss 2': 'Grade 8',
+    form2: 'Grade 8',
+    'form 2': 'Grade 8',
+    grade9: 'Grade 9',
+    'grade 9': 'Grade 9',
+    jss3: 'Grade 9',
+    'jss 3': 'Grade 9',
+    form3: 'Grade 9',
+    'form 3': 'Grade 9',
+    form4: 'Grade 9',
+    'form 4': 'Grade 9',
+  };
+
+  return aliases[value] || aliases[compact] || grade;
+}
+
+function normalizeSubject(value: string): string {
+  return (value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
 export function getSubjectsForGrade(grade: string): string[] {
+  const normalizedGrade = normalizeAssessmentGrade(grade);
   const gradeAssessment = assessmentFramework.find(
-    (g) => g.grade.toLowerCase() === grade.toLowerCase()
+    (g) => g.grade.toLowerCase() === normalizedGrade.toLowerCase()
   );
   if (!gradeAssessment || gradeAssessment.terms.length === 0) {
     return [];
@@ -2447,15 +2499,23 @@ export function getAssessmentForGradeSubjectTerm(
   subject: string,
   term: number
 ): SubjectAssessment | undefined {
+  const normalizedGrade = normalizeAssessmentGrade(grade);
   const gradeAssessment = assessmentFramework.find(
-    (g) => g.grade.toLowerCase() === grade.toLowerCase()
+    (g) => g.grade.toLowerCase() === normalizedGrade.toLowerCase()
   );
   if (!gradeAssessment) return undefined;
 
   const termAssessment = gradeAssessment.terms.find((t) => t.term === term);
   if (!termAssessment) return undefined;
 
-  return termAssessment.subjects.find(
+  const exactMatch = termAssessment.subjects.find(
     (s) => s.subject.toLowerCase() === subject.toLowerCase()
   );
+  if (exactMatch) return exactMatch;
+
+  const normalizedSubject = normalizeSubject(subject);
+  return termAssessment.subjects.find((s) => {
+    const candidate = normalizeSubject(s.subject);
+    return candidate === normalizedSubject || candidate.includes(normalizedSubject) || normalizedSubject.includes(candidate);
+  });
 }

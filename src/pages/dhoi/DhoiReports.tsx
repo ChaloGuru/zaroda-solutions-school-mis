@@ -321,21 +321,23 @@ export default function DhoiReports() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Teacher</TableHead>
-                    <TableHead>Duty Type</TableHead>
-                    <TableHead>Day</TableHead>
-                    <TableHead>Time Slot</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Teacher 2</TableHead>
+                    <TableHead>From Date</TableHead>
+                    <TableHead>To Date</TableHead>
+                    <TableHead>Remarks</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {duties.length === 0 ? (
-                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">No duty roster data</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No duty roster data</TableCell></TableRow>
                   ) : duties.map(d => (
                     <TableRow key={d.id}>
                       <TableCell className="font-medium">{d.teacher_name}</TableCell>
-                      <TableCell className="capitalize">{d.duty_type}</TableCell>
-                      <TableCell>{d.day}</TableCell>
-                      <TableCell>{d.time_slot}</TableCell>
+                      <TableCell>{d.teacher_two_name || '—'}</TableCell>
+                      <TableCell>{d.from_date}</TableCell>
+                      <TableCell>{d.to_date}</TableCell>
+                      <TableCell>{d.remarks || '—'}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

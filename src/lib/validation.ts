@@ -3,7 +3,7 @@ import { z } from 'zod';
 // Kenya phone number regex (supports +254, 07, or 01 formats)
 const kenyanPhoneRegex = /^(\+254|0)(7|1)\d{8}$/;
 
-// School code regex (alphanumeric, 4-10 characters)
+// SCHOOL KNEC CODE regex (alphanumeric, 4-20 characters)
 const schoolCodeRegex = /^[A-Za-z0-9]{4,20}$/;
 
 export const signUpSchema = z.object({
@@ -13,9 +13,9 @@ export const signUpSchema = z.object({
     .max(100, 'School name must be less than 100 characters'),
   schoolCode: z.string()
     .trim()
-    .regex(schoolCodeRegex, 'School code must be 4-20 alphanumeric characters'),
-  schoolType: z.enum(['public', 'private'], {
-    errorMap: () => ({ message: 'Please select a school type' })
+    .regex(schoolCodeRegex, 'SCHOOL KNEC CODE must be 4-20 alphanumeric characters'),
+  schoolType: z.enum(['ecde', 'primary', 'junior_secondary'], {
+    errorMap: () => ({ message: 'Please select a school category' })
   }),
   county: z.string().min(1, 'Please select a county'),
   subCounty: z.string()
@@ -50,7 +50,7 @@ export const signUpSchema = z.object({
 export const loginSchema = z.object({
   schoolCode: z.string()
     .trim()
-    .min(1, 'School code is required'),
+    .min(1, 'SCHOOL KNEC CODE is required'),
   email: z.string()
     .trim()
     .email('Please enter a valid email address'),
@@ -62,12 +62,13 @@ export type SignUpFormData = z.infer<typeof signUpSchema>;
 export type LoginFormData = z.infer<typeof loginSchema>;
 
 // Error mapping for safe user-facing messages
-export const mapAuthError = (error: any): string => {
-  const errorCode = error?.code;
-  const errorMessage = error?.message?.toLowerCase() || '';
+export const mapAuthError = (error: unknown): string => {
+  const normalizedError = error as { code?: string; message?: string };
+  const errorCode = normalizedError?.code;
+  const errorMessage = normalizedError?.message?.toLowerCase() || '';
   
   // Log the actual error for debugging (server-side only in production)
-  console.error('Auth error (internal):', { code: errorCode, message: error?.message });
+  console.error('Auth error (internal):', { code: errorCode, message: normalizedError?.message });
   
   // Map known errors to user-friendly messages
   if (errorCode === '23505' || errorMessage.includes('duplicate')) {

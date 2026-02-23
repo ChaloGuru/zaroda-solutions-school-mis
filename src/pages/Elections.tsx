@@ -139,7 +139,7 @@ const Elections = () => {
         school_id: profile.school_id,
         name: newPosition.name,
         description: newPosition.description,
-        scope: newPosition.scope as any,
+        scope: newPosition.scope,
         category: newPosition.category || null,
       });
 
@@ -214,7 +214,7 @@ const Elections = () => {
         school_id: profile.school_id,
         name: pos.name,
         description: pos.description,
-        scope: pos.scope as any,
+        scope: pos.scope,
         is_default: true,
       });
     }
@@ -379,7 +379,7 @@ const Elections = () => {
                         <SelectContent>
                           <SelectItem value="ECDE">ECDE</SelectItem>
                           <SelectItem value="Primary">Primary</SelectItem>
-                          <SelectItem value="Junior">Junior Secondary</SelectItem>
+                          <SelectItem value="Junior Secondary">Junior Secondary</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

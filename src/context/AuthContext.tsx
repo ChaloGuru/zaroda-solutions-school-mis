@@ -1,8 +1,9 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { platformUsersStorage, activityStorage, initSeedPasswords } from '@/lib/storage';
+import { platformUsersStorage, activityStorage, initSeedPasswords, hodStorage } from '@/lib/storage';
+import { sendWelcomeEmail } from '@/lib/email';
 
-export type UserRole = 'superadmin' | 'teacher' | 'hoi' | 'dhoi' | 'student' | 'parent';
+export type UserRole = 'superadmin' | 'teacher' | 'hoi' | 'dhoi' | 'student' | 'parent' | 'hod';
 
 export type GradeLevel = 'Playgroup' | 'PP1' | 'PP2' | 'Grade 1' | 'Grade 2' | 'Grade 3' | 'Grade 4' | 'Grade 5' | 'Grade 6' | 'Grade 7' | 'Grade 8' | 'Grade 9';
 
@@ -22,13 +23,14 @@ export interface AuthUser {
   classTeacherClassName?: string;
   classTeacherStreamId?: string;
   classTeacherStreamName?: string;
+  department?: string;
 }
 
 interface AuthContextType {
   currentUser: AuthUser | null;
   userRole: UserRole | null;
   loading: boolean;
-  login: (email: string, password: string, schoolCode: string) => { success: boolean; error?: string };
+  login: (email: string, password: string, schoolCode: string, role?: UserRole) => { success: boolean; error?: string };
   signup: (data: TeacherSignupData) => { success: boolean; error?: string };
   logout: () => void;
 }
@@ -49,11 +51,21 @@ const SUPERADMIN_CREDENTIALS = {
   password: 'ongo123',
 };
 
+type DhoiStoredAccount = {
+  id?: string;
+  email: string;
+  fullName: string;
+  schoolCode?: string;
+  phone?: string;
+  status?: string;
+};
+
 const ROLE_DASHBOARD_MAP: Record<UserRole, string> = {
   superadmin: '/superadmin-dashboard',
   teacher: '/teacher-dashboard',
   hoi: '/hoi-dashboard',
   dhoi: '/dhoi-dashboard',
+  hod: '/hod-dashboard',
   student: '/student-dashboard',
   parent: '/parent-dashboard',
 };
@@ -109,7 +121,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(false);
   }, []);
 
-  const login = (email: string, password: string, schoolCode: string): { success: boolean; error?: string } => {
+  const login = (email: string, password: string, schoolCode: string, role?: UserRole): { success: boolean; error?: string } => {
     const normalizedEmail = email.trim().toLowerCase();
     const trimmedCode = schoolCode.trim();
 
@@ -187,9 +199,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return data ? JSON.parse(data) : [];
       } catch { return []; }
     })();
-    const dhoiAccount = Array.isArray(dhoiAccounts)
-      ? dhoiAccounts.find((a: any) => a.email?.toLowerCase() === normalizedEmail)
-      : (dhoiAccounts?.email?.toLowerCase() === normalizedEmail ? dhoiAccounts : null);
+    const dhoiAccount: DhoiStoredAccount | null = Array.isArray(dhoiAccounts)
+      ? (dhoiAccounts as DhoiStoredAccount[]).find((a) => a.email?.toLowerCase() === normalizedEmail) || null
+      : (dhoiAccounts?.email?.toLowerCase() === normalizedEmail ? (dhoiAccounts as DhoiStoredAccount) : null);
 
     if (dhoiAccount) {
       if (dhoiAccount.status === 'suspended') {
@@ -217,6 +229,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         action: 'login',
       });
       return { success: true };
+    }
+
+    // HOD accounts created by HOI/DHOI
+    if (role === 'hod') {
+      try {
+        const hod = hodStorage.findByEmail(normalizedEmail);
+        if (hod) {
+          if (hod.status === 'suspended') return { success: false, error: 'Your HOD account has been suspended. Contact the HOI/DHOI.' };
+          const passwords = getStoredPasswords();
+          if (passwords[normalizedEmail] !== password) return { success: false, error: 'Incorrect password. Please try again.' };
+          const user: AuthUser = {
+            id: hod.id,
+            email: hod.email,
+            fullName: hod.fullName,
+            role: 'hod',
+            schoolCode: hod.schoolCode || '',
+            phone: hod.phone,
+            department: hod.department,
+          };
+          setCurrentUser(user);
+          localStorage.setItem('zaroda_current_user', JSON.stringify(user));
+          activityStorage.add({ userId: user.id, email: user.email, fullName: user.fullName, role: 'hod', action: 'login' });
+          return { success: true };
+        }
+      } catch (e) {
+        // ignore
+      }
     }
 
     const storedUsers = getStoredUsers();
@@ -284,6 +323,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       role: 'teacher',
       action: 'account_created',
       details: 'Teacher self-registered',
+    });
+
+    void sendWelcomeEmail({
+      email: normalizedEmail,
+      fullName: data.fullName.trim(),
+      role: 'teacher',
+      schoolName,
+      schoolCode: data.schoolCode.trim(),
+      createdBy: 'Self-registered',
     });
     return { success: true };
   };

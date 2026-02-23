@@ -59,6 +59,7 @@ const emptyForm = {
   school_type: '',
   county: '',
   sub_county: '',
+  zone: '',
   contact_name: '',
   contact_email: '',
   contact_phone: '',
@@ -110,6 +111,7 @@ export default function SchoolsSection() {
       school_type: school.school_type,
       county: school.county,
       sub_county: school.sub_county,
+      zone: school.zone,
       contact_name: school.contact_name,
       contact_email: school.contact_email,
       contact_phone: school.contact_phone,
@@ -294,6 +296,7 @@ export default function SchoolsSection() {
                     <td className="py-4 px-6 text-sm">
                       <div className="capitalize font-medium">{school.county}</div>
                       <div className="text-xs text-muted-foreground capitalize">{school.sub_county}</div>
+                      <div className="text-xs text-muted-foreground">Zone: {school.zone || '—'}</div>
                     </td>
                     <td className="py-4 px-6 text-sm">
                       <div className="text-foreground">{school.contact_name}</div>
@@ -372,7 +375,7 @@ export default function SchoolsSection() {
               <Input value={form.name} onChange={(e) => updateField('name', e.target.value)} placeholder="e.g. Greenwood Academy" />
             </div>
             <div className="space-y-2">
-              <Label>School Code</Label>
+              <Label>SCHOOL KNEC CODE</Label>
               <Input value={form.school_code} onChange={(e) => updateField('school_code', e.target.value)} placeholder="e.g. GWA-001" />
             </div>
             <div className="space-y-2">
@@ -382,10 +385,9 @@ export default function SchoolsSection() {
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="ECDE">ECDE</SelectItem>
                   <SelectItem value="Primary">Primary</SelectItem>
-                  <SelectItem value="Secondary">Secondary</SelectItem>
-                  <SelectItem value="Mixed">Mixed</SelectItem>
-                  <SelectItem value="TVET">TVET</SelectItem>
+                  <SelectItem value="Junior Secondary">Junior Secondary</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -409,6 +411,10 @@ export default function SchoolsSection() {
             <div className="space-y-2">
               <Label>Sub-County</Label>
               <Input value={form.sub_county} onChange={(e) => updateField('sub_county', e.target.value)} placeholder="e.g. Westlands" />
+            </div>
+            <div className="space-y-2">
+              <Label>Zone</Label>
+              <Input value={form.zone} onChange={(e) => updateField('zone', e.target.value)} placeholder="e.g. Parklands Zone" />
             </div>
             <div className="space-y-2">
               <Label>Contact Name</Label>

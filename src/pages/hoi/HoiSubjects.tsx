@@ -61,7 +61,7 @@ const PAGE_SIZE = 10;
 const emptyForm = {
   name: '',
   code: '',
-  category: 'core' as HoiSubject['category'],
+  category: 'STEM' as HoiSubject['category'],
   description: '',
 };
 
@@ -77,6 +77,12 @@ export default function HoiSubjects() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const categoryBadgeClass = (category: HoiSubject['category']) => {
+    if (category === 'STEM') return 'bg-blue-500/10 text-blue-700 border-blue-500/30';
+    if (category === 'Arts and Sports') return 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30';
+    return 'bg-purple-500/10 text-purple-700 border-purple-500/30';
+  };
 
   const reload = () => {
     setSubjects(hoiSubjectsStorage.getAll());
@@ -245,7 +251,7 @@ export default function HoiSubjects() {
                         <code className="px-2 py-0.5 rounded bg-muted text-sm">{subject.code}</code>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={subject.category === 'core' ? 'bg-blue-500/10 text-blue-700 border-blue-500/30' : 'bg-purple-500/10 text-purple-700 border-purple-500/30'}>
+                        <Badge variant="outline" className={categoryBadgeClass(subject.category)}>
                           {subject.category}
                         </Badge>
                       </TableCell>
@@ -336,8 +342,9 @@ export default function HoiSubjects() {
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="core">Core</SelectItem>
-                  <SelectItem value="elective">Elective</SelectItem>
+                  <SelectItem value="STEM">STEM</SelectItem>
+                  <SelectItem value="Arts and Sports">Arts and Sports</SelectItem>
+                  <SelectItem value="Social Sciences">Social Sciences</SelectItem>
                 </SelectContent>
               </Select>
               {errors.category && <p className="text-xs text-destructive">{errors.category}</p>}

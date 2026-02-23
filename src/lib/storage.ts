@@ -2,9 +2,10 @@ export interface School {
   id: string;
   name: string;
   school_code: string;
-  school_type: string;
+  school_type: 'ECDE' | 'Primary' | 'Junior Secondary';
   county: string;
   sub_county: string;
+  zone: string;
   contact_name: string;
   contact_email: string;
   contact_phone: string;
@@ -79,13 +80,23 @@ function generateId(): string {
 }
 
 const SEED_SCHOOLS: School[] = [
-  { id: 's1', name: 'Greenwood Academy', school_code: 'GWA-001', school_type: 'Secondary', county: 'Nairobi', sub_county: 'Westlands', contact_name: 'James Ochieng', contact_email: 'admin@greenwood.ac.ke', contact_phone: '+254 712 345 678', status: 'active', categories: ['Day', 'Boarding'], student_count: 450, faculty_count: 32, created_at: '2024-01-15' },
-  { id: 's2', name: 'Sunrise Primary School', school_code: 'SPS-002', school_type: 'Primary', county: 'Mombasa', sub_county: 'Nyali', contact_name: 'Mary Wanjiku', contact_email: 'head@sunrise.ac.ke', contact_phone: '+254 723 456 789', status: 'active', categories: ['Day'], student_count: 680, faculty_count: 28, created_at: '2024-02-20' },
-  { id: 's3', name: 'Heritage High School', school_code: 'HHS-003', school_type: 'Secondary', county: 'Kisumu', sub_county: 'Kisumu Central', contact_name: 'Peter Otieno', contact_email: 'info@heritage.ac.ke', contact_phone: '+254 734 567 890', status: 'active', categories: ['Boarding'], student_count: 520, faculty_count: 35, created_at: '2024-03-10' },
-  { id: 's4', name: 'Victory Christian School', school_code: 'VCS-004', school_type: 'Primary', county: 'Nakuru', sub_county: 'Nakuru East', contact_name: 'Grace Kamau', contact_email: 'admin@victory.ac.ke', contact_phone: '+254 745 678 901', status: 'pending', categories: ['Day', 'Boarding'], student_count: 320, faculty_count: 22, created_at: '2024-04-05' },
-  { id: 's5', name: 'Lakeside Academy', school_code: 'LSA-005', school_type: 'Secondary', county: 'Kisumu', sub_county: 'Kisumu West', contact_name: 'David Omondi', contact_email: 'head@lakeside.ac.ke', contact_phone: '+254 756 789 012', status: 'suspended', categories: ['Day'], student_count: 280, faculty_count: 18, created_at: '2024-05-12' },
-  { id: 's6', name: 'Mt. Kenya Preparatory', school_code: 'MKP-006', school_type: 'Primary', county: 'Nyeri', sub_county: 'Nyeri Central', contact_name: 'Ann Muthoni', contact_email: 'admin@mtkenyaprep.ac.ke', contact_phone: '+254 767 890 123', status: 'active', categories: ['Day'], student_count: 410, faculty_count: 25, created_at: '2024-06-18' },
+  { id: 's1', name: 'Greenwood Academy', school_code: 'GWA-001', school_type: 'Junior Secondary', county: 'Nairobi', sub_county: 'Westlands', zone: 'Westlands Zone', contact_name: 'James Ochieng', contact_email: 'admin@greenwood.ac.ke', contact_phone: '+254 712 345 678', status: 'active', categories: ['Day', 'Boarding'], student_count: 450, faculty_count: 32, created_at: '2024-01-15' },
+  { id: 's2', name: 'Sunrise Primary School', school_code: 'SPS-002', school_type: 'Primary', county: 'Mombasa', sub_county: 'Nyali', zone: 'Nyali Zone', contact_name: 'Mary Wanjiku', contact_email: 'head@sunrise.ac.ke', contact_phone: '+254 723 456 789', status: 'active', categories: ['Day'], student_count: 680, faculty_count: 28, created_at: '2024-02-20' },
+  { id: 's3', name: 'Heritage High School', school_code: 'HHS-003', school_type: 'Junior Secondary', county: 'Kisumu', sub_county: 'Kisumu Central', zone: 'Central Zone', contact_name: 'Peter Otieno', contact_email: 'info@heritage.ac.ke', contact_phone: '+254 734 567 890', status: 'active', categories: ['Boarding'], student_count: 520, faculty_count: 35, created_at: '2024-03-10' },
+  { id: 's4', name: 'Victory Christian School', school_code: 'VCS-004', school_type: 'Primary', county: 'Nakuru', sub_county: 'Nakuru East', zone: 'Nakuru East Zone', contact_name: 'Grace Kamau', contact_email: 'admin@victory.ac.ke', contact_phone: '+254 745 678 901', status: 'pending', categories: ['Day', 'Boarding'], student_count: 320, faculty_count: 22, created_at: '2024-04-05' },
+  { id: 's5', name: 'Lakeside Academy', school_code: 'LSA-005', school_type: 'Junior Secondary', county: 'Kisumu', sub_county: 'Kisumu West', zone: 'Lakeside Zone', contact_name: 'David Omondi', contact_email: 'head@lakeside.ac.ke', contact_phone: '+254 756 789 012', status: 'suspended', categories: ['Day'], student_count: 280, faculty_count: 18, created_at: '2024-05-12' },
+  { id: 's6', name: 'Mt. Kenya Preparatory', school_code: 'MKP-006', school_type: 'Primary', county: 'Nyeri', sub_county: 'Nyeri Central', zone: 'Central Zone', contact_name: 'Ann Muthoni', contact_email: 'admin@mtkenyaprep.ac.ke', contact_phone: '+254 767 890 123', status: 'active', categories: ['Day'], student_count: 410, faculty_count: 25, created_at: '2024-06-18' },
 ];
+
+function normalizeSchoolType(type: string): School['school_type'] {
+  const value = (type || '').trim().toLowerCase();
+  if (value === 'ecde') return 'ECDE';
+  if (value === 'primary') return 'Primary';
+  if (value === 'junior secondary' || value === 'junior_secondary' || value === 'secondary' || value === 'mixed' || value === 'tvet') {
+    return 'Junior Secondary';
+  }
+  return 'Primary';
+}
 
 const SEED_STUDENTS: Student[] = [
   { id: 'st1', full_name: 'Kevin Odhiambo', admission_no: 'GWA-2024-001', school_id: 's1', grade: 'Form 3', stream: 'East', guardian_name: 'John Odhiambo', guardian_phone: '+254 700 111 222', guardian_email: 'john.o@email.com', gender: 'Male', date_of_birth: '2008-03-15', status: 'active', enrolled_at: '2024-01-10' },
@@ -148,7 +159,18 @@ function saveCollection<T>(key: string, data: T[]): void {
 }
 
 export const schoolsStorage = {
-  getAll: () => getCollection<School>('zaroda_schools', SEED_SCHOOLS),
+  getAll: () => {
+    const schools = getCollection<School>('zaroda_schools', SEED_SCHOOLS);
+    const normalized = schools.map((school) => ({
+      ...school,
+      school_type: normalizeSchoolType(school.school_type),
+      zone: school.zone || '',
+    }));
+    if (JSON.stringify(normalized) !== JSON.stringify(schools)) {
+      saveCollection('zaroda_schools', normalized);
+    }
+    return normalized;
+  },
   save: (schools: School[]) => saveCollection('zaroda_schools', schools),
   add: (school: Omit<School, 'id' | 'created_at'>) => {
     const schools = schoolsStorage.getAll();
@@ -450,5 +472,383 @@ export const settingsStorage = {
   },
   save: (settings: PlatformSettings) => {
     localStorage.setItem('zaroda_settings', JSON.stringify(settings));
+  },
+};
+
+// HOD accounts managed by HOI/DHOI
+export interface HodAccount {
+  id: string;
+  fullName: string;
+  email: string;
+  phone?: string;
+  employeeId?: string;
+  department: string;
+  hodCode?: string;
+  schoolCode?: string;
+  status?: 'active' | 'suspended' | 'inactive';
+  createdAt?: string;
+}
+
+export const hodStorage = {
+  getAll: (): HodAccount[] => {
+    const stored = localStorage.getItem('zaroda_hod_accounts');
+    return stored ? JSON.parse(stored) : [];
+  },
+  save: (hods: HodAccount[]) => {
+    localStorage.setItem('zaroda_hod_accounts', JSON.stringify(hods));
+  },
+  add: (data: Omit<HodAccount, 'id' | 'createdAt'>) => {
+    const list = hodStorage.getAll();
+    const newItem: HodAccount = { ...data, id: generateId(), createdAt: new Date().toISOString() } as HodAccount;
+    list.push(newItem);
+    hodStorage.save(list);
+    return newItem;
+  },
+  update: (id: string, data: Partial<HodAccount>) => {
+    const list = hodStorage.getAll();
+    const idx = list.findIndex(h => h.id === id);
+    if (idx !== -1) { list[idx] = { ...list[idx], ...data }; hodStorage.save(list); }
+    return list[idx];
+  },
+  remove: (id: string) => {
+    const list = hodStorage.getAll().filter(h => h.id !== id);
+    hodStorage.save(list);
+  },
+  findByEmail: (email: string) => {
+    const normalized = email?.toLowerCase?.() || '';
+    return hodStorage.getAll().find(h => h.email.toLowerCase() === normalized);
+  }
+};
+
+// Minimal lesson notes storage used by HOD review/approval
+export interface LessonNote {
+  id: string;
+  title: string;
+  subject: string;
+  className: string;
+  week: number;
+  teacherEmail: string;
+  teacherName: string;
+  content: string;
+  fileName?: string;
+  status?: 'submitted' | 'approved' | 'returned';
+  hodComments?: string;
+  createdAt: string;
+}
+
+export const lessonNotesStorage = {
+  getAll: (): LessonNote[] => {
+    const stored = localStorage.getItem('zaroda_lesson_notes');
+    return stored ? JSON.parse(stored) : [];
+  },
+  save: (items: LessonNote[]) => localStorage.setItem('zaroda_lesson_notes', JSON.stringify(items)),
+  add: (note: Omit<LessonNote, 'id' | 'createdAt'>) => {
+    const list = lessonNotesStorage.getAll();
+    const newItem: LessonNote = { ...note, id: generateId(), createdAt: new Date().toISOString() } as LessonNote;
+    list.push(newItem);
+    lessonNotesStorage.save(list);
+    return newItem;
+  },
+  update: (id: string, data: Partial<LessonNote>) => {
+    const list = lessonNotesStorage.getAll();
+    const idx = list.findIndex(n => n.id === id);
+    if (idx !== -1) { list[idx] = { ...list[idx], ...data }; lessonNotesStorage.save(list); }
+    return list[idx];
+  },
+  remove: (id: string) => {
+    const list = lessonNotesStorage.getAll().filter(n => n.id !== id);
+    lessonNotesStorage.save(list);
+  }
+};
+
+// Scheme of work storage
+export interface SchemeWeek {
+  week: number;
+  topic: string;
+  subtopic?: string;
+  objectives?: string;
+  activities?: string;
+  resources?: string;
+  assessment?: string;
+  status?: 'covered' | 'pending' | 'incomplete';
+}
+
+export interface SchemeOfWork {
+  id: string;
+  term: string;
+  subject: string;
+  className: string;
+  schoolCode?: string;
+  weeks: SchemeWeek[];
+  createdAt: string;
+}
+
+export const schemeOfWorkStorage = {
+  getAll: (): SchemeOfWork[] => {
+    const stored = localStorage.getItem('zaroda_scheme_of_work');
+    return stored ? JSON.parse(stored) : [];
+  },
+  save: (items: SchemeOfWork[]) => localStorage.setItem('zaroda_scheme_of_work', JSON.stringify(items)),
+  add: (data: Omit<SchemeOfWork, 'id' | 'createdAt'>) => {
+    const list = schemeOfWorkStorage.getAll();
+    const newItem: SchemeOfWork = { ...data, id: generateId(), createdAt: new Date().toISOString() } as SchemeOfWork;
+    list.push(newItem);
+    schemeOfWorkStorage.save(list);
+    return newItem;
+  },
+  update: (id: string, data: Partial<SchemeOfWork>) => {
+    const list = schemeOfWorkStorage.getAll();
+    const idx = list.findIndex(s => s.id === id);
+    if (idx !== -1) { list[idx] = { ...list[idx], ...data }; schemeOfWorkStorage.save(list); }
+    return list[idx];
+  },
+  remove: (id: string) => {
+    const list = schemeOfWorkStorage.getAll().filter(s => s.id !== id);
+    schemeOfWorkStorage.save(list);
+  }
+};
+
+// Exams storage
+export interface Exam {
+  id: string;
+  name: string;
+  type: string;
+  date: string;
+  subjects: string[];
+  classes: string[];
+  schoolCode?: string;
+  createdAt: string;
+}
+
+export const examsStorage = {
+  getAll: (): Exam[] => {
+    const stored = localStorage.getItem('zaroda_exams');
+    return stored ? JSON.parse(stored) : [];
+  },
+  save: (items: Exam[]) => localStorage.setItem('zaroda_exams', JSON.stringify(items)),
+  add: (data: Omit<Exam, 'id' | 'createdAt'>) => {
+    const list = examsStorage.getAll();
+    const newItem: Exam = { ...data, id: generateId(), createdAt: new Date().toISOString() } as Exam;
+    list.push(newItem);
+    examsStorage.save(list);
+    return newItem;
+  },
+  update: (id: string, data: Partial<Exam>) => {
+    const list = examsStorage.getAll();
+    const idx = list.findIndex(e => e.id === id);
+    if (idx !== -1) { list[idx] = { ...list[idx], ...data }; examsStorage.save(list); }
+    return list[idx];
+  },
+  remove: (id: string) => {
+    const list = examsStorage.getAll().filter(e => e.id !== id);
+    examsStorage.save(list);
+  }
+};
+
+// HOD observations storage
+export interface HodObservation {
+  id: string;
+  hodId?: string;
+  teacherId?: string;
+  teacherEmail?: string;
+  teacherName?: string;
+  lessonDate: string;
+  classObserved: string;
+  topic: string;
+  strengths: string;
+  areasToImprove: string;
+  rating: number;
+  recommendations?: string;
+  createdAt: string;
+}
+
+export const hodObservationsStorage = {
+  getAll: (): HodObservation[] => {
+    const stored = localStorage.getItem('zaroda_hod_observations');
+    return stored ? JSON.parse(stored) : [];
+  },
+  save: (items: HodObservation[]) => localStorage.setItem('zaroda_hod_observations', JSON.stringify(items)),
+  add: (data: Omit<HodObservation, 'id' | 'createdAt'>) => {
+    const list = hodObservationsStorage.getAll();
+    const newItem: HodObservation = { ...data, id: generateId(), createdAt: new Date().toISOString() } as HodObservation;
+    list.push(newItem);
+    hodObservationsStorage.save(list);
+    return newItem;
+  },
+  remove: (id: string) => {
+    const list = hodObservationsStorage.getAll().filter(o => o.id !== id);
+    hodObservationsStorage.save(list);
+  }
+};
+
+// Exam results storage
+export interface ExamResultEntry {
+  id: string;
+  examId: string;
+  subject: string;
+  className: string;
+  assessmentBookId?: string;
+  assessmentBookLabel?: string;
+  studentId: string;
+  studentName: string;
+  admissionNo: string;
+  marksScored: number;
+  marksOutOf: number;
+  percentage: number;
+  grade: string;
+  remarks: string;
+  createdAt: string;
+}
+
+export const examResultsStorage = {
+  getAll: (): ExamResultEntry[] => {
+    const stored = localStorage.getItem('zaroda_exam_results');
+    return stored ? JSON.parse(stored) : [];
+  },
+  save: (items: ExamResultEntry[]) => localStorage.setItem('zaroda_exam_results', JSON.stringify(items)),
+  add: (data: Omit<ExamResultEntry, 'id' | 'percentage' | 'grade' | 'remarks' | 'createdAt'>) => {
+    const list = examResultsStorage.getAll();
+    const percentage = Math.round((data.marksScored / data.marksOutOf) * 100);
+    const grade = (percentage >= 80) ? 'A' : (percentage >= 70) ? 'B' : (percentage >= 60) ? 'C' : (percentage >=50) ? 'D' : 'E';
+    const remarks = (percentage >= 80) ? 'Excellent' : (percentage >= 70) ? 'Very Good' : (percentage >= 60) ? 'Good' : (percentage >=50) ? 'Fair' : 'Needs Improvement';
+    const newItem: ExamResultEntry = {
+      ...data,
+      id: generateId(),
+      percentage,
+      grade,
+      remarks,
+      createdAt: new Date().toISOString(),
+    };
+    list.push(newItem);
+    examResultsStorage.save(list);
+    return newItem;
+  },
+  findByExamSubjectClass: (examId: string, subject: string, className: string) => {
+    return examResultsStorage.getAll().filter(r => r.examId === examId && r.subject === subject && r.className === className);
+  }
+};
+
+// Departments storage (profile info)
+export interface DepartmentProfile {
+  id: string;
+  name: string;
+  motto?: string;
+  description?: string;
+  subjects?: string[];
+  goals?: { id: string; text: string; }[];
+  meetings?: { id: string; date: string; agenda: string; minutes?: string; attendees?: string[] }[];
+  createdAt: string;
+}
+
+export const departmentsStorage = {
+  getAll: (): DepartmentProfile[] => {
+    const stored = localStorage.getItem('zaroda_departments');
+    return stored ? JSON.parse(stored) : [];
+  },
+  save: (items: DepartmentProfile[]) => localStorage.setItem('zaroda_departments', JSON.stringify(items)),
+  add: (data: Omit<DepartmentProfile, 'id' | 'createdAt'>) => {
+    const list = departmentsStorage.getAll();
+    const newItem: DepartmentProfile = { ...data, id: generateId(), createdAt: new Date().toISOString() } as DepartmentProfile;
+    list.push(newItem);
+    departmentsStorage.save(list);
+    return newItem;
+  },
+  update: (id: string, data: Partial<DepartmentProfile>) => {
+    const list = departmentsStorage.getAll();
+    const idx = list.findIndex(d => d.id === id);
+    if (idx !== -1) { list[idx] = { ...list[idx], ...data }; departmentsStorage.save(list); }
+    return list[idx];
+  },
+  findByName: (name: string) => departmentsStorage.getAll().find(d => d.name === name),
+};
+
+// Department announcements
+export interface DepartmentAnnouncement {
+  id: string;
+  department: string;
+  title: string;
+  body: string;
+  author?: string;
+  createdAt: string;
+}
+
+export const departmentAnnouncementsStorage = {
+  getAll: (): DepartmentAnnouncement[] => {
+    const stored = localStorage.getItem('zaroda_department_announcements');
+    return stored ? JSON.parse(stored) : [];
+  },
+  save: (items: DepartmentAnnouncement[]) => localStorage.setItem('zaroda_department_announcements', JSON.stringify(items)),
+  add: (data: Omit<DepartmentAnnouncement, 'id' | 'createdAt'>) => {
+    const list = departmentAnnouncementsStorage.getAll();
+    const item: DepartmentAnnouncement = { ...data, id: generateId(), createdAt: new Date().toISOString() } as DepartmentAnnouncement;
+    list.unshift(item);
+    departmentAnnouncementsStorage.save(list);
+    return item;
+  },
+  getByDepartment: (dept: string) => departmentAnnouncementsStorage.getAll().filter(a => a.department === dept),
+};
+
+export type AdminAnnouncementTargetRole = 'hoi' | 'teacher' | 'parent' | 'all';
+
+export interface AdminAnnouncement {
+  id: string;
+  title: string;
+  message: string;
+  targetRole: AdminAnnouncementTargetRole;
+  author?: string;
+  createdAt: string;
+}
+
+export const adminAnnouncementsStorage = {
+  getAll: (): AdminAnnouncement[] => {
+    const stored = localStorage.getItem('zaroda_admin_announcements');
+    return stored ? JSON.parse(stored) : [];
+  },
+  save: (items: AdminAnnouncement[]) => localStorage.setItem('zaroda_admin_announcements', JSON.stringify(items)),
+  add: (data: Omit<AdminAnnouncement, 'id' | 'createdAt'>) => {
+    const list = adminAnnouncementsStorage.getAll();
+    const item: AdminAnnouncement = {
+      ...data,
+      id: generateId(),
+      createdAt: new Date().toISOString(),
+    };
+    list.unshift(item);
+    adminAnnouncementsStorage.save(list);
+    return item;
+  },
+  getByTargetRole: (role: Exclude<AdminAnnouncementTargetRole, 'all'>) => {
+    return adminAnnouncementsStorage.getAll().filter((announcement) => announcement.targetRole === 'all' || announcement.targetRole === role);
+  },
+};
+
+type AdminAnnouncementReadMap = Record<string, string[]>;
+
+const getAdminAnnouncementReads = (): AdminAnnouncementReadMap => {
+  const stored = localStorage.getItem('zaroda_admin_announcement_reads');
+  return stored ? JSON.parse(stored) : {};
+};
+
+const saveAdminAnnouncementReads = (data: AdminAnnouncementReadMap) => {
+  localStorage.setItem('zaroda_admin_announcement_reads', JSON.stringify(data));
+};
+
+export const adminAnnouncementReadStorage = {
+  getReadIds: (userKey: string): string[] => {
+    const allReads = getAdminAnnouncementReads();
+    return allReads[userKey] || [];
+  },
+  markRead: (userKey: string, announcementId: string) => {
+    const allReads = getAdminAnnouncementReads();
+    const existing = new Set(allReads[userKey] || []);
+    existing.add(announcementId);
+    allReads[userKey] = Array.from(existing);
+    saveAdminAnnouncementReads(allReads);
+  },
+  markManyRead: (userKey: string, announcementIds: string[]) => {
+    const allReads = getAdminAnnouncementReads();
+    const existing = new Set(allReads[userKey] || []);
+    announcementIds.forEach((id) => existing.add(id));
+    allReads[userKey] = Array.from(existing);
+    saveAdminAnnouncementReads(allReads);
   },
 };

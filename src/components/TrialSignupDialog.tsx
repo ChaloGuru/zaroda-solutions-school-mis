@@ -120,7 +120,7 @@ const TrialSignupDialog = ({ trigger, open: controlledOpen, onOpenChange }: Tria
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="schoolCode">School Code *</Label>
+                <Label htmlFor="schoolCode">SCHOOL KNEC CODE *</Label>
                 <Input
                   id="schoolCode"
                   placeholder="e.g., 12345"

@@ -1,9 +1,11 @@
 export interface HoiClass {
   id: string;
   name: string;
-  level: 'primary' | 'secondary';
+  level: 'ecde' | 'primary' | 'junior_secondary';
   created_at: string;
 }
+
+type LegacyHoiClass = HoiClass & { level?: HoiClass['level'] | 'secondary' };
 
 export interface HoiStream {
   id: string;
@@ -48,15 +50,21 @@ export interface HoiTeacherDuty {
   id: string;
   teacher_id: string;
   teacher_name: string;
-  duty_type: 'gate' | 'dining' | 'games' | 'assembly' | 'cleaning supervision';
-  day: string;
-  time_slot: string;
+  teacher_two_id?: string;
+  teacher_two_name?: string;
+  from_date: string;
+  to_date: string;
+  remarks?: string;
+  duty_type?: 'gate' | 'dining' | 'games' | 'assembly' | 'cleaning supervision';
+  day?: string;
+  time_slot?: string;
 }
 
 export interface HoiStudent {
   id: string;
   full_name: string;
   admission_no: string;
+  upi?: string;
   class_id: string;
   class_name: string;
   stream_id: string;
@@ -84,7 +92,7 @@ export interface HoiSubject {
   id: string;
   name: string;
   code: string;
-  category: 'core' | 'elective';
+  category: 'STEM' | 'Arts and Sports' | 'Social Sciences';
   description?: string;
 }
 
@@ -177,6 +185,11 @@ export interface HoiSportsTeam {
   sport_name: string;
   student_id: string;
   student_name: string;
+  admission_no?: string;
+  class_name?: string;
+  stream_name?: string;
+  date_of_birth?: string;
+  upi?: string;
   position?: string;
 }
 
@@ -229,6 +242,7 @@ export interface HoiSchoolProfile {
   contact_phone: string;
   county: string;
   sub_county: string;
+  zone: string;
   school_code: string;
   academic_year: string;
   current_term: 'Term 1' | 'Term 2' | 'Term 3';
@@ -295,12 +309,12 @@ function setObject<T>(key: string, data: T): void {
 }
 
 const SEED_CLASSES: HoiClass[] = [
-  { id: 'c1', name: 'Form 1', level: 'secondary', created_at: '2025-01-10' },
-  { id: 'c2', name: 'Form 2', level: 'secondary', created_at: '2025-01-10' },
-  { id: 'c3', name: 'Form 3', level: 'secondary', created_at: '2025-01-10' },
-  { id: 'c4', name: 'Form 4', level: 'secondary', created_at: '2025-01-10' },
-  { id: 'c5', name: 'Grade 7', level: 'primary', created_at: '2025-01-10' },
-  { id: 'c6', name: 'Grade 8', level: 'primary', created_at: '2025-01-10' },
+  { id: 'c1', name: 'Form 1', level: 'junior_secondary', created_at: '2025-01-10' },
+  { id: 'c2', name: 'Form 2', level: 'junior_secondary', created_at: '2025-01-10' },
+  { id: 'c3', name: 'Form 3', level: 'junior_secondary', created_at: '2025-01-10' },
+  { id: 'c4', name: 'Form 4', level: 'junior_secondary', created_at: '2025-01-10' },
+  { id: 'c5', name: 'Grade 7', level: 'junior_secondary', created_at: '2025-01-10' },
+  { id: 'c6', name: 'Grade 8', level: 'junior_secondary', created_at: '2025-01-10' },
 ];
 
 const SEED_STREAMS: HoiStream[] = [
@@ -327,17 +341,52 @@ const SEED_TEACHERS: HoiTeacher[] = [
 ];
 
 const SEED_SUBJECTS: HoiSubject[] = [
-  { id: 'sub1', name: 'Mathematics', code: 'MATH', category: 'core' },
-  { id: 'sub2', name: 'English', code: 'ENG', category: 'core' },
-  { id: 'sub3', name: 'Kiswahili', code: 'KIS', category: 'core' },
-  { id: 'sub4', name: 'Chemistry', code: 'CHEM', category: 'core' },
-  { id: 'sub5', name: 'Biology', code: 'BIO', category: 'core' },
-  { id: 'sub6', name: 'Physics', code: 'PHY', category: 'core' },
-  { id: 'sub7', name: 'History', code: 'HIST', category: 'elective' },
-  { id: 'sub8', name: 'Geography', code: 'GEO', category: 'elective' },
-  { id: 'sub9', name: 'Computer Studies', code: 'COMP', category: 'elective', description: 'Introduction to computing and programming' },
-  { id: 'sub10', name: 'Business Studies', code: 'BUS', category: 'elective' },
+  { id: 'sub1', name: 'Mathematics', code: 'MATH', category: 'STEM' },
+  { id: 'sub2', name: 'English', code: 'ENG', category: 'Social Sciences' },
+  { id: 'sub3', name: 'Kiswahili', code: 'KIS', category: 'Social Sciences' },
+  { id: 'sub4', name: 'Chemistry', code: 'CHEM', category: 'STEM' },
+  { id: 'sub5', name: 'Biology', code: 'BIO', category: 'STEM' },
+  { id: 'sub6', name: 'Physics', code: 'PHY', category: 'STEM' },
+  { id: 'sub7', name: 'History', code: 'HIST', category: 'Social Sciences' },
+  { id: 'sub8', name: 'Geography', code: 'GEO', category: 'Social Sciences' },
+  { id: 'sub9', name: 'Computer Studies', code: 'COMP', category: 'STEM', description: 'Introduction to computing and programming' },
+  { id: 'sub10', name: 'Business Studies', code: 'BUS', category: 'Social Sciences' },
 ];
+
+function inferSubjectCategory(subjectName: string): HoiSubject['category'] {
+  const name = (subjectName || '').trim().toLowerCase();
+
+  const artsAndSportsKeywords = ['music', 'art', 'arts', 'physical education', 'pe', 'sports', 'drama'];
+  if (artsAndSportsKeywords.some((keyword) => name.includes(keyword))) return 'Arts and Sports';
+
+  const socialSciencesKeywords = [
+    'history',
+    'geography',
+    'business',
+    'english',
+    'kiswahili',
+    'religious',
+    'cre',
+    'social',
+    'civic',
+  ];
+  if (socialSciencesKeywords.some((keyword) => name.includes(keyword))) return 'Social Sciences';
+
+  return 'STEM';
+}
+
+function normalizeSubjectCategory(subject: HoiSubject | (HoiSubject & { category: string })): HoiSubject['category'] {
+  const category = String(subject.category || '').trim().toLowerCase();
+  if (category === 'stem') return 'STEM';
+  if (category === 'arts and sports' || category === 'arts_and_sports') return 'Arts and Sports';
+  if (category === 'social sciences' || category === 'social_sciences') return 'Social Sciences';
+
+  if (category === 'core' || category === 'elective') {
+    return inferSubjectCategory(subject.name);
+  }
+
+  return inferSubjectCategory(subject.name);
+}
 
 const SEED_SUBJECT_ASSIGNMENTS: HoiSubjectAssignment[] = [
   { id: 'sa1', teacher_id: 't1', teacher_name: 'Jane Muthoni', subject_id: 'sub1', subject_name: 'Mathematics', class_id: 'c1', class_name: 'Form 1', stream_id: 'str1', stream_name: 'East' },
@@ -351,14 +400,10 @@ const SEED_SUBJECT_ASSIGNMENTS: HoiSubjectAssignment[] = [
 ];
 
 const SEED_TEACHER_DUTIES: HoiTeacherDuty[] = [
-  { id: 'td1', teacher_id: 't1', teacher_name: 'Jane Muthoni', duty_type: 'gate', day: 'Monday', time_slot: '6:30 AM - 7:30 AM' },
-  { id: 'td2', teacher_id: 't2', teacher_name: 'Robert Ouma', duty_type: 'dining', day: 'Monday', time_slot: '12:30 PM - 1:30 PM' },
-  { id: 'td3', teacher_id: 't3', teacher_name: 'Alice Njoroge', duty_type: 'assembly', day: 'Tuesday', time_slot: '7:30 AM - 8:00 AM' },
-  { id: 'td4', teacher_id: 't4', teacher_name: 'Thomas Kimani', duty_type: 'games', day: 'Wednesday', time_slot: '3:30 PM - 5:00 PM' },
-  { id: 'td5', teacher_id: 't5', teacher_name: 'Caroline Achieng', duty_type: 'cleaning supervision', day: 'Thursday', time_slot: '4:00 PM - 5:00 PM' },
-  { id: 'td6', teacher_id: 't6', teacher_name: 'Emmanuel Kipchoge', duty_type: 'games', day: 'Friday', time_slot: '3:30 PM - 5:00 PM' },
-  { id: 'td7', teacher_id: 't7', teacher_name: 'Diana Wairimu', duty_type: 'gate', day: 'Tuesday', time_slot: '6:30 AM - 7:30 AM' },
-  { id: 'td8', teacher_id: 't8', teacher_name: 'Samuel Kariuki', duty_type: 'dining', day: 'Friday', time_slot: '12:30 PM - 1:30 PM' },
+  { id: 'td1', teacher_id: 't1', teacher_name: 'Jane Muthoni', teacher_two_id: 't2', teacher_two_name: 'Robert Ouma', from_date: '2026-02-23', to_date: '2026-03-01', remarks: 'Morning gate and assembly supervision' },
+  { id: 'td2', teacher_id: 't3', teacher_name: 'Alice Njoroge', from_date: '2026-03-02', to_date: '2026-03-08', remarks: 'General duty rotation' },
+  { id: 'td3', teacher_id: 't4', teacher_name: 'Thomas Kimani', teacher_two_id: 't5', teacher_two_name: 'Caroline Achieng', from_date: '2026-03-09', to_date: '2026-03-15', remarks: 'Games and compound supervision' },
+  { id: 'td4', teacher_id: 't7', teacher_name: 'Diana Wairimu', from_date: '2026-03-16', to_date: '2026-03-22', remarks: '' },
 ];
 
 const SEED_STUDENTS: HoiStudent[] = [
@@ -503,6 +548,7 @@ const DEFAULT_SCHOOL_PROFILE: HoiSchoolProfile = {
   contact_phone: '+254 712 345 678',
   county: 'Nairobi',
   sub_county: 'Westlands',
+  zone: 'Westlands Zone',
   school_code: 'GWA-001',
   academic_year: '2025',
   current_term: 'Term 3',
@@ -523,7 +569,19 @@ const SEED_CALENDAR_EVENTS: HoiCalendarEvent[] = [
 ];
 
 export const hoiClassesStorage = {
-  getAll: (): HoiClass[] => getSeeded<HoiClass>('zaroda_hoi_classes', SEED_CLASSES),
+  getAll: (): HoiClass[] => {
+    const classes = getSeeded<LegacyHoiClass>('zaroda_hoi_classes', SEED_CLASSES as LegacyHoiClass[]);
+    const normalized = classes.map((item) => {
+      if (item.level === 'secondary') {
+        return { ...item, level: 'junior_secondary' as HoiClass['level'] };
+      }
+      return { ...item, level: item.level || 'primary' } as HoiClass;
+    });
+    if (JSON.stringify(normalized) !== JSON.stringify(classes)) {
+      setData('zaroda_hoi_classes', normalized);
+    }
+    return normalized;
+  },
   add: (item: Omit<HoiClass, 'id'>) => addItem<HoiClass>('zaroda_hoi_classes', item),
   update: (id: string, updates: Partial<HoiClass>) => updateItem<HoiClass>('zaroda_hoi_classes', id, updates),
   remove: (id: string) => deleteItem<HoiClass>('zaroda_hoi_classes', id),
@@ -544,7 +602,17 @@ export const hoiTeachersStorage = {
 };
 
 export const hoiSubjectsStorage = {
-  getAll: (): HoiSubject[] => getSeeded<HoiSubject>('zaroda_hoi_subjects', SEED_SUBJECTS),
+  getAll: (): HoiSubject[] => {
+    const subjects = getSeeded<HoiSubject>('zaroda_hoi_subjects', SEED_SUBJECTS);
+    const normalized = subjects.map((subject) => ({
+      ...subject,
+      category: normalizeSubjectCategory(subject),
+    }));
+    if (JSON.stringify(normalized) !== JSON.stringify(subjects)) {
+      setData('zaroda_hoi_subjects', normalized);
+    }
+    return normalized;
+  },
   add: (item: Omit<HoiSubject, 'id'>) => addItem<HoiSubject>('zaroda_hoi_subjects', item),
   update: (id: string, updates: Partial<HoiSubject>) => updateItem<HoiSubject>('zaroda_hoi_subjects', id, updates),
   remove: (id: string) => deleteItem<HoiSubject>('zaroda_hoi_subjects', id),
@@ -558,14 +626,46 @@ export const hoiSubjectAssignmentsStorage = {
 };
 
 export const hoiTeacherDutiesStorage = {
-  getAll: (): HoiTeacherDuty[] => getSeeded<HoiTeacherDuty>('zaroda_hoi_teacher_duties', SEED_TEACHER_DUTIES),
+  getAll: (): HoiTeacherDuty[] => {
+    const duties = getSeeded<HoiTeacherDuty>('zaroda_hoi_teacher_duties', SEED_TEACHER_DUTIES);
+    const today = new Date();
+    const fallbackFrom = today.toISOString().split('T')[0];
+    const fallbackToDate = new Date(today);
+    fallbackToDate.setDate(fallbackToDate.getDate() + 6);
+    const fallbackTo = fallbackToDate.toISOString().split('T')[0];
+
+    const normalized = duties.map((duty) => ({
+      ...duty,
+      from_date: duty.from_date || fallbackFrom,
+      to_date: duty.to_date || duty.from_date || fallbackTo,
+      teacher_two_id: duty.teacher_two_id || '',
+      teacher_two_name: duty.teacher_two_name || '',
+      remarks: duty.remarks || '',
+    }));
+
+    if (JSON.stringify(normalized) !== JSON.stringify(duties)) {
+      setData('zaroda_hoi_teacher_duties', normalized);
+    }
+
+    return normalized;
+  },
   add: (item: Omit<HoiTeacherDuty, 'id'>) => addItem<HoiTeacherDuty>('zaroda_hoi_teacher_duties', item),
   update: (id: string, updates: Partial<HoiTeacherDuty>) => updateItem<HoiTeacherDuty>('zaroda_hoi_teacher_duties', id, updates),
   remove: (id: string) => deleteItem<HoiTeacherDuty>('zaroda_hoi_teacher_duties', id),
 };
 
 export const hoiStudentsStorage = {
-  getAll: (): HoiStudent[] => getSeeded<HoiStudent>('zaroda_hoi_students', SEED_STUDENTS),
+  getAll: (): HoiStudent[] => {
+    const students = getSeeded<HoiStudent>('zaroda_hoi_students', SEED_STUDENTS);
+    const normalized = students.map((student) => ({
+      ...student,
+      upi: student.upi || '',
+    }));
+    if (JSON.stringify(normalized) !== JSON.stringify(students)) {
+      setData('zaroda_hoi_students', normalized);
+    }
+    return normalized;
+  },
   add: (item: Omit<HoiStudent, 'id'>) => addItem<HoiStudent>('zaroda_hoi_students', item),
   update: (id: string, updates: Partial<HoiStudent>) => updateItem<HoiStudent>('zaroda_hoi_students', id, updates),
   remove: (id: string) => deleteItem<HoiStudent>('zaroda_hoi_students', id),
@@ -628,7 +728,25 @@ export const hoiSportsStorage = {
 };
 
 export const hoiSportsTeamsStorage = {
-  getAll: (): HoiSportsTeam[] => getSeeded<HoiSportsTeam>('zaroda_hoi_sports_teams', SEED_SPORTS_TEAMS),
+  getAll: (): HoiSportsTeam[] => {
+    const teams = getSeeded<HoiSportsTeam>('zaroda_hoi_sports_teams', SEED_SPORTS_TEAMS);
+    const studentsById = new Map(hoiStudentsStorage.getAll().map((student) => [student.id, student]));
+    const normalized = teams.map((team) => {
+      const student = studentsById.get(team.student_id);
+      return {
+        ...team,
+        admission_no: team.admission_no || student?.admission_no || '',
+        class_name: team.class_name || student?.class_name || '',
+        stream_name: team.stream_name || student?.stream_name || '',
+        date_of_birth: team.date_of_birth || student?.date_of_birth || '',
+        upi: team.upi || student?.upi || '',
+      };
+    });
+    if (JSON.stringify(normalized) !== JSON.stringify(teams)) {
+      setData('zaroda_hoi_sports_teams', normalized);
+    }
+    return normalized;
+  },
   add: (item: Omit<HoiSportsTeam, 'id'>) => addItem<HoiSportsTeam>('zaroda_hoi_sports_teams', item),
   update: (id: string, updates: Partial<HoiSportsTeam>) => updateItem<HoiSportsTeam>('zaroda_hoi_sports_teams', id, updates),
   remove: (id: string) => deleteItem<HoiSportsTeam>('zaroda_hoi_sports_teams', id),
@@ -663,7 +781,15 @@ export const hoiAnnouncementsStorage = {
 };
 
 export const hoiSchoolProfileStorage = {
-  get: (): HoiSchoolProfile => getObject<HoiSchoolProfile>('zaroda_hoi_school_profile', DEFAULT_SCHOOL_PROFILE),
+  get: (): HoiSchoolProfile => {
+    const profile = getObject<HoiSchoolProfile>('zaroda_hoi_school_profile', DEFAULT_SCHOOL_PROFILE);
+    if (!profile.zone) {
+      const migrated = { ...profile, zone: DEFAULT_SCHOOL_PROFILE.zone };
+      setObject<HoiSchoolProfile>('zaroda_hoi_school_profile', migrated);
+      return migrated;
+    }
+    return profile;
+  },
   save: (profile: HoiSchoolProfile) => setObject<HoiSchoolProfile>('zaroda_hoi_school_profile', profile),
 };
 

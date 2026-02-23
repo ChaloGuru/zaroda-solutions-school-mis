@@ -98,7 +98,7 @@ export default function HoiSchool() {
 
   const handleProfileSave = () => {
     if (!profile.name || !profile.school_code) {
-      toast({ title: 'Validation Error', description: 'School name and code are required.', variant: 'destructive' });
+      toast({ title: 'Validation Error', description: 'School name and SCHOOL KNEC CODE are required.', variant: 'destructive' });
       return;
     }
     hoiSchoolProfileStorage.save(profile);
@@ -107,7 +107,7 @@ export default function HoiSchool() {
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(profile.school_code);
-    toast({ title: 'Copied!', description: 'School code copied to clipboard.' });
+    toast({ title: 'Copied!', description: 'SCHOOL KNEC CODE copied to clipboard.' });
   };
 
   const updateProfile = (field: keyof HoiSchoolProfile, value: string) => {
@@ -201,10 +201,10 @@ export default function HoiSchool() {
                     <Input value={profile.name} onChange={(e) => updateProfile('name', e.target.value)} />
                   </div>
                   <div className="space-y-2">
-                    <Label>School Code</Label>
+                    <Label>SCHOOL KNEC CODE</Label>
                     <div className="flex gap-2">
                       <Input value={profile.school_code} onChange={(e) => updateProfile('school_code', e.target.value)} className="font-mono" />
-                      <Button variant="outline" size="icon" onClick={handleCopyCode} title="Copy school code">
+                      <Button variant="outline" size="icon" onClick={handleCopyCode} title="Copy SCHOOL KNEC CODE">
                         <Copy className="w-4 h-4" />
                       </Button>
                     </div>
@@ -232,6 +232,10 @@ export default function HoiSchool() {
                   <div className="space-y-2">
                     <Label>Sub-County</Label>
                     <Input value={profile.sub_county} onChange={(e) => updateProfile('sub_county', e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Zone</Label>
+                    <Input value={profile.zone} onChange={(e) => updateProfile('zone', e.target.value)} />
                   </div>
                 </div>
                 <Button onClick={handleProfileSave} className="gap-2">
@@ -287,7 +291,7 @@ export default function HoiSchool() {
                 </div>
                 <div className="flex items-center gap-4 p-4 rounded-lg bg-secondary/50 mb-6">
                   <div>
-                    <p className="text-sm font-medium">School Code</p>
+                    <p className="text-sm font-medium">SCHOOL KNEC CODE</p>
                     <p className="text-2xl font-mono font-bold text-primary">{profile.school_code}</p>
                   </div>
                   <Button variant="outline" size="sm" onClick={handleCopyCode} className="gap-2">

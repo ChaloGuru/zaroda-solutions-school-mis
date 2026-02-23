@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Mail, Lock, Hash } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuthContext, getDashboardForRole } from '@/context/AuthContext';
+import { useAuthContext, getDashboardForRole, type UserRole } from '@/context/AuthContext';
 import zarodaLogo from '@/assets/zaroda-logo.png';
 
 const Login = () => {
@@ -15,6 +15,7 @@ const Login = () => {
     email: '',
     password: '',
   });
+  const [role, setRole] = useState<UserRole>('teacher');
   const { toast } = useToast();
   const navigate = useNavigate();
   const { login, currentUser } = useAuthContext();
@@ -37,7 +38,7 @@ const Login = () => {
     e.preventDefault();
 
     if (!formData.schoolCode.trim()) {
-      toast({ title: 'Missing school code', description: 'Please enter your school code.', variant: 'destructive' });
+      toast({ title: 'Missing SCHOOL KNEC CODE', description: 'Please enter your SCHOOL KNEC CODE.', variant: 'destructive' });
       return;
     }
 
@@ -49,7 +50,7 @@ const Login = () => {
     setIsSubmitting(true);
 
     try {
-      const result = login(formData.email, formData.password, formData.schoolCode);
+      const result = login(formData.email, formData.password, formData.schoolCode, role);
       if (result.success) {
         toast({ title: 'Login successful!', description: 'Welcome back to Zaroda Solutions.' });
       } else {
@@ -89,14 +90,31 @@ const Login = () => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="schoolCode">School Code</Label>
+              <Label htmlFor="role">Role</Label>
+              <select
+                id="role"
+                value={role}
+                onChange={(e) => setRole(e.target.value as UserRole)}
+                className="w-full border border-input rounded-md p-2 bg-card"
+              >
+                <option value="teacher">Teacher</option>
+                <option value="hod">HOD</option>
+                <option value="hoi">HOI</option>
+                <option value="dhoi">DHOI</option>
+                <option value="student">Student</option>
+                <option value="parent">Parent</option>
+                <option value="superadmin">Super Admin</option>
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="schoolCode">SCHOOL KNEC CODE</Label>
               <div className="relative">
                 <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
                 <Input
                   id="schoolCode"
                   name="schoolCode"
                   type="text"
-                  placeholder="Enter your school code"
+                  placeholder="Enter your SCHOOL KNEC CODE"
                   value={formData.schoolCode}
                   onChange={handleChange}
                   className="pl-10"

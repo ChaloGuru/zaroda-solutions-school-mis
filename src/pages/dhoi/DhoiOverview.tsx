@@ -130,7 +130,7 @@ export default function DhoiOverview({ onNavigate }: DhoiOverviewProps) {
   const quickActions = [
     { label: 'Add Teacher', icon: Plus, section: 'Teachers' },
     { label: 'Assign Subject', icon: BookOpen, section: 'Subjects' },
-    { label: 'Generate Timetable', icon: Calendar, section: 'Timetable' },
+    { label: 'Review Auto Timetable', icon: Calendar, section: 'Timetable' },
     { label: 'View Roster', icon: ClipboardList, section: 'Roster' },
   ];
 

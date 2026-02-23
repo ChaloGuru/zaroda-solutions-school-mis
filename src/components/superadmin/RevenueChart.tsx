@@ -19,12 +19,24 @@ const formatValue = (value: number) => {
   return `KES ${(value / 1000).toFixed(0)}K`;
 };
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+type RevenueTooltipEntry = {
+  color: string;
+  name: string;
+  value: number;
+};
+
+type RevenueTooltipProps = {
+  active?: boolean;
+  payload?: RevenueTooltipEntry[];
+  label?: string;
+};
+
+const CustomTooltip = ({ active, payload, label }: RevenueTooltipProps) => {
   if (active && payload && payload.length) {
     return (
       <div className="glass-card-elevated rounded-xl px-4 py-3 border border-border/50">
         <p className="text-sm font-semibold text-foreground mb-2">{label} 2024</p>
-        {payload.map((entry: any, index: number) => (
+        {payload.map((entry, index: number) => (
           <div key={index} className="flex items-center gap-2 text-sm">
             <div
               className="w-2 h-2 rounded-full"
