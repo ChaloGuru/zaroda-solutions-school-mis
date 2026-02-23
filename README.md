@@ -1,73 +1,192 @@
-# Welcome to your Lovable project
+Zaroda Solutions School MIS
 
-## Project info
+A Real-World CBC-Based School Management SaaS Platform for Kenya
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+📌 Overview
 
-## How can I edit this code?
+Zaroda Solutions School MIS is a full-scale, real-world School Management Information System (MIS) built as a SaaS platform designed specifically for the Kenyan education system under the Competency-Based Curriculum (CBC).
 
-There are several ways of editing your application.
+The system supports ECDE, Primary, and Junior Secondary (JS) institutions and provides complete digital management of academic, administrative, and communication processes within a school environment.
 
-**Use Lovable**
+This is not a demo project — it is designed as a production-ready SaaS solution for real schools.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+🎯 Vision
 
-Changes made via Lovable will be committed automatically to this repo.
+To digitize and simplify school operations in Kenya by providing an affordable, scalable, and CBC-compliant management system that connects administrators, teachers, students, and parents on one unified platform.
 
-**Use your preferred IDE**
+🏗️ System Architecture
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+Single Login System
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+8 Role-Based Dashboards
 
-Follow these steps:
+SaaS-Based Architecture (Multi-user & scalable)
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+Modular System Design
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+Secure Authentication & Authorization
 
-# Step 3: Install the necessary dependencies.
-npm i
+Role-Based Access Control (RBAC)
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+👥 User Roles & Dashboards
 
-**Edit a file directly in GitHub**
+The platform uses a single login form that automatically redirects users to their respective dashboards based on their assigned role:
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Super Admin – Full system control and SaaS management
 
-**Use GitHub Codespaces**
+HOI (Head of Institution) – School-wide oversight
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+DHOI (Deputy Head of Institution) – Administrative support
 
-## What technologies are used for this project?
+HOD (Head of Department) – Departmental management
 
-This project is built with:
+Teacher – Teaching, assessment, reporting
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+Class Teacher – Class management and student tracking
 
-## How can I deploy this project?
+Parent – Student performance and communication access
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+Student – Academic progress and timetable access
 
-## Can I connect a custom domain to my Lovable project?
+📚 Core Modules
+🏫 Academic Management
 
-Yes, you can!
+CBC-based Assessment Book
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+Competency tracking
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Report generation
+
+Subject and department management
+
+Class allocation
+
+📅 Automatic Timetable Generation
+
+Smart timetable creation
+
+Teacher allocation
+
+Conflict detection handling
+
+👨‍👩‍👧 Parent Communication System
+
+Direct communication between school and parents
+
+Performance updates
+
+Notifications
+
+📊 Administration & Management
+
+Student enrollment management
+
+Staff management
+
+Department structuring
+
+Academic year management
+
+Role-based system controls
+
+💰 SaaS Capability
+
+Built as a rentable school system
+
+Designed for multiple institutions
+
+Scalable architecture
+
+🇰🇪 CBC-Based Implementation
+
+The system is designed around Kenya’s CBC education structure, covering:
+
+ECDE
+
+Primary School
+
+Junior Secondary (JS)
+
+It supports competency tracking, assessment recording, and structured evaluation aligned with the CBC framework.
+
+🛠️ Technology Stack
+
+(Modify this section to match your actual stack)
+
+Frontend: React.js
+
+Backend: Node.js
+
+Database: MongoDB / Supabase
+
+Authentication: Role-Based Access Control
+
+Deployment: Vercel
+
+Version Control: Git & GitHub
+
+🚀 Key Features
+
+Single authentication system with automatic role routing
+
+8 fully functional dashboards
+
+Automated timetable generation
+
+CBC-compliant assessment tracking
+
+Parent-school communication module
+
+Modular, scalable SaaS design
+
+Clean UI with structured navigation
+
+🔐 Security & Access Control
+
+Role-based dashboard restrictions
+
+Controlled data visibility per user type
+
+Secure authentication logic
+
+Structured user permissions
+
+🌍 Real-World Application
+
+Zaroda Solutions School MIS is built as a practical, market-ready system intended for real educational institutions in Kenya. It addresses common challenges such as:
+
+Manual report generation
+
+Poor parent communication
+
+Timetable conflicts
+
+Disorganized student records
+
+CBC assessment complexity
+
+This system aims to modernize school operations and enhance efficiency across all levels of management.
+
+📈 Future Improvements
+
+SMS Integration
+
+M-Pesa integration for school fee payments
+
+AI-based performance analytics
+
+Mobile application version
+
+Multi-school subscription management dashboard
+
+👨‍💻 Developer
+
+Charles Onyango
+Software Engineering Student
+Email: charlesopiyo7383@gmail.com
+
+Phone: +254 757874639
+
+📌 Project Status
+
+Active Development – Production Oriented SaaS System
