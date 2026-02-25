@@ -7,7 +7,7 @@ Do NOT touch any existing dashboards
 Do NOT change the auth system except to add HOD login support
 HOD route /hod-dashboard must stay protected (only role=HOD can access)
 Use same design: shadcn/ui, Tailwind, lucide-react icons
-All data in localStorage using the same storage.ts utility already built
+All data in Supabase using the same storage.ts utility pattern
 All forms validate and show errors
 All add/edit actions open in modals
 Tables paginate at 10 rows per page
@@ -21,7 +21,7 @@ HOD does NOT sign up themselves
 The DHOI (or HOI) creates the HOD account from inside their dashboard
 Add a "Manage HODs" section inside both HOI and DHOI dashboards
 To create HOD account, DHOI/HOI enters: Full Name, Email, Assigned Password, Phone, Employee ID, Department (select from existing subjects e.g. Mathematics, Sciences, Languages, Humanities, Technical), HOD Code (e.g. HOD001)
-That account is saved to localStorage under key zaroda_hod_accounts (array, multiple HODs can exist)
+That account is saved in Supabase profiles/auth records (multiple HODs can exist)
 When HOD goes to /login, selects role HOD, enters email + password → system checks against zaroda_hod_accounts → redirects to /hod-dashboard
 HOD's department is stored in their account so the dashboard filters everything by their department
 Update AuthContext to support HOD login and store HOD's department in the auth context

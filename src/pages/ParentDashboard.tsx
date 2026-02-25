@@ -32,22 +32,29 @@ const menuGroups: MenuGroup[] = [
 const ParentDashboard = () => {
   const { currentUser } = useAuthContext();
   const [activeSection, setActiveSection] = useState('dashboard');
-  const announcements = useMemo(() => adminAnnouncementsStorage.getByTargetRole('parent'), []);
+  const [announcements, setAnnouncements] = useState<Awaited<ReturnType<typeof adminAnnouncementsStorage.getByTargetRole>>>([]);
   const userKey = useMemo(() => {
     const identity = currentUser?.id || currentUser?.email || 'parent_guest';
     return `parent:${identity}`;
   }, [currentUser]);
-  const [readAnnouncementIds, setReadAnnouncementIds] = useState<string[]>(adminAnnouncementReadStorage.getReadIds(userKey));
+  const [readAnnouncementIds, setReadAnnouncementIds] = useState<string[]>([]);
 
   useEffect(() => {
-    setReadAnnouncementIds(adminAnnouncementReadStorage.getReadIds(userKey));
+    const loadAnnouncementData = async () => {
+      const scopedAnnouncements = await adminAnnouncementsStorage.getByTargetRole('parent');
+      const readIds = await adminAnnouncementReadStorage.getReadIds(userKey);
+      setAnnouncements(scopedAnnouncements);
+      setReadAnnouncementIds(readIds);
+    };
+
+    void loadAnnouncementData();
   }, [userKey]);
 
   const unreadCount = announcements.filter((announcement) => !readAnnouncementIds.includes(announcement.id)).length;
 
-  const markAllRead = () => {
-    adminAnnouncementReadStorage.markManyRead(userKey, announcements.map((announcement) => announcement.id));
-    setReadAnnouncementIds(adminAnnouncementReadStorage.getReadIds(userKey));
+  const markAllRead = async () => {
+    await adminAnnouncementReadStorage.markManyRead(userKey, announcements.map((announcement) => announcement.id));
+    setReadAnnouncementIds(await adminAnnouncementReadStorage.getReadIds(userKey));
   };
 
   const announcementsView = (

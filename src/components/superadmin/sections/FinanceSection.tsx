@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { invoicesStorage, schoolsStorage, Invoice } from '@/lib/storage';
+import { invoicesStorage, schoolsStorage, Invoice, School } from '@/lib/storage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -41,6 +41,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Clock,
+  Loader2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -61,6 +62,8 @@ const emptyForm = {
 
 export default function FinanceSection() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [schoolFilter, setSchoolFilter] = useState('all');
@@ -70,11 +73,27 @@ export default function FinanceSection() {
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; invoice: Invoice | null }>({ open: false, invoice: null });
   const { toast } = useToast();
 
-  const schools = schoolsStorage.getAll();
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const [invoiceRows, schoolRows] = await Promise.all([
+        invoicesStorage.getAll(),
+        schoolsStorage.getAll(),
+      ]);
+      setInvoices(invoiceRows);
+      setSchools(schoolRows);
+    } catch (error) {
+      toast({
+        title: 'Failed to load invoices',
+        description: error instanceof Error ? error.message : 'Could not fetch records from server.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const loadInvoices = () => setInvoices(invoicesStorage.getAll());
-
-  useEffect(() => { loadInvoices(); }, []);
+  useEffect(() => { void loadData(); }, []);
 
   const totalRevenue = invoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + i.amount, 0);
   const pendingAmount = invoices.filter(i => i.status === 'pending').reduce((sum, i) => sum + i.amount, 0);
@@ -119,34 +138,58 @@ export default function FinanceSection() {
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.school_id || !form.description || !form.amount || !form.period || !form.due_date) {
       toast({ title: 'Validation Error', description: 'All fields are required.', variant: 'destructive' });
       return;
     }
-    if (editingInvoice) {
-      invoicesStorage.update(editingInvoice.id, { ...form });
-      toast({ title: 'Invoice Updated', description: `Invoice has been updated successfully.` });
-    } else {
-      invoicesStorage.add({ ...form });
-      toast({ title: 'Invoice Created', description: `Invoice has been created successfully.` });
+    try {
+      if (editingInvoice) {
+        await invoicesStorage.update(editingInvoice.id, { ...form });
+        toast({ title: 'Invoice Updated', description: `Invoice has been updated successfully.` });
+      } else {
+        await invoicesStorage.add({ ...form });
+        toast({ title: 'Invoice Created', description: `Invoice has been created successfully.` });
+      }
+      setDialogOpen(false);
+      await loadData();
+    } catch (error) {
+      toast({
+        title: editingInvoice ? 'Update failed' : 'Creation failed',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
     }
-    setDialogOpen(false);
-    loadInvoices();
   };
 
-  const handleMarkPaid = (invoice: Invoice) => {
-    invoicesStorage.update(invoice.id, { status: 'paid', paid_at: new Date().toISOString().split('T')[0] });
-    toast({ title: 'Invoice Paid', description: `Invoice for ${invoice.school_name} has been marked as paid.` });
-    loadInvoices();
+  const handleMarkPaid = async (invoice: Invoice) => {
+    try {
+      await invoicesStorage.update(invoice.id, { status: 'paid', paid_at: new Date().toISOString().split('T')[0] });
+      toast({ title: 'Invoice Paid', description: `Invoice for ${invoice.school_name} has been marked as paid.` });
+      await loadData();
+    } catch (error) {
+      toast({
+        title: 'Status update failed',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteDialog.invoice) return;
-    invoicesStorage.remove(deleteDialog.invoice.id);
-    toast({ title: 'Invoice Deleted', description: `Invoice has been permanently removed.` });
-    setDeleteDialog({ open: false, invoice: null });
-    loadInvoices();
+    try {
+      await invoicesStorage.remove(deleteDialog.invoice.id);
+      toast({ title: 'Invoice Deleted', description: `Invoice has been permanently removed.` });
+      setDeleteDialog({ open: false, invoice: null });
+      await loadData();
+    } catch (error) {
+      toast({
+        title: 'Delete failed',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const updateField = (field: string, value: string | number | null) => {
@@ -258,7 +301,12 @@ export default function FinanceSection() {
           </div>
         </div>
 
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <div className="p-12 text-center flex items-center justify-center gap-2 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Loading invoices...
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="p-12 text-center">
             <p className="text-muted-foreground">No invoices found.</p>
           </div>

@@ -42,6 +42,7 @@ import ClassAttendance from '@/components/teacher/classteacher/ClassAttendance';
 import ClassStudents from '@/components/teacher/classteacher/ClassStudents';
 import ClassReports from '@/components/teacher/classteacher/ClassReports';
 import { adminAnnouncementsStorage, adminAnnouncementReadStorage, type AdminAnnouncement } from '@/lib/storage';
+import { supabase } from '@/lib/supabase';
 
 type SubjectAssignmentRecord = {
   teacher_id?: string;
@@ -73,22 +74,65 @@ const Dashboard = () => {
   const [selectedAssessmentSubject, setSelectedAssessmentSubject] = useState('');
   const [adminAnnouncements, setAdminAnnouncements] = useState<AdminAnnouncement[]>([]);
   const [readAdminAnnouncementIds, setReadAdminAnnouncementIds] = useState<string[]>([]);
+  const [teacherAssignments, setTeacherAssignments] = useState<SubjectAssignmentRecord[]>([]);
 
   const adminAnnouncementUserKey = useMemo(() => {
     const identity = currentUser?.id || currentUser?.email || 'teacher_guest';
     return `teacher:${identity}`;
   }, [currentUser]);
 
-  const teacherAssignments = useMemo(() => {
-    if (!currentUser) return [] as SubjectAssignmentRecord[];
-    try {
-      const raw = JSON.parse(localStorage.getItem('zaroda_hoi_subject_assignments') || '[]');
-      if (!Array.isArray(raw)) return [];
-      return (raw as SubjectAssignmentRecord[]).filter((assignment) => assignment?.teacher_id === currentUser.id);
-    } catch {
-      return [];
-    }
-  }, [currentUser]);
+  useEffect(() => {
+    const loadTeacherData = async () => {
+      if (!currentUser) {
+        setTeacherAssignments([]);
+        setTeacherCode('');
+        setMyTimetable([]);
+        return;
+      }
+
+      try {
+        const [{ data: assignmentRows }, { data: codeRow }, { data: timetableRows }] = await Promise.all([
+          supabase
+            .from('hoi_subject_assignments')
+            .select('teacher_id,subject_name,class_name,stream_name')
+            .eq('teacher_id', currentUser.id),
+          supabase
+            .from('teacher_codes')
+            .select('code')
+            .eq('teacher_id', currentUser.id)
+            .maybeSingle(),
+          supabase
+            .from('master_timetable_slots')
+            .select('id,teacher_id,teacher_code,day,is_locked,period_index,time_start,time_end,subject_name,class_name,stream_name')
+            .or(`teacher_id.eq.${currentUser.id},teacher_code.eq.${currentUser.id}`),
+        ]);
+
+        setTeacherAssignments((assignmentRows || []) as SubjectAssignmentRecord[]);
+        setTeacherCode(codeRow?.code || '');
+
+        const mappedSlots: TeacherTimetableSlot[] = (timetableRows || []).map((slot: any) => ({
+          id: slot.id,
+          teacherId: slot.teacher_id,
+          teacherCode: slot.teacher_code,
+          day: slot.day,
+          isLocked: slot.is_locked,
+          periodIndex: slot.period_index,
+          timeStart: slot.time_start,
+          timeEnd: slot.time_end,
+          subjectName: slot.subject_name,
+          className: slot.class_name,
+          streamName: slot.stream_name,
+        }));
+        setMyTimetable(mappedSlots);
+      } catch {
+        setTeacherAssignments([]);
+        setTeacherCode('');
+        setMyTimetable([]);
+      }
+    };
+
+    void loadTeacherData();
+  }, [currentUser, activeTab]);
 
   const assessmentPairs = useMemo(() => {
     const pairs = teacherAssignments
@@ -206,26 +250,21 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (!currentUser) return;
-    try {
-      const codes: Record<string, string> = JSON.parse(localStorage.getItem('zaroda_teacher_codes') || '{}');
-      const myCode = codes[currentUser.id] || Object.entries(codes).find(([, c]) => c && currentUser.fullName)?.toString() || '';
-      setTeacherCode(typeof myCode === 'string' ? myCode : '');
-      const allSlots = JSON.parse(localStorage.getItem('zaroda_master_timetable') || '[]');
-      const filtered = (Array.isArray(allSlots) ? allSlots : [] as unknown[])
-        .filter((slot): slot is TeacherTimetableSlot => typeof slot === 'object' && slot !== null)
-        .filter((slot) => slot.teacherId === currentUser.id || slot.teacherCode === codes[currentUser.id]);
-      setMyTimetable(filtered);
-      setAdminAnnouncements(adminAnnouncementsStorage.getByTargetRole('teacher'));
-      setReadAdminAnnouncementIds(adminAnnouncementReadStorage.getReadIds(adminAnnouncementUserKey));
-    } catch { setMyTimetable([]); }
+    const loadAdminAnnouncements = async () => {
+      const scoped = await adminAnnouncementsStorage.getByTargetRole('teacher');
+      const readIds = await adminAnnouncementReadStorage.getReadIds(adminAnnouncementUserKey);
+      setAdminAnnouncements(scoped);
+      setReadAdminAnnouncementIds(readIds);
+    };
+    void loadAdminAnnouncements();
   }, [currentUser, activeTab, adminAnnouncementUserKey]);
 
   const unreadAdminCount = adminAnnouncements.filter((announcement) => !readAdminAnnouncementIds.includes(announcement.id)).length;
 
-  const markAllAdminAnnouncementsRead = () => {
+  const markAllAdminAnnouncementsRead = async () => {
     const ids = adminAnnouncements.map((announcement) => announcement.id);
-    adminAnnouncementReadStorage.markManyRead(adminAnnouncementUserKey, ids);
-    setReadAdminAnnouncementIds(adminAnnouncementReadStorage.getReadIds(adminAnnouncementUserKey));
+    await adminAnnouncementReadStorage.markManyRead(adminAnnouncementUserKey, ids);
+    setReadAdminAnnouncementIds(await adminAnnouncementReadStorage.getReadIds(adminAnnouncementUserKey));
   };
 
   if (!currentUser) return null;

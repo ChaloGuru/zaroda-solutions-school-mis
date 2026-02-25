@@ -1,17 +1,19 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import {
   getSubjectsForGrade,
   getAssessmentForGradeSubjectTerm,
-  type SubjectAssessment,
 } from '@/lib/assessmentData';
 import {
   assessmentStorage,
   type AssessmentScore,
+  type AssessmentRecord,
 } from '@/lib/storage';
+import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
@@ -22,6 +24,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import ReportCard from '@/components/teacher/ReportCard';
 import {
   BookOpen,
   UserPlus,
@@ -32,6 +36,7 @@ import {
   CheckCircle2,
   ClipboardList,
   GraduationCap,
+  Eye,
 } from 'lucide-react';
 
 interface AssessmentBookProps {
@@ -50,11 +55,20 @@ interface LocalStudent {
 
 type ScoreLevel = 'EE' | 'ME' | 'AE' | 'BE';
 
+type ActivityType =
+  | 'formative_assessment'
+  | 'summative_assessment'
+  | 'project'
+  | 'practical'
+  | 'observation'
+  | 'oral_assessment'
+  | 'portfolio';
+
 const SCORE_LABELS: Record<ScoreLevel, string> = {
-  EE: 'Exceeding Expectation',
-  ME: 'Meeting Expectation',
-  AE: 'Approaching Expectation',
-  BE: 'Below Expectation',
+  EE: 'Exceeding Expectations',
+  ME: 'Meeting Expectations',
+  AE: 'Approaching Expectations',
+  BE: 'Below Expectations',
 };
 
 const SCORE_COLORS: Record<ScoreLevel, string> = {
@@ -64,41 +78,50 @@ const SCORE_COLORS: Record<ScoreLevel, string> = {
   BE: 'bg-red-100 text-red-800 border-red-300',
 };
 
-function calcPerfLevel(cat1: number | string, cat2: number | string, endTerm: number | string): ScoreLevel {
-  const c1 = typeof cat1 === 'string' ? parseFloat(cat1) : cat1;
-  const c2 = typeof cat2 === 'string' ? parseFloat(cat2) : cat2;
-  const et = typeof endTerm === 'string' ? parseFloat(endTerm) : endTerm;
-  if (isNaN(c1) || isNaN(c2) || isNaN(et)) return 'BE';
-  const avg = (c1 + c2 + et) / 3;
-  if (avg >= 75) return 'EE';
-  if (avg >= 50) return 'ME';
-  if (avg >= 25) return 'AE';
-  return 'BE';
+const ACTIVITY_TYPES: Array<{ value: ActivityType; label: string }> = [
+  { value: 'formative_assessment', label: 'Formative Assessment' },
+  { value: 'summative_assessment', label: 'Summative Assessment' },
+  { value: 'project', label: 'Project' },
+  { value: 'practical', label: 'Practical' },
+  { value: 'observation', label: 'Observation' },
+  { value: 'oral_assessment', label: 'Oral Assessment' },
+  { value: 'portfolio', label: 'Portfolio' },
+];
+
+const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
+  formative_assessment: 'Formative Assessment',
+  summative_assessment: 'Summative Assessment',
+  project: 'Project',
+  practical: 'Practical',
+  observation: 'Observation',
+  oral_assessment: 'Oral Assessment',
+  portfolio: 'Portfolio',
+};
+
+const LEVELS: ScoreLevel[] = ['EE', 'ME', 'AE', 'BE'];
+
+const normalizeLevel = (value?: string): ScoreLevel | undefined => {
+  if (!value) return undefined;
+  const upper = value.toUpperCase();
+  return LEVELS.includes(upper as ScoreLevel) ? (upper as ScoreLevel) : undefined;
+};
+
+function getScoreLevel(score: AssessmentScore): ScoreLevel | undefined {
+  const fromPerf = normalizeLevel(score.perfLevel);
+  if (fromPerf) return fromPerf;
+  if (score.ee) return 'EE';
+  if (score.me) return 'ME';
+  if (score.ae) return 'AE';
+  if (score.be) return 'BE';
+  return undefined;
 }
 
-function getOverallLevel(scores: AssessmentScore[], scoringType: string): ScoreLevel {
+function getOverallLevel(scores: AssessmentScore[]): ScoreLevel {
   if (scores.length === 0) return 'BE';
-  if (scoringType === 'cat_endterm') {
-    const validScores = scores.filter(s => s.cat1 !== undefined && s.cat2 !== undefined && s.endTerm !== undefined);
-    if (validScores.length === 0) return 'BE';
-    const total = validScores.reduce((sum, s) => {
-      const c1 = typeof s.cat1 === 'string' ? parseFloat(s.cat1) : (s.cat1 || 0);
-      const c2 = typeof s.cat2 === 'string' ? parseFloat(s.cat2) : (s.cat2 || 0);
-      const et = typeof s.endTerm === 'string' ? parseFloat(s.endTerm) : (s.endTerm || 0);
-      return sum + (c1 + c2 + et) / 3;
-    }, 0);
-    const avg = total / validScores.length;
-    if (avg >= 75) return 'EE';
-    if (avg >= 50) return 'ME';
-    if (avg >= 25) return 'AE';
-    return 'BE';
-  }
   const counts: Record<ScoreLevel, number> = { EE: 0, ME: 0, AE: 0, BE: 0 };
-  scores.forEach(s => {
-    if (s.ee) counts.EE++;
-    else if (s.me) counts.ME++;
-    else if (s.ae) counts.AE++;
-    else if (s.be) counts.BE++;
+  scores.forEach((score) => {
+    const level = getScoreLevel(score);
+    if (level) counts[level] += 1;
   });
   const max = Math.max(counts.EE, counts.ME, counts.AE, counts.BE);
   if (max === 0) return 'BE';
@@ -107,6 +130,17 @@ function getOverallLevel(scores: AssessmentScore[], scoringType: string): ScoreL
   if (counts.AE === max) return 'AE';
   return 'BE';
 }
+
+type CompetencyChoice = 'yes' | 'not_yet';
+
+const competencyChoiceToBoolean = (choice: CompetencyChoice): boolean => {
+  return choice === 'yes';
+};
+
+const booleanToCompetencyChoice = (value?: boolean): CompetencyChoice => {
+  if (value === true) return 'yes';
+  return 'not_yet';
+};
 
 const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: AssessmentBookProps) => {
   const { toast } = useToast();
@@ -117,7 +151,15 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
   const [studentAdmNo, setStudentAdmNo] = useState('');
   const [students, setStudents] = useState<LocalStudent[]>([]);
   const [scores, setScores] = useState<Record<string, AssessmentScore>>({});
+  const [activityType, setActivityType] = useState<ActivityType>('formative_assessment');
+  const [teacherComment, setTeacherComment] = useState('');
+  const [competencyChoice, setCompetencyChoice] = useState<CompetencyChoice>('not_yet');
+  const [assessmentRecords, setAssessmentRecords] = useState<AssessmentRecord[]>([]);
+  const [assessedStudents, setAssessedStudents] = useState<{ studentId: string; studentName: string; admissionNo: string }[]>([]);
+  const [reportCardStudentId, setReportCardStudentId] = useState<string | null>(null);
+  const [reportCardOpen, setReportCardOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const assessment = useMemo(
     () => getAssessmentForGradeSubjectTerm(grade, subject, selectedTerm),
@@ -125,35 +167,97 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
   );
 
   const availableSubjects = useMemo(() => getSubjectsForGrade(grade), [grade]);
-
   const subjectMatch = !!assessment;
+  const classStudentsMetaKey = useMemo(() => `class_students_${teacherId}_${grade}`, [teacherId, grade]);
 
-  useEffect(() => {
-    const assessed = assessmentStorage.getStudentsAssessed(teacherId, grade, subject, selectedTerm);
-    const stored = localStorage.getItem(`zaroda_class_students_${teacherId}_${grade}`);
-    const localStudents: LocalStudent[] = stored ? JSON.parse(stored) : [];
-    const merged = new Map<string, LocalStudent>();
-    localStudents.forEach(s => merged.set(s.id, s));
-    assessed.forEach(s => merged.set(s.studentId, { id: s.studentId, name: s.studentName, admissionNo: s.admissionNo }));
-    setStudents(Array.from(merged.values()));
-  }, [teacherId, grade, subject, selectedTerm]);
+  const loadData = useCallback(async () => {
+    const [records, userRes] = await Promise.all([
+      assessmentStorage.getByTeacher(teacherId),
+      supabase.auth.getUser(),
+    ]);
 
-  useEffect(() => {
-    if (!selectedStudent || !assessment) return;
-    const record = assessmentStorage.find(teacherId, selectedStudent.id, grade, subject, selectedTerm);
-    if (record) {
-      const scoreMap: Record<string, AssessmentScore> = {};
-      record.scores.forEach(s => {
-        scoreMap[`${s.strandNumber}-${s.subStrandName}`] = s;
-      });
-      setScores(scoreMap);
-    } else {
-      setScores({});
+    const filteredRecords = records.filter(
+      (record) => record.grade === grade && record.subject === subject && record.term === selectedTerm
+    );
+
+    const recordStudents = filteredRecords.map((record) => ({
+      studentId: record.studentId,
+      studentName: record.studentName,
+      admissionNo: record.admissionNo,
+    }));
+
+    const uniqueAssessed = Array.from(
+      new Map(recordStudents.map((student) => [student.studentId, student])).values()
+    );
+
+    let metadataStudents: LocalStudent[] = [];
+    try {
+      const raw = userRes.data.user?.user_metadata?.[classStudentsMetaKey];
+      if (Array.isArray(raw)) {
+        metadataStudents = raw as LocalStudent[];
+      }
+    } catch {
+      metadataStudents = [];
     }
-  }, [selectedStudent, assessment, teacherId, grade, subject, selectedTerm]);
 
-  const saveStudents = (list: LocalStudent[]) => {
-    localStorage.setItem(`zaroda_class_students_${teacherId}_${grade}`, JSON.stringify(list));
+    const merged = new Map<string, LocalStudent>();
+    metadataStudents.forEach((student) => merged.set(student.id, student));
+    uniqueAssessed.forEach((student) => {
+      merged.set(student.studentId, {
+        id: student.studentId,
+        name: student.studentName,
+        admissionNo: student.admissionNo,
+      });
+    });
+
+    setAssessmentRecords(filteredRecords);
+    setAssessedStudents(uniqueAssessed);
+    setStudents(Array.from(merged.values()));
+  }, [teacherId, grade, subject, selectedTerm, classStudentsMetaKey]);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData, refreshKey]);
+
+  useEffect(() => {
+    if (!selectedStudent) return;
+    const record = assessmentRecords.find((item) => item.studentId === selectedStudent.id);
+    if (!record) {
+      setScores({});
+      setActivityType('formative_assessment');
+      setTeacherComment('');
+      setCompetencyChoice('not_yet');
+      return;
+    }
+
+    const scoreMap: Record<string, AssessmentScore> = {};
+    record.scores.forEach((score) => {
+      scoreMap[`${score.strandNumber}-${score.subStrandName}`] = score;
+    });
+    setScores(scoreMap);
+
+    const normalizedActivity = (record.activityType || 'formative_assessment') as ActivityType;
+    setActivityType(normalizedActivity);
+    setTeacherComment(record.teacherComment || '');
+    setCompetencyChoice(booleanToCompetencyChoice(record.competencyAchieved));
+  }, [selectedStudent, assessmentRecords]);
+
+  const saveStudents = async (list: LocalStudent[]) => {
+    try {
+      const { data } = await supabase.auth.getUser();
+      const metadata = data.user?.user_metadata || {};
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          ...metadata,
+          [classStudentsMetaKey]: list,
+        },
+      });
+      if (error) {
+        toast({ title: 'Error', description: error.message || 'Failed to persist class list', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Failed to persist class list', variant: 'destructive' });
+    }
     setStudents(list);
   };
 
@@ -164,13 +268,17 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
       toast({ title: 'Missing Info', description: 'Please enter both student name and admission number.', variant: 'destructive' });
       return;
     }
-    if (students.some(s => s.admissionNo === admNo)) {
+    if (students.some((student) => student.admissionNo === admNo)) {
       toast({ title: 'Duplicate', description: 'A student with this admission number already exists.', variant: 'destructive' });
       return;
     }
-    const newStudent: LocalStudent = { id: `stu-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name, admissionNo: admNo };
+    const newStudent: LocalStudent = {
+      id: `stu-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      name,
+      admissionNo: admNo,
+    };
     const updated = [...students, newStudent];
-    saveStudents(updated);
+    void saveStudents(updated);
     setStudentName('');
     setStudentAdmNo('');
     toast({ title: 'Student Added', description: `${name} has been added to your class list.` });
@@ -185,12 +293,13 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
 
   const updateEEMEScore = (strandNumber: number, subStrandName: string, level: ScoreLevel) => {
     const key = getScoreKey(strandNumber, subStrandName);
-    setScores(prev => ({
+    setScores((prev) => ({
       ...prev,
       [key]: {
         ...prev[key],
         strandNumber,
         subStrandName,
+        perfLevel: level,
         ee: level === 'EE',
         me: level === 'ME',
         ae: level === 'AE',
@@ -199,35 +308,30 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
     }));
   };
 
-  const updateCatScore = (strandNumber: number, subStrandName: string, field: 'cat1' | 'cat2' | 'endTerm', value: string) => {
-    const key = getScoreKey(strandNumber, subStrandName);
-    const numVal = value === '' ? '' : Math.min(100, Math.max(0, parseInt(value) || 0));
-    setScores(prev => {
-      const existing = prev[key] || { strandNumber, subStrandName };
-      const updated = { ...existing, [field]: numVal };
-      if (updated.cat1 !== undefined && updated.cat2 !== undefined && updated.endTerm !== undefined) {
-        updated.perfLevel = calcPerfLevel(updated.cat1, updated.cat2, updated.endTerm);
-      }
-      return { ...prev, [key]: updated };
-    });
-  };
-
   const updateComment = (strandNumber: number, subStrandName: string, comment: string) => {
     const key = getScoreKey(strandNumber, subStrandName);
-    setScores(prev => ({
+    setScores((prev) => ({
       ...prev,
-      [key]: { ...prev[key], strandNumber, subStrandName, comment },
+      [key]: {
+        ...prev[key],
+        strandNumber,
+        subStrandName,
+        comment,
+      },
     }));
   };
 
-  const saveAssessment = () => {
+  const saveAssessment = async () => {
     if (!selectedStudent || !assessment) return;
     setSaving(true);
     try {
       const scoreList: AssessmentScore[] = Object.values(scores).filter(
-        s => s.strandNumber !== undefined && s.subStrandName
+        (score) => score.strandNumber !== undefined && score.subStrandName
       );
-      assessmentStorage.upsert({
+
+      const overallLevel = getOverallLevel(scoreList);
+
+      await assessmentStorage.upsert({
         teacherId,
         teacherName,
         studentId: selectedStudent.id,
@@ -237,9 +341,15 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
         subject,
         term: selectedTerm,
         schoolCode,
+        activityType,
+        performanceLevel: overallLevel,
+        competencyAchieved: competencyChoiceToBoolean(competencyChoice),
+        teacherComment: teacherComment.trim() || undefined,
         scores: scoreList,
       });
+
       toast({ title: 'Saved!', description: `Assessment for ${selectedStudent.name} has been saved successfully.` });
+      setRefreshKey((prev) => prev + 1);
     } catch {
       toast({ title: 'Error', description: 'Failed to save assessment. Please try again.', variant: 'destructive' });
     } finally {
@@ -249,26 +359,25 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
 
   const getSelectedScoreLevel = (strandNumber: number, subStrandName: string): ScoreLevel | '' => {
     const key = getScoreKey(strandNumber, subStrandName);
-    const s = scores[key];
-    if (!s) return '';
-    if (s.ee) return 'EE';
-    if (s.me) return 'ME';
-    if (s.ae) return 'AE';
-    if (s.be) return 'BE';
-    return '';
+    const score = scores[key];
+    if (!score) return '';
+    return getScoreLevel(score) || '';
   };
 
-  const assessedStudents = useMemo(() => {
-    return assessmentStorage.getStudentsAssessed(teacherId, grade, subject, selectedTerm);
-  }, [teacherId, grade, subject, selectedTerm, saving]);
-
-  const getSummaryData = () => {
-    return assessedStudents.map(s => {
-      const record = assessmentStorage.find(teacherId, s.studentId, grade, subject, selectedTerm);
-      const level = record && assessment ? getOverallLevel(record.scores, assessment.scoringType) : 'BE';
-      return { ...s, level };
+  const summaryData = useMemo(() => {
+    return assessedStudents.map((student) => {
+      const record = assessmentRecords.find((item) => item.studentId === student.studentId);
+      const level = (record?.performanceLevel as ScoreLevel) || getOverallLevel(record?.scores || []);
+      const activityLabel = record?.activityType
+        ? ACTIVITY_TYPE_LABELS[record.activityType as ActivityType] || '—'
+        : '—';
+      return {
+        ...student,
+        level,
+        activityLabel,
+      };
     });
-  };
+  }, [assessedStudents, assessmentRecords]);
 
   if (!subjectMatch) {
     return (
@@ -288,16 +397,14 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
               The assessment framework may use a different subject name. Available subjects for {grade}:
             </p>
             <div className="flex flex-wrap gap-2">
-              {availableSubjects.map(s => (
-                <Badge key={s} variant="outline" className="text-sm py-1 px-3">
-                  {s}
+              {availableSubjects.map((subjectName) => (
+                <Badge key={subjectName} variant="outline" className="text-sm py-1 px-3">
+                  {subjectName}
                 </Badge>
               ))}
             </div>
             {availableSubjects.length === 0 && (
-              <p className="text-sm text-muted-foreground italic">
-                No subjects are configured for this grade yet.
-              </p>
+              <p className="text-sm text-muted-foreground italic">No subjects are configured for this grade yet.</p>
             )}
           </CardContent>
         </Card>
@@ -317,10 +424,10 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
               </CardTitle>
               <CardDescription className="mt-1">
                 <span className="font-medium">{grade}</span> &bull; <span className="font-medium">{subject}</span> &bull;{' '}
-                <Badge variant="secondary" className="text-xs">{assessment?.scoringType === 'cat_endterm' ? 'CAT & End Term' : 'EE/ME/AE/BE'}</Badge>
+                <Badge variant="secondary" className="text-xs">CBC Performance Levels (EE/ME/AE/BE)</Badge>
               </CardDescription>
             </div>
-            <Select value={String(selectedTerm)} onValueChange={v => { setSelectedTerm(Number(v)); setSelectedStudent(null); }}>
+            <Select value={String(selectedTerm)} onValueChange={(value) => { setSelectedTerm(Number(value)); setSelectedStudent(null); }}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue />
               </SelectTrigger>
@@ -364,13 +471,13 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
                   <Input
                     placeholder="Student Full Name"
                     value={studentName}
-                    onChange={e => setStudentName(e.target.value)}
+                    onChange={(event) => setStudentName(event.target.value)}
                     className="flex-1"
                   />
                   <Input
                     placeholder="Admission No."
                     value={studentAdmNo}
-                    onChange={e => setStudentAdmNo(e.target.value)}
+                    onChange={(event) => setStudentAdmNo(event.target.value)}
                     className="sm:w-48"
                   />
                   <Button onClick={addStudent} className="sm:w-auto">
@@ -393,8 +500,8 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
                 ) : (
                   <div className="space-y-2">
                     <AnimatePresence>
-                      {students.map(student => {
-                        const isAssessed = assessedStudents.some(a => a.studentId === student.id);
+                      {students.map((student) => {
+                        const isAssessed = assessedStudents.some((item) => item.studentId === student.id);
                         return (
                           <motion.div
                             key={student.id}
@@ -461,121 +568,127 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <div>
-                        <CardTitle className="text-lg">
-                          Assessing: {selectedStudent.name}
-                        </CardTitle>
+                        <CardTitle className="text-lg">Assessing: {selectedStudent.name}</CardTitle>
                         <CardDescription>{selectedStudent.admissionNo} &bull; Term {selectedTerm}</CardDescription>
                       </div>
-                      <Button onClick={saveAssessment} disabled={saving}>
-                        <Save size={16} className="mr-1.5" />
-                        {saving ? 'Saving...' : 'Save Assessment'}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setReportCardStudentId(selectedStudent.id);
+                            setReportCardOpen(true);
+                          }}
+                          className="gap-1"
+                        >
+                          <Eye size={14} />
+                          View Report Card
+                        </Button>
+                        <Button onClick={() => void saveAssessment()} disabled={saving}>
+                          <Save size={16} className="mr-1.5" />
+                          {saving ? 'Saving...' : 'Save Assessment'}
+                        </Button>
+                      </div>
                     </div>
                   </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Activity Type</label>
+                        <Select value={activityType} onValueChange={(value) => setActivityType(value as ActivityType)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select activity type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ACTIVITY_TYPES.map((item) => (
+                              <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Competency Status</label>
+                        <Select value={competencyChoice} onValueChange={(value) => setCompetencyChoice(value as CompetencyChoice)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select competency status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="yes">✅ Yes - Competency Achieved</SelectItem>
+                            <SelectItem value="not_yet">❌ Not Yet - Still Developing</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="mt-4 space-y-2">
+                      <label className="text-sm font-medium">Teacher Comment</label>
+                      <Textarea
+                        rows={3}
+                        placeholder="Enter teacher comment"
+                        value={teacherComment}
+                        onChange={(event) => setTeacherComment(event.target.value)}
+                      />
+                    </div>
+                  </CardContent>
                 </Card>
 
-                {assessment.strands.map(strand => (
+                {assessment.strands.map((strand) => (
                   <Card key={strand.number} className="glass-card rounded-2xl">
                     <CardHeader className="pb-3">
-                      <CardTitle className="text-base">
-                        Strand {strand.number}: {strand.theme}
-                      </CardTitle>
+                      <CardTitle className="text-base">Strand {strand.number}: {strand.theme}</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
-                        {strand.subStrands.map((subStrand, idx) => {
+                        {strand.subStrands.map((subStrand, index) => {
                           const key = getScoreKey(strand.number, subStrand.name);
                           const currentScore = scores[key];
+                          const selectedLevel = getSelectedScoreLevel(strand.number, subStrand.name);
+
                           return (
                             <motion.div
-                              key={`${strand.number}-${idx}`}
+                              key={`${strand.number}-${index}`}
                               initial={{ opacity: 0, y: 10 }}
                               animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: idx * 0.03 }}
+                              transition={{ delay: index * 0.03 }}
                               className="border rounded-lg p-4 space-y-3"
                             >
                               <div>
                                 <p className="font-medium text-sm">{subStrand.name}</p>
                                 {subStrand.details && (
-                                  <p className="text-xs text-muted-foreground mt-0.5">
-                                    {subStrand.details.join(' • ')}
-                                  </p>
+                                  <p className="text-xs text-muted-foreground mt-0.5">{subStrand.details.join(' • ')}</p>
                                 )}
                               </div>
 
-                              {assessment.scoringType === 'ee_me_ae_be' ? (
-                                <div className="flex flex-wrap gap-2">
-                                  {(['EE', 'ME', 'AE', 'BE'] as ScoreLevel[]).map(level => {
-                                    const selected = getSelectedScoreLevel(strand.number, subStrand.name) === level;
-                                    return (
-                                      <button
-                                        key={level}
-                                        onClick={() => updateEEMEScore(strand.number, subStrand.name, level)}
-                                        className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition-all ${
-                                          selected
-                                            ? SCORE_COLORS[level]
-                                            : 'bg-muted/30 text-muted-foreground border-border hover:bg-muted'
-                                        }`}
-                                        title={SCORE_LABELS[level]}
-                                      >
-                                        {level}
-                                      </button>
-                                    );
-                                  })}
+                              <div className="grid grid-cols-1 sm:grid-cols-[240px_1fr] gap-3 items-center">
+                                <Select
+                                  value={selectedLevel}
+                                  onValueChange={(value) => updateEEMEScore(strand.number, subStrand.name, value as ScoreLevel)}
+                                >
+                                  <SelectTrigger className="h-9">
+                                    <SelectValue placeholder="Select Performance Level" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {LEVELS.map((level) => (
+                                      <SelectItem key={level} value={level}>
+                                        {level} — {SCORE_LABELS[level]}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+
+                                <div>
+                                  {selectedLevel ? (
+                                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold border ${SCORE_COLORS[selectedLevel]}`}>
+                                      {selectedLevel} — {SCORE_LABELS[selectedLevel]}
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">No level selected</span>
+                                  )}
                                 </div>
-                              ) : (
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                  <div>
-                                    <label className="text-xs text-muted-foreground mb-1 block">CAT 1</label>
-                                    <Input
-                                      type="number"
-                                      min={0}
-                                      max={100}
-                                      placeholder="0-100"
-                                      value={currentScore?.cat1 ?? ''}
-                                      onChange={e => updateCatScore(strand.number, subStrand.name, 'cat1', e.target.value)}
-                                      className="h-9"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="text-xs text-muted-foreground mb-1 block">CAT 2</label>
-                                    <Input
-                                      type="number"
-                                      min={0}
-                                      max={100}
-                                      placeholder="0-100"
-                                      value={currentScore?.cat2 ?? ''}
-                                      onChange={e => updateCatScore(strand.number, subStrand.name, 'cat2', e.target.value)}
-                                      className="h-9"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="text-xs text-muted-foreground mb-1 block">End Term</label>
-                                    <Input
-                                      type="number"
-                                      min={0}
-                                      max={100}
-                                      placeholder="0-100"
-                                      value={currentScore?.endTerm ?? ''}
-                                      onChange={e => updateCatScore(strand.number, subStrand.name, 'endTerm', e.target.value)}
-                                      className="h-9"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="text-xs text-muted-foreground mb-1 block">Performance</label>
-                                    <div className={`h-9 flex items-center justify-center rounded-md text-xs font-semibold border ${
-                                      currentScore?.perfLevel ? SCORE_COLORS[currentScore.perfLevel as ScoreLevel] : 'bg-muted/30 text-muted-foreground border-border'
-                                    }`}>
-                                      {currentScore?.perfLevel || '—'}
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
+                              </div>
 
                               <Input
-                                placeholder="Optional comment..."
+                                placeholder="Optional strand comment..."
                                 value={currentScore?.comment ?? ''}
-                                onChange={e => updateComment(strand.number, subStrand.name, e.target.value)}
+                                onChange={(event) => updateComment(strand.number, subStrand.name, event.target.value)}
                                 className="h-8 text-xs"
                               />
                             </motion.div>
@@ -587,7 +700,7 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
                 ))}
 
                 <div className="flex justify-end">
-                  <Button onClick={saveAssessment} disabled={saving} size="lg">
+                  <Button onClick={() => void saveAssessment()} disabled={saving} size="lg">
                     <Save size={18} className="mr-2" />
                     {saving ? 'Saving...' : 'Save Assessment'}
                   </Button>
@@ -611,9 +724,7 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
               </CardHeader>
               <CardContent>
                 {assessedStudents.length === 0 ? (
-                  <p className="text-muted-foreground text-sm text-center py-8">
-                    No assessments recorded for Term {selectedTerm} yet.
-                  </p>
+                  <p className="text-muted-foreground text-sm text-center py-8">No assessments recorded for Term {selectedTerm} yet.</p>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
@@ -622,11 +733,13 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
                           <th className="text-left py-3 px-2 font-semibold">#</th>
                           <th className="text-left py-3 px-2 font-semibold">Student Name</th>
                           <th className="text-left py-3 px-2 font-semibold">Admission No.</th>
+                          <th className="text-left py-3 px-2 font-semibold">Activity Type</th>
                           <th className="text-center py-3 px-2 font-semibold">Overall Level</th>
+                          <th className="text-center py-3 px-2 font-semibold">Report Card</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {getSummaryData().map((student, index) => (
+                        {summaryData.map((student, index) => (
                           <motion.tr
                             key={student.studentId}
                             initial={{ opacity: 0, x: -10 }}
@@ -634,17 +747,33 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
                             transition={{ delay: index * 0.05 }}
                             className="border-b last:border-0 hover:bg-muted/30 cursor-pointer"
                             onClick={() => {
-                              const found = students.find(s => s.id === student.studentId);
+                              const found = students.find((item) => item.id === student.studentId);
                               if (found) selectStudent(found);
                             }}
                           >
                             <td className="py-3 px-2 text-muted-foreground">{index + 1}</td>
                             <td className="py-3 px-2 font-medium">{student.studentName}</td>
                             <td className="py-3 px-2 text-muted-foreground">{student.admissionNo}</td>
+                            <td className="py-3 px-2 text-muted-foreground">{student.activityLabel}</td>
                             <td className="py-3 px-2 text-center">
                               <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold border ${SCORE_COLORS[student.level]}`}>
                                 {student.level} — {SCORE_LABELS[student.level]}
                               </span>
+                            </td>
+                            <td className="py-3 px-2 text-center">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="gap-1"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setReportCardStudentId(student.studentId);
+                                  setReportCardOpen(true);
+                                }}
+                              >
+                                <Eye size={14} />
+                                View Report Card
+                              </Button>
                             </td>
                           </motion.tr>
                         ))}
@@ -657,6 +786,15 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
           </motion.div>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={reportCardOpen} onOpenChange={setReportCardOpen}>
+        <DialogContent className="max-w-6xl max-h-[92vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Student Report Card</DialogTitle>
+          </DialogHeader>
+          {reportCardStudentId && <ReportCard studentId={reportCardStudentId} term={selectedTerm} />}
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 };

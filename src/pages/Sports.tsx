@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/lib/supabase';
 import { 
   ArrowLeft, Trophy, Users, Timer, Plus, Medal, 
   Volleyball, Music, Activity, Printer, Star
@@ -89,7 +90,7 @@ const otherActivities = [
 ];
 
 const Sports = () => {
-  const { user, profile } = useAuth();
+  const { currentUser } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('athletics');
@@ -148,18 +149,18 @@ const Sports = () => {
   });
 
   useEffect(() => {
-    if (profile?.school_id) {
-      loadSportsData();
+    if (currentUser?.schoolId) {
+      void loadSportsData();
     }
-  }, [profile?.school_id]);
+  }, [currentUser?.schoolId]);
 
   const loadSportsData = async () => {
-    if (!profile?.school_id) return;
+    if (!currentUser?.schoolId) return;
 
     const [eventsRes, participantsRes, teamsRes] = await Promise.all([
-      supabase.from('sports_events').select('*').eq('school_id', profile.school_id),
-      supabase.from('sports_participants').select('*').eq('school_id', profile.school_id),
-      supabase.from('sports_teams').select('*').eq('school_id', profile.school_id)
+      supabase.from('sports_events').select('*').eq('school_id', currentUser.schoolId),
+      supabase.from('sports_participants').select('*').eq('school_id', currentUser.schoolId),
+      supabase.from('sports_teams').select('*').eq('school_id', currentUser.schoolId)
     ]);
 
     if (eventsRes.data) setEvents(eventsRes.data);
@@ -193,10 +194,10 @@ const Sports = () => {
   };
 
   const handleAddEvent = async () => {
-    if (!profile?.school_id || !newEvent.name || !newEvent.event_type) return;
+    if (!currentUser?.schoolId || !newEvent.name || !newEvent.event_type) return;
 
     const { error } = await supabase.from('sports_events').insert({
-      school_id: profile.school_id,
+      school_id: currentUser.schoolId,
       name: newEvent.name,
       category: newEvent.category,
       event_type: newEvent.event_type,
@@ -210,15 +211,15 @@ const Sports = () => {
       toast({ title: 'Success', description: 'Event created successfully' });
       setNewEvent({ name: '', category: 'athletics', event_type: '', event_date: '', description: '' });
       setShowAddEvent(false);
-      loadSportsData();
+      await loadSportsData();
     }
   };
 
   const handleAddParticipant = async () => {
-    if (!profile?.school_id || !newParticipant.student_name) return;
+    if (!currentUser?.schoolId || !newParticipant.student_name) return;
 
     const { error } = await supabase.from('sports_participants').insert({
-      school_id: profile.school_id,
+      school_id: currentUser.schoolId,
       student_name: newParticipant.student_name,
       admission_number: newParticipant.admission_number || null,
       grade: newParticipant.grade || null,
@@ -232,7 +233,7 @@ const Sports = () => {
       toast({ title: 'Success', description: 'Participant added successfully' });
       setNewParticipant({ student_name: '', admission_number: '', grade: '', stream: '', gender: '' });
       setShowAddParticipant(false);
-      loadSportsData();
+      await loadSportsData();
     }
   };
 
@@ -254,8 +255,8 @@ const Sports = () => {
       toast({ title: 'Success', description: 'Performance recorded' });
       setNewPerformance({ event_id: '', participant_id: '', performance_value: '', performance_numeric: '' });
       setShowAddPerformance(false);
-      loadSportsData();
-      updateBestPerformances(newPerformance.event_id);
+      await loadSportsData();
+      await updateBestPerformances(newPerformance.event_id);
     }
   };
 
@@ -278,14 +279,14 @@ const Sports = () => {
       }).eq('id', sorted[i].id);
     }
 
-    loadSportsData();
+    await loadSportsData();
   };
 
   const handleAddTeam = async () => {
-    if (!profile?.school_id || !newTeam.name || !newTeam.sport) return;
+    if (!currentUser?.schoolId || !newTeam.name || !newTeam.sport) return;
 
     const { error } = await supabase.from('sports_teams').insert({
-      school_id: profile.school_id,
+      school_id: currentUser.schoolId,
       name: newTeam.name,
       sport: newTeam.sport,
       category: newTeam.category || null
@@ -297,7 +298,7 @@ const Sports = () => {
       toast({ title: 'Success', description: 'Team created successfully' });
       setNewTeam({ name: '', sport: '', category: '' });
       setShowAddTeam(false);
-      loadSportsData();
+      await loadSportsData();
     }
   };
 
@@ -320,7 +321,7 @@ const Sports = () => {
       toast({ title: 'Success', description: 'Match added successfully' });
       setNewMatch({ event_id: '', home_team_name: '', away_team_name: '', home_score: 0, away_score: 0, venue: '', status: 'scheduled' });
       setShowAddMatch(false);
-      loadSportsData();
+      await loadSportsData();
     }
   };
 
@@ -331,7 +332,7 @@ const Sports = () => {
   const getEventsByCategory = (category: string) => events.filter(e => e.category === category);
   const getPerformancesByEvent = (eventId: string) => performances.filter(p => p.event_id === eventId).sort((a, b) => (a.position || 999) - (b.position || 999));
 
-  if (!user) {
+  if (!currentUser) {
     return (
       <div className="min-h-screen">
         <Header />

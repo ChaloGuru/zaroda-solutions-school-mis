@@ -80,6 +80,8 @@ type DhoiAccount = {
   phone?: string;
   employeeId?: string;
   createdAt?: string;
+  schoolCode?: string;
+  status?: 'active' | 'suspended' | 'inactive';
 };
 
 const emptyTeacherForm = {
@@ -147,7 +149,7 @@ export default function HoiTeachers() {
   const [dhoiForm, setDhoiForm] = useState({ fullName: '', email: '', password: '', phone: '', employeeId: '' });
   const [existingDhoi, setExistingDhoi] = useState<DhoiAccount | null>(null);
 
-  const loadData = () => {
+  const loadData = async () => {
     setTeachers(hoiTeachersStorage.getAll());
     setAssignments(hoiSubjectAssignmentsStorage.getAll());
     setSubjects(hoiSubjectsStorage.getAll());
@@ -155,13 +157,24 @@ export default function HoiTeachers() {
     setStreams(hoiStreamsStorage.getAll());
     setDuties(hoiTeacherDutiesStorage.getAll());
     try {
-      const stored = localStorage.getItem('zaroda_dhoi_account');
-      const accounts = (stored ? JSON.parse(stored) : []) as DhoiAccount[];
-      setExistingDhoi(Array.isArray(accounts) && accounts.length > 0 ? accounts[0] : null);
-    } catch { setExistingDhoi(null); }
+      const dhoiUsers = await platformUsersStorage.getByRole('dhoi');
+      const first = dhoiUsers[0];
+      setExistingDhoi(first ? {
+        id: first.id,
+        fullName: first.fullName,
+        email: first.email,
+        phone: first.phone,
+        employeeId: '',
+        createdAt: first.createdAt,
+        schoolCode: first.schoolCode,
+        status: first.status,
+      } : null);
+    } catch {
+      setExistingDhoi(null);
+    }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { void loadData(); }, []);
 
   const openDhoiDialog = () => {
     if (existingDhoi) {
@@ -172,17 +185,13 @@ export default function HoiTeachers() {
     setDhoiDialogOpen(true);
   };
 
-  const saveDhoiAccount = () => {
+  const saveDhoiAccount = async () => {
     if (!dhoiForm.fullName.trim() || !dhoiForm.email.trim() || !dhoiForm.phone.trim() || !dhoiForm.employeeId.trim()) {
       toast({ title: 'Validation Error', description: 'All fields are required.', variant: 'destructive' });
       return;
     }
-    if (!existingDhoi && !dhoiForm.password.trim()) {
-      toast({ title: 'Validation Error', description: 'Password is required for new accounts.', variant: 'destructive' });
-      return;
-    }
     const email = dhoiForm.email.trim().toLowerCase();
-    const account = {
+    const account: DhoiAccount = {
       id: existingDhoi?.id || crypto.randomUUID(),
       fullName: dhoiForm.fullName.trim(),
       email,
@@ -192,11 +201,27 @@ export default function HoiTeachers() {
       status: 'active',
       createdAt: existingDhoi?.createdAt || new Date().toISOString(),
     };
-    localStorage.setItem('zaroda_dhoi_account', JSON.stringify([account]));
-    if (dhoiForm.password.trim()) {
-      const passwords = JSON.parse(localStorage.getItem('zaroda_passwords') || '{}');
-      passwords[email] = dhoiForm.password.trim();
-      localStorage.setItem('zaroda_passwords', JSON.stringify(passwords));
+    const existingByEmail = await platformUsersStorage.findByEmail(email);
+    if (existingByEmail) {
+      await platformUsersStorage.update(existingByEmail.id, {
+        fullName: account.fullName,
+        phone: account.phone || '',
+        role: 'dhoi',
+        status: 'active',
+        schoolCode: account.schoolCode || '',
+        schoolName: '',
+      });
+    } else {
+      await platformUsersStorage.add({
+        email: account.email,
+        fullName: account.fullName,
+        role: 'dhoi',
+        schoolCode: account.schoolCode || '',
+        schoolName: '',
+        phone: account.phone || '',
+        status: 'active',
+        createdBy: 'HOI',
+      });
     }
 
     if (!existingDhoi) {
@@ -209,9 +234,16 @@ export default function HoiTeachers() {
       });
     }
 
+    if (dhoiForm.password.trim()) {
+      toast({
+        title: 'Password Notice',
+        description: 'Profile saved to Supabase. Password setup should be handled via Supabase Auth invite or reset flow.',
+      });
+    }
+
     toast({ title: existingDhoi ? 'DHOI Account Updated' : 'DHOI Account Created', description: `${account.fullName} can now log in as DHOI.` });
     setDhoiDialogOpen(false);
-    loadData();
+    await loadData();
   };
 
   const filteredTeachers = teachers.filter((t) => {
@@ -266,7 +298,7 @@ export default function HoiTeachers() {
     setTeacherDialogOpen(true);
   };
 
-  const saveTeacher = () => {
+  const saveTeacher = async () => {
     if (!teacherForm.full_name.trim() || !teacherForm.email.trim() || !teacherForm.employee_id.trim()) {
       toast({ title: 'Validation Error', description: 'Full name, email, and employee ID are required.', variant: 'destructive' });
       return;
@@ -295,13 +327,14 @@ export default function HoiTeachers() {
     if (editingTeacher) {
       hoiTeachersStorage.update(editingTeacher.id, { ...teacherData, ...classTeacherFields });
       if (password.trim()) {
-        const passwords = JSON.parse(localStorage.getItem('zaroda_passwords') || '{}');
-        passwords[teacherForm.email.trim().toLowerCase()] = password.trim();
-        localStorage.setItem('zaroda_passwords', JSON.stringify(passwords));
+        toast({
+          title: 'Password Notice',
+          description: 'Teacher profile updated in Supabase. Password changes must be done through Supabase Auth.',
+        });
       }
-      const existingPU = platformUsersStorage.findByEmail(teacherForm.email.trim().toLowerCase());
+      const existingPU = await platformUsersStorage.findByEmail(teacherForm.email.trim().toLowerCase());
       if (existingPU) {
-        platformUsersStorage.update(existingPU.id, {
+        await platformUsersStorage.update(existingPU.id, {
           isClassTeacher: classTeacherFields.is_class_teacher,
           classTeacherClassId: classTeacherFields.class_teacher_class_id,
           classTeacherClassName: classTeacherFields.class_teacher_class_name,
@@ -312,12 +345,10 @@ export default function HoiTeachers() {
       toast({ title: 'Teacher Updated', description: `${teacherForm.full_name} has been updated.` });
     } else {
       const newTeacher = hoiTeachersStorage.add({ ...teacherData, ...classTeacherFields, hired_at: new Date().toISOString().split('T')[0] });
-      const passwords = JSON.parse(localStorage.getItem('zaroda_passwords') || '{}');
-      passwords[teacherForm.email.trim().toLowerCase()] = password.trim();
-      localStorage.setItem('zaroda_passwords', JSON.stringify(passwords));
-      const existing = platformUsersStorage.getAll().find(u => u.email.toLowerCase() === teacherForm.email.trim().toLowerCase());
+      const allUsers = await platformUsersStorage.getAll();
+      const existing = allUsers.find(u => u.email.toLowerCase() === teacherForm.email.trim().toLowerCase());
       if (!existing) {
-        platformUsersStorage.add({
+        await platformUsersStorage.add({
           email: teacherForm.email.trim().toLowerCase(),
           fullName: teacherForm.full_name.trim(),
           role: 'teacher',
@@ -333,7 +364,7 @@ export default function HoiTeachers() {
           classTeacherStreamName: classTeacherFields.class_teacher_stream_name,
         });
       } else {
-        platformUsersStorage.update(existing.id, {
+        await platformUsersStorage.update(existing.id, {
           isClassTeacher: classTeacherFields.is_class_teacher,
           classTeacherClassId: classTeacherFields.class_teacher_class_id,
           classTeacherClassName: classTeacherFields.class_teacher_class_name,
@@ -352,7 +383,7 @@ export default function HoiTeachers() {
       toast({ title: 'Teacher Added', description: `${teacherForm.full_name} has been added. They can now log in with their email and password.` });
     }
     setTeacherDialogOpen(false);
-    loadData();
+    await loadData();
   };
 
   const toggleTeacherStatus = () => {
@@ -365,19 +396,19 @@ export default function HoiTeachers() {
     loadData();
   };
 
-  const isSystemCreatedTeacher = (teacher: HoiTeacher) => {
-    const platformUser = platformUsersStorage.findByEmail(teacher.email);
+  const isSystemCreatedTeacher = async (teacher: HoiTeacher) => {
+    const platformUser = await platformUsersStorage.findByEmail(teacher.email);
     if (!platformUser) return true;
     if (platformUser.role !== 'teacher') return false;
     const createdBy = (platformUser.createdBy || '').trim().toLowerCase();
     return SYSTEM_CREATED_BY.has(createdBy);
   };
 
-  const deleteTeacher = () => {
+  const deleteTeacher = async () => {
     const teacher = deleteTeacherDialog.teacher;
     if (!teacher) return;
 
-    if (!isSystemCreatedTeacher(teacher)) {
+    if (!(await isSystemCreatedTeacher(teacher))) {
       toast({
         title: 'Delete Not Allowed',
         description: 'Only system-created teacher accounts can be deleted by HOI/DHOI.',
@@ -407,21 +438,14 @@ export default function HoiTeachers() {
 
     hoiTeachersStorage.remove(teacher.id);
 
-    const teacherAccount = platformUsersStorage.findByEmail(teacher.email);
+    const teacherAccount = await platformUsersStorage.findByEmail(teacher.email);
     if (teacherAccount?.role === 'teacher') {
-      platformUsersStorage.remove(teacherAccount.id);
-    }
-
-    const email = teacher.email.trim().toLowerCase();
-    const passwords = JSON.parse(localStorage.getItem('zaroda_passwords') || '{}');
-    if (passwords[email]) {
-      delete passwords[email];
-      localStorage.setItem('zaroda_passwords', JSON.stringify(passwords));
+      await platformUsersStorage.remove(teacherAccount.id);
     }
 
     toast({ title: 'Teacher Deleted', description: `${teacher.full_name} and related records have been removed.` });
     setDeleteTeacherDialog({ open: false, teacher: null });
-    loadData();
+    await loadData();
   };
 
   const saveAssignment = () => {

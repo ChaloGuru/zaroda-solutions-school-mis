@@ -1,3 +1,5 @@
+import { supabase } from '@/lib/supabase';
+
 export interface School {
   id: string;
   name: string;
@@ -75,189 +77,6 @@ export interface PlatformSettings {
   billing_cycle: 'monthly' | 'termly' | 'annually';
 }
 
-function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).substring(2, 9);
-}
-
-const SEED_SCHOOLS: School[] = [
-  { id: 's1', name: 'Greenwood Academy', school_code: 'GWA-001', school_type: 'Junior Secondary', county: 'Nairobi', sub_county: 'Westlands', zone: 'Westlands Zone', contact_name: 'James Ochieng', contact_email: 'admin@greenwood.ac.ke', contact_phone: '+254 712 345 678', status: 'active', categories: ['Day', 'Boarding'], student_count: 450, faculty_count: 32, created_at: '2024-01-15' },
-  { id: 's2', name: 'Sunrise Primary School', school_code: 'SPS-002', school_type: 'Primary', county: 'Mombasa', sub_county: 'Nyali', zone: 'Nyali Zone', contact_name: 'Mary Wanjiku', contact_email: 'head@sunrise.ac.ke', contact_phone: '+254 723 456 789', status: 'active', categories: ['Day'], student_count: 680, faculty_count: 28, created_at: '2024-02-20' },
-  { id: 's3', name: 'Heritage High School', school_code: 'HHS-003', school_type: 'Junior Secondary', county: 'Kisumu', sub_county: 'Kisumu Central', zone: 'Central Zone', contact_name: 'Peter Otieno', contact_email: 'info@heritage.ac.ke', contact_phone: '+254 734 567 890', status: 'active', categories: ['Boarding'], student_count: 520, faculty_count: 35, created_at: '2024-03-10' },
-  { id: 's4', name: 'Victory Christian School', school_code: 'VCS-004', school_type: 'Primary', county: 'Nakuru', sub_county: 'Nakuru East', zone: 'Nakuru East Zone', contact_name: 'Grace Kamau', contact_email: 'admin@victory.ac.ke', contact_phone: '+254 745 678 901', status: 'pending', categories: ['Day', 'Boarding'], student_count: 320, faculty_count: 22, created_at: '2024-04-05' },
-  { id: 's5', name: 'Lakeside Academy', school_code: 'LSA-005', school_type: 'Junior Secondary', county: 'Kisumu', sub_county: 'Kisumu West', zone: 'Lakeside Zone', contact_name: 'David Omondi', contact_email: 'head@lakeside.ac.ke', contact_phone: '+254 756 789 012', status: 'suspended', categories: ['Day'], student_count: 280, faculty_count: 18, created_at: '2024-05-12' },
-  { id: 's6', name: 'Mt. Kenya Preparatory', school_code: 'MKP-006', school_type: 'Primary', county: 'Nyeri', sub_county: 'Nyeri Central', zone: 'Central Zone', contact_name: 'Ann Muthoni', contact_email: 'admin@mtkenyaprep.ac.ke', contact_phone: '+254 767 890 123', status: 'active', categories: ['Day'], student_count: 410, faculty_count: 25, created_at: '2024-06-18' },
-];
-
-function normalizeSchoolType(type: string): School['school_type'] {
-  const value = (type || '').trim().toLowerCase();
-  if (value === 'ecde') return 'ECDE';
-  if (value === 'primary') return 'Primary';
-  if (value === 'junior secondary' || value === 'junior_secondary' || value === 'secondary' || value === 'mixed' || value === 'tvet') {
-    return 'Junior Secondary';
-  }
-  return 'Primary';
-}
-
-const SEED_STUDENTS: Student[] = [
-  { id: 'st1', full_name: 'Kevin Odhiambo', admission_no: 'GWA-2024-001', school_id: 's1', grade: 'Form 3', stream: 'East', guardian_name: 'John Odhiambo', guardian_phone: '+254 700 111 222', guardian_email: 'john.o@email.com', gender: 'Male', date_of_birth: '2008-03-15', status: 'active', enrolled_at: '2024-01-10' },
-  { id: 'st2', full_name: 'Faith Akinyi', admission_no: 'GWA-2024-002', school_id: 's1', grade: 'Form 2', stream: 'West', guardian_name: 'Rose Akinyi', guardian_phone: '+254 700 222 333', guardian_email: 'rose.a@email.com', gender: 'Female', date_of_birth: '2009-07-22', status: 'active', enrolled_at: '2024-01-10' },
-  { id: 'st3', full_name: 'Brian Kiprop', admission_no: 'SPS-2024-001', school_id: 's2', grade: 'Class 7', stream: 'A', guardian_name: 'Daniel Kiprop', guardian_phone: '+254 700 333 444', guardian_email: 'daniel.k@email.com', gender: 'Male', date_of_birth: '2012-11-05', status: 'active', enrolled_at: '2024-02-15' },
-  { id: 'st4', full_name: 'Mercy Njeri', admission_no: 'SPS-2024-002', school_id: 's2', grade: 'Class 8', stream: 'B', guardian_name: 'Sarah Njeri', guardian_phone: '+254 700 444 555', guardian_email: 'sarah.n@email.com', gender: 'Female', date_of_birth: '2011-09-18', status: 'active', enrolled_at: '2024-02-15' },
-  { id: 'st5', full_name: 'Victor Mwangi', admission_no: 'HHS-2024-001', school_id: 's3', grade: 'Form 1', stream: 'Alpha', guardian_name: 'Joseph Mwangi', guardian_phone: '+254 700 555 666', guardian_email: 'joseph.m@email.com', gender: 'Male', date_of_birth: '2010-01-30', status: 'active', enrolled_at: '2024-03-01' },
-  { id: 'st6', full_name: 'Angela Wambui', admission_no: 'HHS-2024-002', school_id: 's3', grade: 'Form 4', stream: 'Beta', guardian_name: 'Michael Wambui', guardian_phone: '+254 700 666 777', guardian_email: 'michael.w@email.com', gender: 'Female', date_of_birth: '2007-06-12', status: 'graduated', enrolled_at: '2021-01-10' },
-  { id: 'st7', full_name: 'Dennis Otieno', admission_no: 'VCS-2024-001', school_id: 's4', grade: 'Class 5', stream: 'A', guardian_name: 'Patrick Otieno', guardian_phone: '+254 700 777 888', guardian_email: 'patrick.o@email.com', gender: 'Male', date_of_birth: '2014-04-25', status: 'active', enrolled_at: '2024-04-10' },
-  { id: 'st8', full_name: 'Lucy Chebet', admission_no: 'MKP-2024-001', school_id: 's6', grade: 'Class 6', stream: 'B', guardian_name: 'Timothy Chebet', guardian_phone: '+254 700 888 999', guardian_email: 'timothy.c@email.com', gender: 'Female', date_of_birth: '2013-12-08', status: 'active', enrolled_at: '2024-06-20' },
-];
-
-const SEED_FACULTY: Faculty[] = [
-  { id: 'f1', full_name: 'Dr. Samuel Kariuki', staff_no: 'GWA-T-001', school_id: 's1', role: 'Principal', department: 'Administration', email: 's.kariuki@greenwood.ac.ke', phone: '+254 711 100 001', qualification: 'PhD Education', gender: 'Male', status: 'active', hired_at: '2020-01-05' },
-  { id: 'f2', full_name: 'Jane Muthoni', staff_no: 'GWA-T-002', school_id: 's1', role: 'Teacher', department: 'Mathematics', email: 'j.muthoni@greenwood.ac.ke', phone: '+254 711 100 002', qualification: 'B.Ed Mathematics', gender: 'Female', status: 'active', hired_at: '2021-03-10' },
-  { id: 'f3', full_name: 'Robert Ouma', staff_no: 'SPS-T-001', school_id: 's2', role: 'Head Teacher', department: 'Administration', email: 'r.ouma@sunrise.ac.ke', phone: '+254 711 200 001', qualification: 'M.Ed Administration', gender: 'Male', status: 'active', hired_at: '2019-06-15' },
-  { id: 'f4', full_name: 'Alice Njoroge', staff_no: 'SPS-T-002', school_id: 's2', role: 'Teacher', department: 'English', email: 'a.njoroge@sunrise.ac.ke', phone: '+254 711 200 002', qualification: 'B.Ed English', gender: 'Female', status: 'active', hired_at: '2022-01-20' },
-  { id: 'f5', full_name: 'Thomas Kimani', staff_no: 'HHS-T-001', school_id: 's3', role: 'Deputy Principal', department: 'Sciences', email: 't.kimani@heritage.ac.ke', phone: '+254 711 300 001', qualification: 'M.Sc Chemistry', gender: 'Male', status: 'active', hired_at: '2020-09-01' },
-  { id: 'f6', full_name: 'Caroline Achieng', staff_no: 'HHS-T-002', school_id: 's3', role: 'Teacher', department: 'Languages', email: 'c.achieng@heritage.ac.ke', phone: '+254 711 300 002', qualification: 'B.Ed Kiswahili', gender: 'Female', status: 'on_leave', hired_at: '2021-05-15' },
-  { id: 'f7', full_name: 'Emmanuel Kipchoge', staff_no: 'VCS-T-001', school_id: 's4', role: 'Teacher', department: 'Physical Education', email: 'e.kipchoge@victory.ac.ke', phone: '+254 711 400 001', qualification: 'B.Ed PE', gender: 'Male', status: 'active', hired_at: '2023-02-01' },
-  { id: 'f8', full_name: 'Diana Wairimu', staff_no: 'MKP-T-001', school_id: 's6', role: 'Head Teacher', department: 'Administration', email: 'd.wairimu@mtkenyaprep.ac.ke', phone: '+254 711 600 001', qualification: 'M.Ed Curriculum', gender: 'Female', status: 'active', hired_at: '2020-03-10' },
-];
-
-const SEED_INVOICES: Invoice[] = [
-  { id: 'inv1', school_id: 's1', school_name: 'Greenwood Academy', description: 'Platform Subscription - Term 1', amount: 45000, period: '2024 Term 1', status: 'paid', due_date: '2024-01-31', paid_at: '2024-01-25', created_at: '2024-01-01' },
-  { id: 'inv2', school_id: 's1', school_name: 'Greenwood Academy', description: 'Platform Subscription - Term 2', amount: 45000, period: '2024 Term 2', status: 'paid', due_date: '2024-05-31', paid_at: '2024-05-20', created_at: '2024-05-01' },
-  { id: 'inv3', school_id: 's1', school_name: 'Greenwood Academy', description: 'Platform Subscription - Term 3', amount: 45000, period: '2024 Term 3', status: 'pending', due_date: '2025-01-31', paid_at: null, created_at: '2024-09-01' },
-  { id: 'inv4', school_id: 's2', school_name: 'Sunrise Primary School', description: 'Platform Subscription - Term 1', amount: 35000, period: '2024 Term 1', status: 'paid', due_date: '2024-01-31', paid_at: '2024-01-28', created_at: '2024-01-01' },
-  { id: 'inv5', school_id: 's2', school_name: 'Sunrise Primary School', description: 'Platform Subscription - Term 2', amount: 35000, period: '2024 Term 2', status: 'paid', due_date: '2024-05-31', paid_at: '2024-05-15', created_at: '2024-05-01' },
-  { id: 'inv6', school_id: 's3', school_name: 'Heritage High School', description: 'Platform Subscription - Term 1', amount: 50000, period: '2024 Term 1', status: 'paid', due_date: '2024-01-31', paid_at: '2024-01-20', created_at: '2024-01-01' },
-  { id: 'inv7', school_id: 's3', school_name: 'Heritage High School', description: 'Platform Subscription - Term 2', amount: 50000, period: '2024 Term 2', status: 'overdue', due_date: '2024-05-31', paid_at: null, created_at: '2024-05-01' },
-  { id: 'inv8', school_id: 's4', school_name: 'Victory Christian School', description: 'Platform Subscription - Term 1', amount: 30000, period: '2024 Term 1', status: 'pending', due_date: '2024-06-30', paid_at: null, created_at: '2024-04-05' },
-  { id: 'inv9', school_id: 's6', school_name: 'Mt. Kenya Preparatory', description: 'Platform Subscription - Term 1', amount: 40000, period: '2024 Term 1', status: 'paid', due_date: '2024-07-31', paid_at: '2024-07-10', created_at: '2024-06-18' },
-];
-
-const DEFAULT_SETTINGS: PlatformSettings = {
-  platform_name: 'Zaroda Solutions',
-  support_email: 'support@zaroda.io',
-  support_phone: '+254 700 000 000',
-  default_currency: 'KES',
-  academic_year: '2024',
-  term: 'Term 3',
-  enable_notifications: true,
-  enable_sms: true,
-  enable_email: true,
-  maintenance_mode: false,
-  max_schools: 100,
-  billing_cycle: 'termly',
-};
-
-function getCollection<T>(key: string, seed: T[]): T[] {
-  const stored = localStorage.getItem(key);
-  if (stored) return JSON.parse(stored);
-  localStorage.setItem(key, JSON.stringify(seed));
-  return seed;
-}
-
-function saveCollection<T>(key: string, data: T[]): void {
-  localStorage.setItem(key, JSON.stringify(data));
-}
-
-export const schoolsStorage = {
-  getAll: () => {
-    const schools = getCollection<School>('zaroda_schools', SEED_SCHOOLS);
-    const normalized = schools.map((school) => ({
-      ...school,
-      school_type: normalizeSchoolType(school.school_type),
-      zone: school.zone || '',
-    }));
-    if (JSON.stringify(normalized) !== JSON.stringify(schools)) {
-      saveCollection('zaroda_schools', normalized);
-    }
-    return normalized;
-  },
-  save: (schools: School[]) => saveCollection('zaroda_schools', schools),
-  add: (school: Omit<School, 'id' | 'created_at'>) => {
-    const schools = schoolsStorage.getAll();
-    const newSchool: School = { ...school, id: generateId(), created_at: new Date().toISOString().split('T')[0] };
-    schools.push(newSchool);
-    schoolsStorage.save(schools);
-    return newSchool;
-  },
-  update: (id: string, data: Partial<School>) => {
-    const schools = schoolsStorage.getAll();
-    const idx = schools.findIndex(s => s.id === id);
-    if (idx !== -1) { schools[idx] = { ...schools[idx], ...data }; schoolsStorage.save(schools); }
-    return schools[idx];
-  },
-  remove: (id: string) => {
-    const schools = schoolsStorage.getAll().filter(s => s.id !== id);
-    schoolsStorage.save(schools);
-  },
-  getById: (id: string) => schoolsStorage.getAll().find(s => s.id === id),
-};
-
-export const studentsStorage = {
-  getAll: () => getCollection<Student>('zaroda_students', SEED_STUDENTS),
-  save: (students: Student[]) => saveCollection('zaroda_students', students),
-  add: (student: Omit<Student, 'id' | 'enrolled_at'>) => {
-    const students = studentsStorage.getAll();
-    const newStudent: Student = { ...student, id: generateId(), enrolled_at: new Date().toISOString().split('T')[0] };
-    students.push(newStudent);
-    studentsStorage.save(students);
-    return newStudent;
-  },
-  update: (id: string, data: Partial<Student>) => {
-    const students = studentsStorage.getAll();
-    const idx = students.findIndex(s => s.id === id);
-    if (idx !== -1) { students[idx] = { ...students[idx], ...data }; studentsStorage.save(students); }
-    return students[idx];
-  },
-  remove: (id: string) => {
-    const students = studentsStorage.getAll().filter(s => s.id !== id);
-    studentsStorage.save(students);
-  },
-};
-
-export const facultyStorage = {
-  getAll: () => getCollection<Faculty>('zaroda_faculty', SEED_FACULTY),
-  save: (faculty: Faculty[]) => saveCollection('zaroda_faculty', faculty),
-  add: (member: Omit<Faculty, 'id' | 'hired_at'>) => {
-    const faculty = facultyStorage.getAll();
-    const newMember: Faculty = { ...member, id: generateId(), hired_at: new Date().toISOString().split('T')[0] };
-    faculty.push(newMember);
-    facultyStorage.save(faculty);
-    return newMember;
-  },
-  update: (id: string, data: Partial<Faculty>) => {
-    const faculty = facultyStorage.getAll();
-    const idx = faculty.findIndex(f => f.id === id);
-    if (idx !== -1) { faculty[idx] = { ...faculty[idx], ...data }; facultyStorage.save(faculty); }
-    return faculty[idx];
-  },
-  remove: (id: string) => {
-    const faculty = facultyStorage.getAll().filter(f => f.id !== id);
-    facultyStorage.save(faculty);
-  },
-};
-
-export const invoicesStorage = {
-  getAll: () => getCollection<Invoice>('zaroda_invoices', SEED_INVOICES),
-  save: (invoices: Invoice[]) => saveCollection('zaroda_invoices', invoices),
-  add: (invoice: Omit<Invoice, 'id' | 'created_at'>) => {
-    const invoices = invoicesStorage.getAll();
-    const newInvoice: Invoice = { ...invoice, id: generateId(), created_at: new Date().toISOString().split('T')[0] };
-    invoices.push(newInvoice);
-    invoicesStorage.save(invoices);
-    return newInvoice;
-  },
-  update: (id: string, data: Partial<Invoice>) => {
-    const invoices = invoicesStorage.getAll();
-    const idx = invoices.findIndex(i => i.id === id);
-    if (idx !== -1) { invoices[idx] = { ...invoices[idx], ...data }; invoicesStorage.save(invoices); }
-    return invoices[idx];
-  },
-  remove: (id: string) => {
-    const invoices = invoicesStorage.getAll().filter(i => i.id !== id);
-    invoicesStorage.save(invoices);
-  },
-};
-
 export interface AssessmentScore {
   strandNumber: number;
   subStrandName: string;
@@ -283,57 +102,14 @@ export interface AssessmentRecord {
   subject: string;
   term: number;
   schoolCode: string;
+  activityType?: string;
+  performanceLevel?: 'EE' | 'ME' | 'AE' | 'BE';
+  competencyAchieved?: boolean;
+  teacherComment?: string;
   scores: AssessmentScore[];
   createdAt: string;
   updatedAt: string;
 }
-
-export const assessmentStorage = {
-  getAll: (): AssessmentRecord[] => {
-    const stored = localStorage.getItem('zaroda_assessments');
-    return stored ? JSON.parse(stored) : [];
-  },
-  save: (records: AssessmentRecord[]) => {
-    localStorage.setItem('zaroda_assessments', JSON.stringify(records));
-  },
-  getByTeacher: (teacherId: string): AssessmentRecord[] => {
-    return assessmentStorage.getAll().filter(r => r.teacherId === teacherId);
-  },
-  getByStudent: (studentId: string): AssessmentRecord[] => {
-    return assessmentStorage.getAll().filter(r => r.studentId === studentId);
-  },
-  find: (teacherId: string, studentId: string, grade: string, subject: string, term: number): AssessmentRecord | undefined => {
-    return assessmentStorage.getAll().find(
-      r => r.teacherId === teacherId && r.studentId === studentId && r.grade === grade && r.subject === subject && r.term === term
-    );
-  },
-  upsert: (record: Omit<AssessmentRecord, 'id' | 'createdAt' | 'updatedAt'>): AssessmentRecord => {
-    const records = assessmentStorage.getAll();
-    const existingIdx = records.findIndex(
-      r => r.teacherId === record.teacherId && r.studentId === record.studentId && r.grade === record.grade && r.subject === record.subject && r.term === record.term
-    );
-    const now = new Date().toISOString();
-    if (existingIdx !== -1) {
-      records[existingIdx] = { ...records[existingIdx], ...record, updatedAt: now };
-      assessmentStorage.save(records);
-      return records[existingIdx];
-    }
-    const newRecord: AssessmentRecord = { ...record, id: generateId(), createdAt: now, updatedAt: now };
-    records.push(newRecord);
-    assessmentStorage.save(records);
-    return newRecord;
-  },
-  remove: (id: string) => {
-    const records = assessmentStorage.getAll().filter(r => r.id !== id);
-    assessmentStorage.save(records);
-  },
-  getStudentsAssessed: (teacherId: string, grade: string, subject: string, term: number): { studentId: string; studentName: string; admissionNo: string }[] => {
-    const records = assessmentStorage.getAll().filter(
-      r => r.teacherId === teacherId && r.grade === grade && r.subject === subject && r.term === term
-    );
-    return records.map(r => ({ studentId: r.studentId, studentName: r.studentName, admissionNo: r.admissionNo }));
-  },
-};
 
 export interface PlatformUser {
   id: string;
@@ -363,119 +139,11 @@ export interface LoginActivity {
   email: string;
   fullName: string;
   role: string;
-  action: 'login' | 'logout' | 'account_created' | 'account_updated' | 'account_suspended' | 'account_activated';
+  action: 'login' | 'logout' | 'account_created' | 'account_updated' | 'account_suspended' | 'account_activated' | 'account_deleted';
   timestamp: string;
   details?: string;
 }
 
-const SEED_PLATFORM_USERS: PlatformUser[] = [
-  { id: 'pu1', email: 'hoi@greenwood.ac.ke', fullName: 'Dr. Samuel Kariuki', role: 'hoi', schoolCode: 'GWA-001', schoolName: 'Greenwood Academy', phone: '+254 711 100 001', status: 'active', createdAt: '2024-01-15', createdBy: 'SuperAdmin', lastLogin: '2026-02-15T08:30:00Z', loginCount: 45 },
-  { id: 'pu2', email: 'hoi@sunrise.ac.ke', fullName: 'Mary Wanjiku', role: 'hoi', schoolCode: 'SPS-002', schoolName: 'Sunrise Primary School', phone: '+254 723 456 789', status: 'active', createdAt: '2024-02-20', createdBy: 'SuperAdmin', lastLogin: '2026-02-14T10:15:00Z', loginCount: 38 },
-  { id: 'pu3', email: 'hoi@heritage.ac.ke', fullName: 'Peter Otieno', role: 'hoi', schoolCode: 'HHS-003', schoolName: 'Heritage High School', phone: '+254 734 567 890', status: 'active', createdAt: '2024-03-10', createdBy: 'SuperAdmin', lastLogin: '2026-02-13T14:20:00Z', loginCount: 32 },
-  { id: 'pu4', email: 'hoi@victory.ac.ke', fullName: 'Grace Kamau', role: 'hoi', schoolCode: 'VCS-004', schoolName: 'Victory Christian School', phone: '+254 745 678 901', status: 'suspended', createdAt: '2024-04-05', createdBy: 'SuperAdmin', lastLogin: '2025-12-01T09:00:00Z', loginCount: 12 },
-];
-
-const SEED_ACTIVITY: LoginActivity[] = [
-  { id: 'la1', userId: 'pu1', email: 'hoi@greenwood.ac.ke', fullName: 'Dr. Samuel Kariuki', role: 'hoi', action: 'login', timestamp: '2026-02-15T08:30:00Z' },
-  { id: 'la2', userId: 'pu2', email: 'hoi@sunrise.ac.ke', fullName: 'Mary Wanjiku', role: 'hoi', action: 'login', timestamp: '2026-02-14T10:15:00Z' },
-  { id: 'la3', userId: 'pu3', email: 'hoi@heritage.ac.ke', fullName: 'Peter Otieno', role: 'hoi', action: 'login', timestamp: '2026-02-13T14:20:00Z' },
-  { id: 'la4', userId: 'pu1', email: 'hoi@greenwood.ac.ke', fullName: 'Dr. Samuel Kariuki', role: 'hoi', action: 'account_created', timestamp: '2024-01-15T09:00:00Z', details: 'Account created by SuperAdmin' },
-  { id: 'la5', userId: 'pu4', email: 'hoi@victory.ac.ke', fullName: 'Grace Kamau', role: 'hoi', action: 'account_suspended', timestamp: '2025-12-15T11:00:00Z', details: 'Account suspended by SuperAdmin' },
-];
-
-export const platformUsersStorage = {
-  getAll: () => getCollection<PlatformUser>('zaroda_platform_users', SEED_PLATFORM_USERS),
-  save: (users: PlatformUser[]) => saveCollection('zaroda_platform_users', users),
-  add: (user: Omit<PlatformUser, 'id' | 'createdAt' | 'lastLogin' | 'loginCount'>) => {
-    const users = platformUsersStorage.getAll();
-    const newUser: PlatformUser = { ...user, id: generateId(), createdAt: new Date().toISOString().split('T')[0], lastLogin: null, loginCount: 0 };
-    users.push(newUser);
-    platformUsersStorage.save(users);
-    return newUser;
-  },
-  update: (id: string, data: Partial<PlatformUser>) => {
-    const users = platformUsersStorage.getAll();
-    const idx = users.findIndex(u => u.id === id);
-    if (idx !== -1) { users[idx] = { ...users[idx], ...data }; platformUsersStorage.save(users); }
-    return users[idx];
-  },
-  remove: (id: string) => {
-    const users = platformUsersStorage.getAll().filter(u => u.id !== id);
-    platformUsersStorage.save(users);
-  },
-  findByEmail: (email: string) => {
-    return platformUsersStorage.getAll().find(u => u.email.toLowerCase() === email.toLowerCase());
-  },
-  getByRole: (role: string) => {
-    return platformUsersStorage.getAll().filter(u => u.role === role);
-  },
-  getBySchool: (schoolCode: string) => {
-    return platformUsersStorage.getAll().filter(u => u.schoolCode === schoolCode);
-  },
-  recordLogin: (id: string) => {
-    const users = platformUsersStorage.getAll();
-    const idx = users.findIndex(u => u.id === id);
-    if (idx !== -1) {
-      users[idx].lastLogin = new Date().toISOString();
-      users[idx].loginCount = (users[idx].loginCount || 0) + 1;
-      platformUsersStorage.save(users);
-    }
-  },
-};
-
-export const activityStorage = {
-  getAll: () => getCollection<LoginActivity>('zaroda_activity_log', SEED_ACTIVITY),
-  save: (logs: LoginActivity[]) => saveCollection('zaroda_activity_log', logs),
-  add: (log: Omit<LoginActivity, 'id' | 'timestamp'>) => {
-    const logs = activityStorage.getAll();
-    const newLog: LoginActivity = { ...log, id: generateId(), timestamp: new Date().toISOString() };
-    logs.push(newLog);
-    activityStorage.save(logs);
-    return newLog;
-  },
-  getByUser: (userId: string) => {
-    return activityStorage.getAll().filter(l => l.userId === userId);
-  },
-  getRecent: (limit = 50) => {
-    return activityStorage.getAll().sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, limit);
-  },
-};
-
-export const initSeedPasswords = () => {
-  const key = 'zaroda_passwords';
-  const existing = localStorage.getItem(key);
-  const passwords: Record<string, string> = existing ? JSON.parse(existing) : {};
-  let changed = false;
-  const seedPasswords: Record<string, string> = {
-    'hoi@greenwood.ac.ke': 'greenwood2024',
-    'hoi@sunrise.ac.ke': 'sunrise2024',
-    'hoi@heritage.ac.ke': 'heritage2024',
-    'hoi@victory.ac.ke': 'victory2024',
-  };
-  for (const [email, pwd] of Object.entries(seedPasswords)) {
-    if (!passwords[email]) {
-      passwords[email] = pwd;
-      changed = true;
-    }
-  }
-  if (changed) {
-    localStorage.setItem(key, JSON.stringify(passwords));
-  }
-};
-
-export const settingsStorage = {
-  get: (): PlatformSettings => {
-    const stored = localStorage.getItem('zaroda_settings');
-    if (stored) return JSON.parse(stored);
-    localStorage.setItem('zaroda_settings', JSON.stringify(DEFAULT_SETTINGS));
-    return DEFAULT_SETTINGS;
-  },
-  save: (settings: PlatformSettings) => {
-    localStorage.setItem('zaroda_settings', JSON.stringify(settings));
-  },
-};
-
-// HOD accounts managed by HOI/DHOI
 export interface HodAccount {
   id: string;
   fullName: string;
@@ -489,38 +157,6 @@ export interface HodAccount {
   createdAt?: string;
 }
 
-export const hodStorage = {
-  getAll: (): HodAccount[] => {
-    const stored = localStorage.getItem('zaroda_hod_accounts');
-    return stored ? JSON.parse(stored) : [];
-  },
-  save: (hods: HodAccount[]) => {
-    localStorage.setItem('zaroda_hod_accounts', JSON.stringify(hods));
-  },
-  add: (data: Omit<HodAccount, 'id' | 'createdAt'>) => {
-    const list = hodStorage.getAll();
-    const newItem: HodAccount = { ...data, id: generateId(), createdAt: new Date().toISOString() } as HodAccount;
-    list.push(newItem);
-    hodStorage.save(list);
-    return newItem;
-  },
-  update: (id: string, data: Partial<HodAccount>) => {
-    const list = hodStorage.getAll();
-    const idx = list.findIndex(h => h.id === id);
-    if (idx !== -1) { list[idx] = { ...list[idx], ...data }; hodStorage.save(list); }
-    return list[idx];
-  },
-  remove: (id: string) => {
-    const list = hodStorage.getAll().filter(h => h.id !== id);
-    hodStorage.save(list);
-  },
-  findByEmail: (email: string) => {
-    const normalized = email?.toLowerCase?.() || '';
-    return hodStorage.getAll().find(h => h.email.toLowerCase() === normalized);
-  }
-};
-
-// Minimal lesson notes storage used by HOD review/approval
 export interface LessonNote {
   id: string;
   title: string;
@@ -536,32 +172,6 @@ export interface LessonNote {
   createdAt: string;
 }
 
-export const lessonNotesStorage = {
-  getAll: (): LessonNote[] => {
-    const stored = localStorage.getItem('zaroda_lesson_notes');
-    return stored ? JSON.parse(stored) : [];
-  },
-  save: (items: LessonNote[]) => localStorage.setItem('zaroda_lesson_notes', JSON.stringify(items)),
-  add: (note: Omit<LessonNote, 'id' | 'createdAt'>) => {
-    const list = lessonNotesStorage.getAll();
-    const newItem: LessonNote = { ...note, id: generateId(), createdAt: new Date().toISOString() } as LessonNote;
-    list.push(newItem);
-    lessonNotesStorage.save(list);
-    return newItem;
-  },
-  update: (id: string, data: Partial<LessonNote>) => {
-    const list = lessonNotesStorage.getAll();
-    const idx = list.findIndex(n => n.id === id);
-    if (idx !== -1) { list[idx] = { ...list[idx], ...data }; lessonNotesStorage.save(list); }
-    return list[idx];
-  },
-  remove: (id: string) => {
-    const list = lessonNotesStorage.getAll().filter(n => n.id !== id);
-    lessonNotesStorage.save(list);
-  }
-};
-
-// Scheme of work storage
 export interface SchemeWeek {
   week: number;
   topic: string;
@@ -583,32 +193,6 @@ export interface SchemeOfWork {
   createdAt: string;
 }
 
-export const schemeOfWorkStorage = {
-  getAll: (): SchemeOfWork[] => {
-    const stored = localStorage.getItem('zaroda_scheme_of_work');
-    return stored ? JSON.parse(stored) : [];
-  },
-  save: (items: SchemeOfWork[]) => localStorage.setItem('zaroda_scheme_of_work', JSON.stringify(items)),
-  add: (data: Omit<SchemeOfWork, 'id' | 'createdAt'>) => {
-    const list = schemeOfWorkStorage.getAll();
-    const newItem: SchemeOfWork = { ...data, id: generateId(), createdAt: new Date().toISOString() } as SchemeOfWork;
-    list.push(newItem);
-    schemeOfWorkStorage.save(list);
-    return newItem;
-  },
-  update: (id: string, data: Partial<SchemeOfWork>) => {
-    const list = schemeOfWorkStorage.getAll();
-    const idx = list.findIndex(s => s.id === id);
-    if (idx !== -1) { list[idx] = { ...list[idx], ...data }; schemeOfWorkStorage.save(list); }
-    return list[idx];
-  },
-  remove: (id: string) => {
-    const list = schemeOfWorkStorage.getAll().filter(s => s.id !== id);
-    schemeOfWorkStorage.save(list);
-  }
-};
-
-// Exams storage
 export interface Exam {
   id: string;
   name: string;
@@ -620,32 +204,6 @@ export interface Exam {
   createdAt: string;
 }
 
-export const examsStorage = {
-  getAll: (): Exam[] => {
-    const stored = localStorage.getItem('zaroda_exams');
-    return stored ? JSON.parse(stored) : [];
-  },
-  save: (items: Exam[]) => localStorage.setItem('zaroda_exams', JSON.stringify(items)),
-  add: (data: Omit<Exam, 'id' | 'createdAt'>) => {
-    const list = examsStorage.getAll();
-    const newItem: Exam = { ...data, id: generateId(), createdAt: new Date().toISOString() } as Exam;
-    list.push(newItem);
-    examsStorage.save(list);
-    return newItem;
-  },
-  update: (id: string, data: Partial<Exam>) => {
-    const list = examsStorage.getAll();
-    const idx = list.findIndex(e => e.id === id);
-    if (idx !== -1) { list[idx] = { ...list[idx], ...data }; examsStorage.save(list); }
-    return list[idx];
-  },
-  remove: (id: string) => {
-    const list = examsStorage.getAll().filter(e => e.id !== id);
-    examsStorage.save(list);
-  }
-};
-
-// HOD observations storage
 export interface HodObservation {
   id: string;
   hodId?: string;
@@ -662,26 +220,6 @@ export interface HodObservation {
   createdAt: string;
 }
 
-export const hodObservationsStorage = {
-  getAll: (): HodObservation[] => {
-    const stored = localStorage.getItem('zaroda_hod_observations');
-    return stored ? JSON.parse(stored) : [];
-  },
-  save: (items: HodObservation[]) => localStorage.setItem('zaroda_hod_observations', JSON.stringify(items)),
-  add: (data: Omit<HodObservation, 'id' | 'createdAt'>) => {
-    const list = hodObservationsStorage.getAll();
-    const newItem: HodObservation = { ...data, id: generateId(), createdAt: new Date().toISOString() } as HodObservation;
-    list.push(newItem);
-    hodObservationsStorage.save(list);
-    return newItem;
-  },
-  remove: (id: string) => {
-    const list = hodObservationsStorage.getAll().filter(o => o.id !== id);
-    hodObservationsStorage.save(list);
-  }
-};
-
-// Exam results storage
 export interface ExamResultEntry {
   id: string;
   examId: string;
@@ -700,69 +238,17 @@ export interface ExamResultEntry {
   createdAt: string;
 }
 
-export const examResultsStorage = {
-  getAll: (): ExamResultEntry[] => {
-    const stored = localStorage.getItem('zaroda_exam_results');
-    return stored ? JSON.parse(stored) : [];
-  },
-  save: (items: ExamResultEntry[]) => localStorage.setItem('zaroda_exam_results', JSON.stringify(items)),
-  add: (data: Omit<ExamResultEntry, 'id' | 'percentage' | 'grade' | 'remarks' | 'createdAt'>) => {
-    const list = examResultsStorage.getAll();
-    const percentage = Math.round((data.marksScored / data.marksOutOf) * 100);
-    const grade = (percentage >= 80) ? 'A' : (percentage >= 70) ? 'B' : (percentage >= 60) ? 'C' : (percentage >=50) ? 'D' : 'E';
-    const remarks = (percentage >= 80) ? 'Excellent' : (percentage >= 70) ? 'Very Good' : (percentage >= 60) ? 'Good' : (percentage >=50) ? 'Fair' : 'Needs Improvement';
-    const newItem: ExamResultEntry = {
-      ...data,
-      id: generateId(),
-      percentage,
-      grade,
-      remarks,
-      createdAt: new Date().toISOString(),
-    };
-    list.push(newItem);
-    examResultsStorage.save(list);
-    return newItem;
-  },
-  findByExamSubjectClass: (examId: string, subject: string, className: string) => {
-    return examResultsStorage.getAll().filter(r => r.examId === examId && r.subject === subject && r.className === className);
-  }
-};
-
-// Departments storage (profile info)
 export interface DepartmentProfile {
   id: string;
   name: string;
   motto?: string;
   description?: string;
   subjects?: string[];
-  goals?: { id: string; text: string; }[];
+  goals?: { id: string; text: string }[];
   meetings?: { id: string; date: string; agenda: string; minutes?: string; attendees?: string[] }[];
   createdAt: string;
 }
 
-export const departmentsStorage = {
-  getAll: (): DepartmentProfile[] => {
-    const stored = localStorage.getItem('zaroda_departments');
-    return stored ? JSON.parse(stored) : [];
-  },
-  save: (items: DepartmentProfile[]) => localStorage.setItem('zaroda_departments', JSON.stringify(items)),
-  add: (data: Omit<DepartmentProfile, 'id' | 'createdAt'>) => {
-    const list = departmentsStorage.getAll();
-    const newItem: DepartmentProfile = { ...data, id: generateId(), createdAt: new Date().toISOString() } as DepartmentProfile;
-    list.push(newItem);
-    departmentsStorage.save(list);
-    return newItem;
-  },
-  update: (id: string, data: Partial<DepartmentProfile>) => {
-    const list = departmentsStorage.getAll();
-    const idx = list.findIndex(d => d.id === id);
-    if (idx !== -1) { list[idx] = { ...list[idx], ...data }; departmentsStorage.save(list); }
-    return list[idx];
-  },
-  findByName: (name: string) => departmentsStorage.getAll().find(d => d.name === name),
-};
-
-// Department announcements
 export interface DepartmentAnnouncement {
   id: string;
   department: string;
@@ -771,22 +257,6 @@ export interface DepartmentAnnouncement {
   author?: string;
   createdAt: string;
 }
-
-export const departmentAnnouncementsStorage = {
-  getAll: (): DepartmentAnnouncement[] => {
-    const stored = localStorage.getItem('zaroda_department_announcements');
-    return stored ? JSON.parse(stored) : [];
-  },
-  save: (items: DepartmentAnnouncement[]) => localStorage.setItem('zaroda_department_announcements', JSON.stringify(items)),
-  add: (data: Omit<DepartmentAnnouncement, 'id' | 'createdAt'>) => {
-    const list = departmentAnnouncementsStorage.getAll();
-    const item: DepartmentAnnouncement = { ...data, id: generateId(), createdAt: new Date().toISOString() } as DepartmentAnnouncement;
-    list.unshift(item);
-    departmentAnnouncementsStorage.save(list);
-    return item;
-  },
-  getByDepartment: (dept: string) => departmentAnnouncementsStorage.getAll().filter(a => a.department === dept),
-};
 
 export type AdminAnnouncementTargetRole = 'hoi' | 'teacher' | 'parent' | 'all';
 
@@ -799,56 +269,1486 @@ export interface AdminAnnouncement {
   createdAt: string;
 }
 
-export const adminAnnouncementsStorage = {
-  getAll: (): AdminAnnouncement[] => {
-    const stored = localStorage.getItem('zaroda_admin_announcements');
-    return stored ? JSON.parse(stored) : [];
+const mapError = (error: unknown): never => {
+  throw error instanceof Error ? error : new Error(String(error));
+};
+
+const isoDate = (value?: string | null) => (value ? String(value) : new Date().toISOString());
+
+const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
+export const schoolsStorage = {
+  getAll: async (): Promise<School[]> => {
+    const { data, error } = await supabase.from('schools').select('*').order('created_at', { ascending: true });
+    if (error) mapError(error);
+    return (data || []) as School[];
   },
-  save: (items: AdminAnnouncement[]) => localStorage.setItem('zaroda_admin_announcements', JSON.stringify(items)),
-  add: (data: Omit<AdminAnnouncement, 'id' | 'createdAt'>) => {
-    const list = adminAnnouncementsStorage.getAll();
-    const item: AdminAnnouncement = {
-      ...data,
-      id: generateId(),
-      createdAt: new Date().toISOString(),
+  save: async (schools: School[]) => {
+    const { error } = await supabase.from('schools').upsert(schools, { onConflict: 'id' });
+    if (error) mapError(error);
+  },
+  add: async (school: Omit<School, 'id' | 'created_at'>): Promise<School> => {
+    const payload = { ...school, created_at: new Date().toISOString() };
+    const { data, error } = await supabase.from('schools').insert(payload).select().single();
+    if (error) mapError(error);
+    return data as School;
+  },
+  update: async (id: string, data: Partial<School>): Promise<School | undefined> => {
+    const { data: updated, error } = await supabase.from('schools').update(data).eq('id', id).select().maybeSingle();
+    if (error) mapError(error);
+    return updated as School | undefined;
+  },
+  remove: async (id: string) => {
+    const { error } = await supabase.from('schools').delete().eq('id', id);
+    if (error) mapError(error);
+  },
+  getById: async (id: string): Promise<School | undefined> => {
+    const { data, error } = await supabase.from('schools').select('*').eq('id', id).maybeSingle();
+    if (error) mapError(error);
+    return data as School | undefined;
+  },
+};
+
+export const studentsStorage = {
+  getAll: async (): Promise<Student[]> => {
+    const { data, error } = await supabase.from('students').select('*');
+    if (error) mapError(error);
+    return (data || []) as Student[];
+  },
+  save: async (students: Student[]) => {
+    const { error } = await supabase.from('students').upsert(students, { onConflict: 'id' });
+    if (error) mapError(error);
+  },
+  add: async (student: Omit<Student, 'id' | 'enrolled_at'>): Promise<Student> => {
+    const payload = { ...student, enrolled_at: new Date().toISOString().slice(0, 10) };
+    const { data, error } = await supabase.from('students').insert(payload).select().single();
+    if (error) mapError(error);
+    return data as Student;
+  },
+  update: async (id: string, data: Partial<Student>): Promise<Student | undefined> => {
+    const { data: updated, error } = await supabase.from('students').update(data).eq('id', id).select().maybeSingle();
+    if (error) mapError(error);
+    return updated as Student | undefined;
+  },
+  remove: async (id: string) => {
+    const { error } = await supabase.from('students').delete().eq('id', id);
+    if (error) mapError(error);
+  },
+};
+
+export const facultyStorage = {
+  getAll: async (): Promise<Faculty[]> => {
+    const { data, error } = await supabase.from('faculty').select('*');
+    if (error) mapError(error);
+    return (data || []) as Faculty[];
+  },
+  save: async (faculty: Faculty[]) => {
+    const { error } = await supabase.from('faculty').upsert(faculty, { onConflict: 'id' });
+    if (error) mapError(error);
+  },
+  add: async (member: Omit<Faculty, 'id' | 'hired_at'>): Promise<Faculty> => {
+    const payload = { ...member, hired_at: new Date().toISOString().slice(0, 10) };
+    const { data, error } = await supabase.from('faculty').insert(payload).select().single();
+    if (error) mapError(error);
+    return data as Faculty;
+  },
+  update: async (id: string, data: Partial<Faculty>): Promise<Faculty | undefined> => {
+    const { data: updated, error } = await supabase.from('faculty').update(data).eq('id', id).select().maybeSingle();
+    if (error) mapError(error);
+    return updated as Faculty | undefined;
+  },
+  remove: async (id: string) => {
+    const { error } = await supabase.from('faculty').delete().eq('id', id);
+    if (error) mapError(error);
+  },
+};
+
+export const invoicesStorage = {
+  getAll: async (): Promise<Invoice[]> => {
+    const { data, error } = await supabase.from('invoices').select('*');
+    if (error) mapError(error);
+    return (data || []) as Invoice[];
+  },
+  save: async (invoices: Invoice[]) => {
+    const { error } = await supabase.from('invoices').upsert(invoices, { onConflict: 'id' });
+    if (error) mapError(error);
+  },
+  add: async (invoice: Omit<Invoice, 'id' | 'created_at'>): Promise<Invoice> => {
+    const payload = { ...invoice, created_at: new Date().toISOString() };
+    const { data, error } = await supabase.from('invoices').insert(payload).select().single();
+    if (error) mapError(error);
+    return data as Invoice;
+  },
+  update: async (id: string, data: Partial<Invoice>): Promise<Invoice | undefined> => {
+    const { data: updated, error } = await supabase.from('invoices').update(data).eq('id', id).select().maybeSingle();
+    if (error) mapError(error);
+    return updated as Invoice | undefined;
+  },
+  remove: async (id: string) => {
+    const { error } = await supabase.from('invoices').delete().eq('id', id);
+    if (error) mapError(error);
+  },
+};
+
+export const assessmentStorage = {
+  getAll: async (): Promise<AssessmentRecord[]> => {
+    const { data, error } = await supabase.from('assessments').select('*');
+    if (error) mapError(error);
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      teacherId: row.teacher_id,
+      teacherName: row.teacher_name,
+      studentId: row.student_id,
+      studentName: row.student_name,
+      admissionNo: row.admission_no,
+      grade: row.grade,
+      subject: row.subject,
+      term: row.term,
+      schoolCode: row.school_code,
+      activityType: row.activity_type || undefined,
+      performanceLevel: row.performance_level || undefined,
+      competencyAchieved: typeof row.competency_achieved === 'boolean' ? row.competency_achieved : undefined,
+      teacherComment: row.teacher_comment || undefined,
+      scores: row.scores || [],
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  },
+  save: async (records: AssessmentRecord[]) => {
+    const payload = records.map((row) => ({
+      id: row.id,
+      teacher_id: row.teacherId,
+      teacher_name: row.teacherName,
+      student_id: row.studentId,
+      student_name: row.studentName,
+      admission_no: row.admissionNo,
+      grade: row.grade,
+      subject: row.subject,
+      term: row.term,
+      school_code: row.schoolCode,
+      activity_type: row.activityType,
+      performance_level: row.performanceLevel,
+      competency_achieved: row.competencyAchieved,
+      teacher_comment: row.teacherComment,
+      scores: row.scores,
+      created_at: row.createdAt,
+      updated_at: row.updatedAt,
+    }));
+    const { error } = await supabase.from('assessments').upsert(payload, { onConflict: 'id' });
+    if (error) mapError(error);
+  },
+  getByTeacher: async (teacherId: string): Promise<AssessmentRecord[]> => {
+    const { data, error } = await supabase.from('assessments').select('*').eq('teacher_id', teacherId);
+    if (error) mapError(error);
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      teacherId: row.teacher_id,
+      teacherName: row.teacher_name,
+      studentId: row.student_id,
+      studentName: row.student_name,
+      admissionNo: row.admission_no,
+      grade: row.grade,
+      subject: row.subject,
+      term: row.term,
+      schoolCode: row.school_code,
+      activityType: row.activity_type || undefined,
+      performanceLevel: row.performance_level || undefined,
+      competencyAchieved: typeof row.competency_achieved === 'boolean' ? row.competency_achieved : undefined,
+      teacherComment: row.teacher_comment || undefined,
+      scores: row.scores || [],
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  },
+  getByStudent: async (studentId: string): Promise<AssessmentRecord[]> => {
+    const { data, error } = await supabase.from('assessments').select('*').eq('student_id', studentId);
+    if (error) mapError(error);
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      teacherId: row.teacher_id,
+      teacherName: row.teacher_name,
+      studentId: row.student_id,
+      studentName: row.student_name,
+      admissionNo: row.admission_no,
+      grade: row.grade,
+      subject: row.subject,
+      term: row.term,
+      schoolCode: row.school_code,
+      activityType: row.activity_type || undefined,
+      performanceLevel: row.performance_level || undefined,
+      competencyAchieved: typeof row.competency_achieved === 'boolean' ? row.competency_achieved : undefined,
+      teacherComment: row.teacher_comment || undefined,
+      scores: row.scores || [],
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  },
+  find: async (teacherId: string, studentId: string, grade: string, subject: string, term: number): Promise<AssessmentRecord | undefined> => {
+    const { data, error } = await supabase
+      .from('assessments')
+      .select('*')
+      .eq('teacher_id', teacherId)
+      .eq('student_id', studentId)
+      .eq('grade', grade)
+      .eq('subject', subject)
+      .eq('term', term)
+      .maybeSingle();
+    if (error) mapError(error);
+    if (!data) return undefined;
+    return {
+      id: data.id,
+      teacherId: data.teacher_id,
+      teacherName: data.teacher_name,
+      studentId: data.student_id,
+      studentName: data.student_name,
+      admissionNo: data.admission_no,
+      grade: data.grade,
+      subject: data.subject,
+      term: data.term,
+      schoolCode: data.school_code,
+      activityType: data.activity_type || undefined,
+      performanceLevel: data.performance_level || undefined,
+      competencyAchieved: typeof data.competency_achieved === 'boolean' ? data.competency_achieved : undefined,
+      teacherComment: data.teacher_comment || undefined,
+      scores: data.scores || [],
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
     };
-    list.unshift(item);
-    adminAnnouncementsStorage.save(list);
-    return item;
   },
-  getByTargetRole: (role: Exclude<AdminAnnouncementTargetRole, 'all'>) => {
-    return adminAnnouncementsStorage.getAll().filter((announcement) => announcement.targetRole === 'all' || announcement.targetRole === role);
+  upsert: async (record: Omit<AssessmentRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<AssessmentRecord> => {
+    const existing = await assessmentStorage.find(record.teacherId, record.studentId, record.grade, record.subject, record.term);
+    const payload = {
+      id: existing?.id,
+      teacher_id: record.teacherId,
+      teacher_name: record.teacherName,
+      student_id: record.studentId,
+      student_name: record.studentName,
+      admission_no: record.admissionNo,
+      grade: record.grade,
+      subject: record.subject,
+      term: record.term,
+      school_code: record.schoolCode,
+      activity_type: record.activityType,
+      performance_level: record.performanceLevel,
+      competency_achieved: record.competencyAchieved,
+      teacher_comment: record.teacherComment,
+      scores: record.scores,
+      created_at: existing?.createdAt || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    const { data, error } = await supabase.from('assessments').upsert(payload).select().single();
+    if (error) mapError(error);
+    return {
+      id: data.id,
+      teacherId: data.teacher_id,
+      teacherName: data.teacher_name,
+      studentId: data.student_id,
+      studentName: data.student_name,
+      admissionNo: data.admission_no,
+      grade: data.grade,
+      subject: data.subject,
+      term: data.term,
+      schoolCode: data.school_code,
+      activityType: data.activity_type || undefined,
+      performanceLevel: data.performance_level || undefined,
+      competencyAchieved: typeof data.competency_achieved === 'boolean' ? data.competency_achieved : undefined,
+      teacherComment: data.teacher_comment || undefined,
+      scores: data.scores || [],
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    };
+  },
+  remove: async (id: string) => {
+    const { error } = await supabase.from('assessments').delete().eq('id', id);
+    if (error) mapError(error);
+  },
+  getStudentsAssessed: async (teacherId: string, grade: string, subject: string, term: number): Promise<{ studentId: string; studentName: string; admissionNo: string }[]> => {
+    const { data, error } = await supabase
+      .from('assessments')
+      .select('student_id,student_name,admission_no')
+      .eq('teacher_id', teacherId)
+      .eq('grade', grade)
+      .eq('subject', subject)
+      .eq('term', term);
+    if (error) mapError(error);
+    return (data || []).map((row: any) => ({ studentId: row.student_id, studentName: row.student_name, admissionNo: row.admission_no }));
   },
 };
 
-type AdminAnnouncementReadMap = Record<string, string[]>;
-
-const getAdminAnnouncementReads = (): AdminAnnouncementReadMap => {
-  const stored = localStorage.getItem('zaroda_admin_announcement_reads');
-  return stored ? JSON.parse(stored) : {};
+export const platformUsersStorage = {
+  getAll: async (): Promise<PlatformUser[]> => {
+    const { data, error } = await supabase.from('profiles').select('*').in('role', ['hoi', 'teacher', 'dhoi', 'student', 'parent']);
+    if (error) mapError(error);
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      email: row.email,
+      fullName: row.full_name,
+      role: row.role,
+      schoolCode: row.school_code || '',
+      schoolName: row.school_name || '',
+      phone: row.phone || '',
+      status: row.status,
+      subject: row.subject,
+      grade: row.grade,
+      isClassTeacher: row.is_class_teacher,
+      classTeacherClassId: row.class_teacher_class_id,
+      classTeacherClassName: row.class_teacher_class_name,
+      classTeacherStreamId: row.class_teacher_stream_id,
+      classTeacherStreamName: row.class_teacher_stream_name,
+      createdAt: row.created_at,
+      createdBy: row.created_by || '',
+      lastLogin: row.last_login,
+      loginCount: row.login_count || 0,
+    }));
+  },
+  save: async (users: PlatformUser[]) => {
+    const payload = users.map((row) => ({
+      id: row.id,
+      email: row.email,
+      full_name: row.fullName,
+      role: row.role,
+      school_code: row.schoolCode,
+      school_name: row.schoolName,
+      phone: row.phone,
+      status: row.status,
+      subject: row.subject,
+      grade: row.grade,
+      is_class_teacher: row.isClassTeacher,
+      class_teacher_class_id: row.classTeacherClassId,
+      class_teacher_class_name: row.classTeacherClassName,
+      class_teacher_stream_id: row.classTeacherStreamId,
+      class_teacher_stream_name: row.classTeacherStreamName,
+      created_at: row.createdAt,
+      created_by: row.createdBy,
+      last_login: row.lastLogin,
+      login_count: row.loginCount,
+    }));
+    const { error } = await supabase.from('profiles').upsert(payload, { onConflict: 'id' });
+    if (error) mapError(error);
+  },
+  add: async (user: Omit<PlatformUser, 'id' | 'createdAt' | 'lastLogin' | 'loginCount'>): Promise<PlatformUser> => {
+    const payload = {
+      email: user.email,
+      full_name: user.fullName,
+      role: user.role,
+      school_code: user.schoolCode,
+      school_name: user.schoolName,
+      phone: user.phone,
+      status: user.status,
+      subject: user.subject,
+      grade: user.grade,
+      is_class_teacher: user.isClassTeacher,
+      class_teacher_class_id: user.classTeacherClassId,
+      class_teacher_class_name: user.classTeacherClassName,
+      class_teacher_stream_id: user.classTeacherStreamId,
+      class_teacher_stream_name: user.classTeacherStreamName,
+      created_by: user.createdBy,
+    };
+    const { data, error } = await supabase.from('profiles').insert(payload).select().single();
+    if (error) mapError(error);
+    return {
+      id: data.id,
+      email: data.email,
+      fullName: data.full_name,
+      role: data.role,
+      schoolCode: data.school_code || '',
+      schoolName: data.school_name || '',
+      phone: data.phone || '',
+      status: data.status,
+      subject: data.subject,
+      grade: data.grade,
+      isClassTeacher: data.is_class_teacher,
+      classTeacherClassId: data.class_teacher_class_id,
+      classTeacherClassName: data.class_teacher_class_name,
+      classTeacherStreamId: data.class_teacher_stream_id,
+      classTeacherStreamName: data.class_teacher_stream_name,
+      createdAt: data.created_at,
+      createdBy: data.created_by || '',
+      lastLogin: data.last_login,
+      loginCount: data.login_count || 0,
+    };
+  },
+  update: async (id: string, data: Partial<PlatformUser>): Promise<PlatformUser | undefined> => {
+    const payload: Record<string, unknown> = {
+      email: data.email,
+      full_name: data.fullName,
+      role: data.role,
+      school_code: data.schoolCode,
+      school_name: data.schoolName,
+      phone: data.phone,
+      status: data.status,
+      subject: data.subject,
+      grade: data.grade,
+      is_class_teacher: data.isClassTeacher,
+      class_teacher_class_id: data.classTeacherClassId,
+      class_teacher_class_name: data.classTeacherClassName,
+      class_teacher_stream_id: data.classTeacherStreamId,
+      class_teacher_stream_name: data.classTeacherStreamName,
+      created_by: data.createdBy,
+      last_login: data.lastLogin,
+      login_count: data.loginCount,
+    };
+    Object.keys(payload).forEach((key) => payload[key] === undefined && delete payload[key]);
+    const { data: updated, error } = await supabase.from('profiles').update(payload).eq('id', id).select().maybeSingle();
+    if (error) mapError(error);
+    if (!updated) return undefined;
+    return {
+      id: updated.id,
+      email: updated.email,
+      fullName: updated.full_name,
+      role: updated.role,
+      schoolCode: updated.school_code || '',
+      schoolName: updated.school_name || '',
+      phone: updated.phone || '',
+      status: updated.status,
+      subject: updated.subject,
+      grade: updated.grade,
+      isClassTeacher: updated.is_class_teacher,
+      classTeacherClassId: updated.class_teacher_class_id,
+      classTeacherClassName: updated.class_teacher_class_name,
+      classTeacherStreamId: updated.class_teacher_stream_id,
+      classTeacherStreamName: updated.class_teacher_stream_name,
+      createdAt: updated.created_at,
+      createdBy: updated.created_by || '',
+      lastLogin: updated.last_login,
+      loginCount: updated.login_count || 0,
+    };
+  },
+  remove: async (id: string) => {
+    const { error } = await supabase.from('profiles').delete().eq('id', id);
+    if (error) mapError(error);
+  },
+  findByEmail: async (email: string): Promise<PlatformUser | undefined> => {
+    const { data, error } = await supabase.from('profiles').select('*').eq('email', email.toLowerCase()).maybeSingle();
+    if (error) mapError(error);
+    if (!data) return undefined;
+    return {
+      id: data.id,
+      email: data.email,
+      fullName: data.full_name,
+      role: data.role,
+      schoolCode: data.school_code || '',
+      schoolName: data.school_name || '',
+      phone: data.phone || '',
+      status: data.status,
+      subject: data.subject,
+      grade: data.grade,
+      isClassTeacher: data.is_class_teacher,
+      classTeacherClassId: data.class_teacher_class_id,
+      classTeacherClassName: data.class_teacher_class_name,
+      classTeacherStreamId: data.class_teacher_stream_id,
+      classTeacherStreamName: data.class_teacher_stream_name,
+      createdAt: data.created_at,
+      createdBy: data.created_by || '',
+      lastLogin: data.last_login,
+      loginCount: data.login_count || 0,
+    };
+  },
+  getByRole: async (role: string): Promise<PlatformUser[]> => {
+    const { data, error } = await supabase.from('profiles').select('*').eq('role', role);
+    if (error) mapError(error);
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      email: row.email,
+      fullName: row.full_name,
+      role: row.role,
+      schoolCode: row.school_code || '',
+      schoolName: row.school_name || '',
+      phone: row.phone || '',
+      status: row.status,
+      subject: row.subject,
+      grade: row.grade,
+      isClassTeacher: row.is_class_teacher,
+      classTeacherClassId: row.class_teacher_class_id,
+      classTeacherClassName: row.class_teacher_class_name,
+      classTeacherStreamId: row.class_teacher_stream_id,
+      classTeacherStreamName: row.class_teacher_stream_name,
+      createdAt: row.created_at,
+      createdBy: row.created_by || '',
+      lastLogin: row.last_login,
+      loginCount: row.login_count || 0,
+    }));
+  },
+  getBySchool: async (schoolCode: string): Promise<PlatformUser[]> => {
+    const { data, error } = await supabase.from('profiles').select('*').eq('school_code', schoolCode);
+    if (error) mapError(error);
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      email: row.email,
+      fullName: row.full_name,
+      role: row.role,
+      schoolCode: row.school_code || '',
+      schoolName: row.school_name || '',
+      phone: row.phone || '',
+      status: row.status,
+      subject: row.subject,
+      grade: row.grade,
+      isClassTeacher: row.is_class_teacher,
+      classTeacherClassId: row.class_teacher_class_id,
+      classTeacherClassName: row.class_teacher_class_name,
+      classTeacherStreamId: row.class_teacher_stream_id,
+      classTeacherStreamName: row.class_teacher_stream_name,
+      createdAt: row.created_at,
+      createdBy: row.created_by || '',
+      lastLogin: row.last_login,
+      loginCount: row.login_count || 0,
+    }));
+  },
+  recordLogin: async (id: string) => {
+    const { data: existing, error: fetchError } = await supabase.from('profiles').select('login_count').eq('id', id).maybeSingle();
+    if (fetchError) mapError(fetchError);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ last_login: new Date().toISOString(), login_count: (existing?.login_count || 0) + 1 })
+      .eq('id', id);
+    if (error) mapError(error);
+  },
 };
 
-const saveAdminAnnouncementReads = (data: AdminAnnouncementReadMap) => {
-  localStorage.setItem('zaroda_admin_announcement_reads', JSON.stringify(data));
+export const activityStorage = {
+  getAll: async (): Promise<LoginActivity[]> => {
+    const { data, error } = await supabase.from('login_activities').select('*').order('created_at', { ascending: false });
+    if (error) mapError(error);
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      userId: row.user_id,
+      email: row.email,
+      fullName: row.full_name,
+      role: row.role,
+      action: row.action,
+      timestamp: row.created_at,
+      details: row.details,
+    }));
+  },
+  save: async (logs: LoginActivity[]) => {
+    const payload = logs.map((row) => ({
+      id: row.id,
+      user_id: row.userId,
+      email: row.email,
+      full_name: row.fullName,
+      role: row.role,
+      action: row.action,
+      details: row.details,
+      created_at: row.timestamp,
+    }));
+    const { error } = await supabase.from('login_activities').upsert(payload, { onConflict: 'id' });
+    if (error) mapError(error);
+  },
+  add: async (log: Omit<LoginActivity, 'id' | 'timestamp'>): Promise<LoginActivity> => {
+    const { data, error } = await supabase
+      .from('login_activities')
+      .insert({ user_id: log.userId, email: log.email, full_name: log.fullName, role: log.role, action: log.action, details: log.details })
+      .select()
+      .single();
+    if (error) mapError(error);
+    return {
+      id: data.id,
+      userId: data.user_id,
+      email: data.email,
+      fullName: data.full_name,
+      role: data.role,
+      action: data.action,
+      timestamp: data.created_at,
+      details: data.details,
+    };
+  },
+  getByUser: async (userId: string): Promise<LoginActivity[]> => {
+    const { data, error } = await supabase.from('login_activities').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+    if (error) mapError(error);
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      userId: row.user_id,
+      email: row.email,
+      fullName: row.full_name,
+      role: row.role,
+      action: row.action,
+      timestamp: row.created_at,
+      details: row.details,
+    }));
+  },
+  getRecent: async (limit = 50): Promise<LoginActivity[]> => {
+    const { data, error } = await supabase.from('login_activities').select('*').order('created_at', { ascending: false }).limit(limit);
+    if (error) mapError(error);
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      userId: row.user_id,
+      email: row.email,
+      fullName: row.full_name,
+      role: row.role,
+      action: row.action,
+      timestamp: row.created_at,
+      details: row.details,
+    }));
+  },
+};
+
+export const initSeedPasswords = () => {
+  return;
+};
+
+export const settingsStorage = {
+  get: async (): Promise<PlatformSettings> => {
+    const { data, error } = await supabase.from('platform_settings').select('*').eq('id', true).maybeSingle();
+    if (error) mapError(error);
+    if (!data) {
+      const defaults: PlatformSettings = {
+        platform_name: 'Zaroda Solutions',
+        support_email: 'support@zaroda.io',
+        support_phone: '+254 700 000 000',
+        default_currency: 'KES',
+        academic_year: '2024',
+        term: 'Term 3',
+        enable_notifications: true,
+        enable_sms: true,
+        enable_email: true,
+        maintenance_mode: false,
+        max_schools: 100,
+        billing_cycle: 'termly',
+      };
+      const { error: insertError } = await supabase.from('platform_settings').insert({ id: true, ...defaults });
+      if (insertError) mapError(insertError);
+      return defaults;
+    }
+    return {
+      platform_name: data.platform_name,
+      support_email: data.support_email,
+      support_phone: data.support_phone,
+      default_currency: data.default_currency,
+      academic_year: data.academic_year,
+      term: data.term,
+      enable_notifications: data.enable_notifications,
+      enable_sms: data.enable_sms,
+      enable_email: data.enable_email,
+      maintenance_mode: data.maintenance_mode,
+      max_schools: data.max_schools,
+      billing_cycle: data.billing_cycle,
+    };
+  },
+  save: async (settings: PlatformSettings) => {
+    const { error } = await supabase.from('platform_settings').update(settings).eq('id', true);
+    if (error) mapError(error);
+  },
+};
+
+export const hodStorage = {
+  getAll: async (): Promise<HodAccount[]> => {
+    const { data, error } = await supabase.from('hod_accounts').select('*');
+    if (error) mapError(error);
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      fullName: row.full_name,
+      email: row.email,
+      phone: row.phone,
+      employeeId: row.employee_id,
+      department: row.department,
+      hodCode: row.hod_code,
+      schoolCode: row.school_code,
+      status: row.status,
+      createdAt: row.created_at,
+    }));
+  },
+  save: async (hods: HodAccount[]) => {
+    const payload = hods.map((h) => ({
+      id: h.id,
+      full_name: h.fullName,
+      email: h.email,
+      phone: h.phone,
+      employee_id: h.employeeId,
+      department: h.department,
+      hod_code: h.hodCode,
+      school_code: h.schoolCode,
+      status: h.status,
+      created_at: h.createdAt,
+    }));
+    const { error } = await supabase.from('hod_accounts').upsert(payload, { onConflict: 'id' });
+    if (error) mapError(error);
+  },
+  add: async (data: Omit<HodAccount, 'id' | 'createdAt'>): Promise<HodAccount> => {
+    const payload = {
+      full_name: data.fullName,
+      email: data.email,
+      phone: data.phone,
+      employee_id: data.employeeId,
+      department: data.department,
+      hod_code: data.hodCode,
+      school_code: data.schoolCode,
+      status: data.status || 'active',
+    };
+    const { data: inserted, error } = await supabase.from('hod_accounts').insert(payload).select().single();
+    if (error) mapError(error);
+    return {
+      id: inserted.id,
+      fullName: inserted.full_name,
+      email: inserted.email,
+      phone: inserted.phone,
+      employeeId: inserted.employee_id,
+      department: inserted.department,
+      hodCode: inserted.hod_code,
+      schoolCode: inserted.school_code,
+      status: inserted.status,
+      createdAt: inserted.created_at,
+    };
+  },
+  update: async (id: string, data: Partial<HodAccount>): Promise<HodAccount | undefined> => {
+    const payload: Record<string, unknown> = {
+      full_name: data.fullName,
+      email: data.email,
+      phone: data.phone,
+      employee_id: data.employeeId,
+      department: data.department,
+      hod_code: data.hodCode,
+      school_code: data.schoolCode,
+      status: data.status,
+    };
+    Object.keys(payload).forEach((key) => payload[key] === undefined && delete payload[key]);
+    const { data: updated, error } = await supabase.from('hod_accounts').update(payload).eq('id', id).select().maybeSingle();
+    if (error) mapError(error);
+    if (!updated) return undefined;
+    return {
+      id: updated.id,
+      fullName: updated.full_name,
+      email: updated.email,
+      phone: updated.phone,
+      employeeId: updated.employee_id,
+      department: updated.department,
+      hodCode: updated.hod_code,
+      schoolCode: updated.school_code,
+      status: updated.status,
+      createdAt: updated.created_at,
+    };
+  },
+  remove: async (id: string) => {
+    const { error } = await supabase.from('hod_accounts').delete().eq('id', id);
+    if (error) mapError(error);
+  },
+  findByEmail: async (email: string): Promise<HodAccount | undefined> => {
+    const { data, error } = await supabase.from('hod_accounts').select('*').eq('email', email.toLowerCase()).maybeSingle();
+    if (error) mapError(error);
+    if (!data) return undefined;
+    return {
+      id: data.id,
+      fullName: data.full_name,
+      email: data.email,
+      phone: data.phone,
+      employeeId: data.employee_id,
+      department: data.department,
+      hodCode: data.hod_code,
+      schoolCode: data.school_code,
+      status: data.status,
+      createdAt: data.created_at,
+    };
+  },
+};
+
+export const lessonNotesStorage = {
+  getAll: async (): Promise<LessonNote[]> => {
+    const { data, error } = await supabase.from('lesson_notes').select('*');
+    if (error) mapError(error);
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      title: row.title,
+      subject: row.subject,
+      className: row.class_name,
+      week: row.week,
+      teacherEmail: row.teacher_email,
+      teacherName: row.teacher_name,
+      content: row.content,
+      fileName: row.file_name,
+      status: row.status,
+      hodComments: row.hod_comments,
+      createdAt: row.created_at,
+    }));
+  },
+  save: async (items: LessonNote[]) => {
+    const payload = items.map((row) => ({
+      id: row.id,
+      title: row.title,
+      subject: row.subject,
+      class_name: row.className,
+      week: row.week,
+      teacher_email: row.teacherEmail,
+      teacher_name: row.teacherName,
+      content: row.content,
+      file_name: row.fileName,
+      status: row.status,
+      hod_comments: row.hodComments,
+      created_at: row.createdAt,
+    }));
+    const { error } = await supabase.from('lesson_notes').upsert(payload, { onConflict: 'id' });
+    if (error) mapError(error);
+  },
+  add: async (note: Omit<LessonNote, 'id' | 'createdAt'>): Promise<LessonNote> => {
+    const payload = {
+      title: note.title,
+      subject: note.subject,
+      class_name: note.className,
+      week: note.week,
+      teacher_email: note.teacherEmail,
+      teacher_name: note.teacherName,
+      content: note.content,
+      file_name: note.fileName,
+      status: note.status || 'submitted',
+      hod_comments: note.hodComments,
+    };
+    const { data, error } = await supabase.from('lesson_notes').insert(payload).select().single();
+    if (error) mapError(error);
+    return {
+      id: data.id,
+      title: data.title,
+      subject: data.subject,
+      className: data.class_name,
+      week: data.week,
+      teacherEmail: data.teacher_email,
+      teacherName: data.teacher_name,
+      content: data.content,
+      fileName: data.file_name,
+      status: data.status,
+      hodComments: data.hod_comments,
+      createdAt: data.created_at,
+    };
+  },
+  update: async (id: string, data: Partial<LessonNote>): Promise<LessonNote | undefined> => {
+    const payload: Record<string, unknown> = {
+      title: data.title,
+      subject: data.subject,
+      class_name: data.className,
+      week: data.week,
+      teacher_email: data.teacherEmail,
+      teacher_name: data.teacherName,
+      content: data.content,
+      file_name: data.fileName,
+      status: data.status,
+      hod_comments: data.hodComments,
+    };
+    Object.keys(payload).forEach((key) => payload[key] === undefined && delete payload[key]);
+    const { data: updated, error } = await supabase.from('lesson_notes').update(payload).eq('id', id).select().maybeSingle();
+    if (error) mapError(error);
+    if (!updated) return undefined;
+    return {
+      id: updated.id,
+      title: updated.title,
+      subject: updated.subject,
+      className: updated.class_name,
+      week: updated.week,
+      teacherEmail: updated.teacher_email,
+      teacherName: updated.teacher_name,
+      content: updated.content,
+      fileName: updated.file_name,
+      status: updated.status,
+      hodComments: updated.hod_comments,
+      createdAt: updated.created_at,
+    };
+  },
+  remove: async (id: string) => {
+    const { error } = await supabase.from('lesson_notes').delete().eq('id', id);
+    if (error) mapError(error);
+  },
+};
+
+export const schemeOfWorkStorage = {
+  getAll: async (): Promise<SchemeOfWork[]> => {
+    const { data, error } = await supabase.from('scheme_of_work').select('*');
+    if (error) mapError(error);
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      term: row.term,
+      subject: row.subject,
+      className: row.class_name,
+      schoolCode: row.school_code,
+      weeks: row.weeks || [],
+      createdAt: row.created_at,
+    }));
+  },
+  save: async (items: SchemeOfWork[]) => {
+    const payload = items.map((row) => ({
+      id: row.id,
+      term: row.term,
+      subject: row.subject,
+      class_name: row.className,
+      school_code: row.schoolCode,
+      weeks: row.weeks,
+      created_at: row.createdAt,
+    }));
+    const { error } = await supabase.from('scheme_of_work').upsert(payload, { onConflict: 'id' });
+    if (error) mapError(error);
+  },
+  add: async (data: Omit<SchemeOfWork, 'id' | 'createdAt'>): Promise<SchemeOfWork> => {
+    const payload = { term: data.term, subject: data.subject, class_name: data.className, school_code: data.schoolCode, weeks: data.weeks };
+    const { data: inserted, error } = await supabase.from('scheme_of_work').insert(payload).select().single();
+    if (error) mapError(error);
+    return {
+      id: inserted.id,
+      term: inserted.term,
+      subject: inserted.subject,
+      className: inserted.class_name,
+      schoolCode: inserted.school_code,
+      weeks: inserted.weeks || [],
+      createdAt: inserted.created_at,
+    };
+  },
+  update: async (id: string, data: Partial<SchemeOfWork>): Promise<SchemeOfWork | undefined> => {
+    const payload: Record<string, unknown> = {
+      term: data.term,
+      subject: data.subject,
+      class_name: data.className,
+      school_code: data.schoolCode,
+      weeks: data.weeks,
+    };
+    Object.keys(payload).forEach((key) => payload[key] === undefined && delete payload[key]);
+    const { data: updated, error } = await supabase.from('scheme_of_work').update(payload).eq('id', id).select().maybeSingle();
+    if (error) mapError(error);
+    if (!updated) return undefined;
+    return {
+      id: updated.id,
+      term: updated.term,
+      subject: updated.subject,
+      className: updated.class_name,
+      schoolCode: updated.school_code,
+      weeks: updated.weeks || [],
+      createdAt: updated.created_at,
+    };
+  },
+  remove: async (id: string) => {
+    const { error } = await supabase.from('scheme_of_work').delete().eq('id', id);
+    if (error) mapError(error);
+  },
+};
+
+export const examsStorage = {
+  getAll: async (): Promise<Exam[]> => {
+    const { data, error } = await supabase.from('exams').select('*');
+    if (error) mapError(error);
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      type: row.type,
+      date: row.exam_date,
+      subjects: row.subjects || [],
+      classes: row.classes || [],
+      schoolCode: row.school_code,
+      createdAt: row.created_at,
+    }));
+  },
+  save: async (items: Exam[]) => {
+    const payload = items.map((row) => ({
+      id: row.id,
+      name: row.name,
+      type: row.type,
+      exam_date: row.date,
+      subjects: row.subjects,
+      classes: row.classes,
+      school_code: row.schoolCode,
+      created_at: row.createdAt,
+    }));
+    const { error } = await supabase.from('exams').upsert(payload, { onConflict: 'id' });
+    if (error) mapError(error);
+  },
+  add: async (data: Omit<Exam, 'id' | 'createdAt'>): Promise<Exam> => {
+    const payload = {
+      name: data.name,
+      type: data.type,
+      exam_date: data.date,
+      subjects: data.subjects,
+      classes: data.classes,
+      school_code: data.schoolCode,
+    };
+    const { data: inserted, error } = await supabase.from('exams').insert(payload).select().single();
+    if (error) mapError(error);
+    return {
+      id: inserted.id,
+      name: inserted.name,
+      type: inserted.type,
+      date: inserted.exam_date,
+      subjects: inserted.subjects || [],
+      classes: inserted.classes || [],
+      schoolCode: inserted.school_code,
+      createdAt: inserted.created_at,
+    };
+  },
+  update: async (id: string, data: Partial<Exam>): Promise<Exam | undefined> => {
+    const payload: Record<string, unknown> = {
+      name: data.name,
+      type: data.type,
+      exam_date: data.date,
+      subjects: data.subjects,
+      classes: data.classes,
+      school_code: data.schoolCode,
+    };
+    Object.keys(payload).forEach((key) => payload[key] === undefined && delete payload[key]);
+    const { data: updated, error } = await supabase.from('exams').update(payload).eq('id', id).select().maybeSingle();
+    if (error) mapError(error);
+    if (!updated) return undefined;
+    return {
+      id: updated.id,
+      name: updated.name,
+      type: updated.type,
+      date: updated.exam_date,
+      subjects: updated.subjects || [],
+      classes: updated.classes || [],
+      schoolCode: updated.school_code,
+      createdAt: updated.created_at,
+    };
+  },
+  remove: async (id: string) => {
+    const { error } = await supabase.from('exams').delete().eq('id', id);
+    if (error) mapError(error);
+  },
+};
+
+export const hodObservationsStorage = {
+  getAll: async (): Promise<HodObservation[]> => {
+    const { data, error } = await supabase.from('hod_observations').select('*');
+    if (error) mapError(error);
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      hodId: row.hod_id,
+      teacherId: row.teacher_id,
+      teacherEmail: row.teacher_email,
+      teacherName: row.teacher_name,
+      lessonDate: row.lesson_date,
+      classObserved: row.class_observed,
+      topic: row.topic,
+      strengths: row.strengths,
+      areasToImprove: row.areas_to_improve,
+      rating: row.rating,
+      recommendations: row.recommendations,
+      createdAt: row.created_at,
+    }));
+  },
+  save: async (items: HodObservation[]) => {
+    const payload = items.map((row) => ({
+      id: row.id,
+      hod_id: row.hodId,
+      teacher_id: row.teacherId,
+      teacher_email: row.teacherEmail,
+      teacher_name: row.teacherName,
+      lesson_date: row.lessonDate,
+      class_observed: row.classObserved,
+      topic: row.topic,
+      strengths: row.strengths,
+      areas_to_improve: row.areasToImprove,
+      rating: row.rating,
+      recommendations: row.recommendations,
+      created_at: row.createdAt,
+    }));
+    const { error } = await supabase.from('hod_observations').upsert(payload, { onConflict: 'id' });
+    if (error) mapError(error);
+  },
+  add: async (data: Omit<HodObservation, 'id' | 'createdAt'>): Promise<HodObservation> => {
+    const payload = {
+      hod_id: data.hodId,
+      teacher_id: data.teacherId,
+      teacher_email: data.teacherEmail,
+      teacher_name: data.teacherName,
+      lesson_date: data.lessonDate,
+      class_observed: data.classObserved,
+      topic: data.topic,
+      strengths: data.strengths,
+      areas_to_improve: data.areasToImprove,
+      rating: data.rating,
+      recommendations: data.recommendations,
+    };
+    const { data: inserted, error } = await supabase.from('hod_observations').insert(payload).select().single();
+    if (error) mapError(error);
+    return {
+      id: inserted.id,
+      hodId: inserted.hod_id,
+      teacherId: inserted.teacher_id,
+      teacherEmail: inserted.teacher_email,
+      teacherName: inserted.teacher_name,
+      lessonDate: inserted.lesson_date,
+      classObserved: inserted.class_observed,
+      topic: inserted.topic,
+      strengths: inserted.strengths,
+      areasToImprove: inserted.areas_to_improve,
+      rating: inserted.rating,
+      recommendations: inserted.recommendations,
+      createdAt: inserted.created_at,
+    };
+  },
+  remove: async (id: string) => {
+    const { error } = await supabase.from('hod_observations').delete().eq('id', id);
+    if (error) mapError(error);
+  },
+};
+
+export const examResultsStorage = {
+  getAll: async (): Promise<ExamResultEntry[]> => {
+    const { data, error } = await supabase.from('exam_results').select('*');
+    if (error) mapError(error);
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      examId: row.exam_id,
+      subject: row.subject,
+      className: row.class_name,
+      assessmentBookId: row.assessment_book_id,
+      assessmentBookLabel: row.assessment_book_label,
+      studentId: row.student_id,
+      studentName: row.student_name,
+      admissionNo: row.admission_no,
+      marksScored: Number(row.marks_scored || 0),
+      marksOutOf: Number(row.marks_out_of || 0),
+      percentage: Number(row.percentage || 0),
+      grade: row.grade,
+      remarks: row.remarks,
+      createdAt: row.created_at,
+    }));
+  },
+  save: async (items: ExamResultEntry[]) => {
+    const payload = items.map((row) => ({
+      id: row.id,
+      exam_id: row.examId,
+      subject: row.subject,
+      class_name: row.className,
+      assessment_book_id: row.assessmentBookId,
+      assessment_book_label: row.assessmentBookLabel,
+      student_id: row.studentId,
+      student_name: row.studentName,
+      admission_no: row.admissionNo,
+      marks_scored: row.marksScored,
+      marks_out_of: row.marksOutOf,
+      grade: row.grade,
+      remarks: row.remarks,
+      created_at: row.createdAt,
+    }));
+    const { error } = await supabase.from('exam_results').upsert(payload, { onConflict: 'id' });
+    if (error) mapError(error);
+  },
+  add: async (data: Omit<ExamResultEntry, 'id' | 'percentage' | 'grade' | 'remarks' | 'createdAt'>): Promise<ExamResultEntry> => {
+    const percentage = Math.round((data.marksScored / data.marksOutOf) * 100);
+    const grade = percentage >= 75 ? 'EE' : percentage >= 50 ? 'ME' : percentage >= 25 ? 'AE' : 'BE';
+    const remarks = percentage >= 75 ? 'Exceeds Expectation' : percentage >= 50 ? 'Meets Expectation' : percentage >= 25 ? 'Approaching Expectation' : 'Below Expectation';
+    const payload = {
+      exam_id: data.examId,
+      subject: data.subject,
+      class_name: data.className,
+      assessment_book_id: data.assessmentBookId,
+      assessment_book_label: data.assessmentBookLabel,
+      student_id: data.studentId,
+      student_name: data.studentName,
+      admission_no: data.admissionNo,
+      marks_scored: data.marksScored,
+      marks_out_of: data.marksOutOf,
+      grade,
+      remarks,
+    };
+    const { data: inserted, error } = await supabase.from('exam_results').insert(payload).select().single();
+    if (error) mapError(error);
+    return {
+      id: inserted.id,
+      examId: inserted.exam_id,
+      subject: inserted.subject,
+      className: inserted.class_name,
+      assessmentBookId: inserted.assessment_book_id,
+      assessmentBookLabel: inserted.assessment_book_label,
+      studentId: inserted.student_id,
+      studentName: inserted.student_name,
+      admissionNo: inserted.admission_no,
+      marksScored: Number(inserted.marks_scored || 0),
+      marksOutOf: Number(inserted.marks_out_of || 0),
+      percentage: Number(inserted.percentage || 0),
+      grade: inserted.grade,
+      remarks: inserted.remarks,
+      createdAt: inserted.created_at,
+    };
+  },
+  findByExamSubjectClass: async (examId: string, subject: string, className: string): Promise<ExamResultEntry[]> => {
+    const { data, error } = await supabase.from('exam_results').select('*').eq('exam_id', examId).eq('subject', subject).eq('class_name', className);
+    if (error) mapError(error);
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      examId: row.exam_id,
+      subject: row.subject,
+      className: row.class_name,
+      assessmentBookId: row.assessment_book_id,
+      assessmentBookLabel: row.assessment_book_label,
+      studentId: row.student_id,
+      studentName: row.student_name,
+      admissionNo: row.admission_no,
+      marksScored: Number(row.marks_scored || 0),
+      marksOutOf: Number(row.marks_out_of || 0),
+      percentage: Number(row.percentage || 0),
+      grade: row.grade,
+      remarks: row.remarks,
+      createdAt: row.created_at,
+    }));
+  },
+};
+
+export const departmentsStorage = {
+  getAll: async (): Promise<DepartmentProfile[]> => {
+    const { data, error } = await supabase.from('departments').select('*');
+    if (error) mapError(error);
+    const departments = data || [];
+
+    const ids = departments.map((d: any) => d.id);
+    const { data: goals } = ids.length ? await supabase.from('department_goals').select('*').in('department_id', ids) : { data: [] as any[] };
+    const { data: meetings } = ids.length ? await supabase.from('department_meetings').select('*').in('department_id', ids) : { data: [] as any[] };
+
+    return departments.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      motto: row.motto || undefined,
+      description: row.description || undefined,
+      subjects: row.subjects || [],
+      goals: (goals || []).filter((g: any) => g.department_id === row.id).map((g: any) => ({ id: g.id, text: g.goal_text })),
+      meetings: (meetings || []).filter((m: any) => m.department_id === row.id).map((m: any) => ({ id: m.id, date: m.meeting_date, agenda: m.agenda, minutes: m.minutes || undefined, attendees: m.attendees || [] })),
+      createdAt: row.created_at,
+    }));
+  },
+  save: async (items: DepartmentProfile[]) => {
+    for (const item of items) {
+      const { error } = await supabase.from('departments').upsert({
+        id: item.id,
+        name: item.name,
+        motto: item.motto,
+        description: item.description,
+        subjects: item.subjects || [],
+        created_at: item.createdAt,
+      }, { onConflict: 'id' });
+      if (error) mapError(error);
+
+      await supabase.from('department_goals').delete().eq('department_id', item.id);
+      await supabase.from('department_meetings').delete().eq('department_id', item.id);
+
+      if (item.goals?.length) {
+        const { error: goalsError } = await supabase.from('department_goals').insert(item.goals.map((goal) => ({ id: goal.id, department_id: item.id, goal_text: goal.text })));
+        if (goalsError) mapError(goalsError);
+      }
+
+      if (item.meetings?.length) {
+        const { error: meetingError } = await supabase.from('department_meetings').insert(item.meetings.map((meeting) => ({
+          id: meeting.id,
+          department_id: item.id,
+          meeting_date: meeting.date,
+          agenda: meeting.agenda,
+          minutes: meeting.minutes,
+          attendees: meeting.attendees || [],
+        })));
+        if (meetingError) mapError(meetingError);
+      }
+    }
+  },
+  add: async (data: Omit<DepartmentProfile, 'id' | 'createdAt'>): Promise<DepartmentProfile> => {
+    const { data: inserted, error } = await supabase.from('departments').insert({
+      name: data.name,
+      motto: data.motto,
+      description: data.description,
+      subjects: data.subjects || [],
+    }).select().single();
+    if (error) mapError(error);
+
+    if (data.goals?.length) {
+      const { error: goalsError } = await supabase.from('department_goals').insert(data.goals.map((goal) => ({ id: goal.id, department_id: inserted.id, goal_text: goal.text })));
+      if (goalsError) mapError(goalsError);
+    }
+
+    if (data.meetings?.length) {
+      const { error: meetingsError } = await supabase.from('department_meetings').insert(data.meetings.map((meeting) => ({
+        id: meeting.id,
+        department_id: inserted.id,
+        meeting_date: meeting.date,
+        agenda: meeting.agenda,
+        minutes: meeting.minutes,
+        attendees: meeting.attendees || [],
+      })));
+      if (meetingsError) mapError(meetingsError);
+    }
+
+    return {
+      id: inserted.id,
+      name: inserted.name,
+      motto: inserted.motto || undefined,
+      description: inserted.description || undefined,
+      subjects: inserted.subjects || [],
+      goals: data.goals || [],
+      meetings: data.meetings || [],
+      createdAt: inserted.created_at,
+    };
+  },
+  update: async (id: string, data: Partial<DepartmentProfile>): Promise<DepartmentProfile | undefined> => {
+    const payload: Record<string, unknown> = {
+      name: data.name,
+      motto: data.motto,
+      description: data.description,
+      subjects: data.subjects,
+    };
+    Object.keys(payload).forEach((key) => payload[key] === undefined && delete payload[key]);
+
+    const { data: updated, error } = await supabase.from('departments').update(payload).eq('id', id).select().maybeSingle();
+    if (error) mapError(error);
+    if (!updated) return undefined;
+
+    if (data.goals) {
+      await supabase.from('department_goals').delete().eq('department_id', id);
+      if (data.goals.length) {
+        const { error: goalsError } = await supabase.from('department_goals').insert(data.goals.map((goal) => ({ id: goal.id, department_id: id, goal_text: goal.text })));
+        if (goalsError) mapError(goalsError);
+      }
+    }
+
+    if (data.meetings) {
+      await supabase.from('department_meetings').delete().eq('department_id', id);
+      if (data.meetings.length) {
+        const { error: meetingsError } = await supabase.from('department_meetings').insert(data.meetings.map((meeting) => ({
+          id: meeting.id,
+          department_id: id,
+          meeting_date: meeting.date,
+          agenda: meeting.agenda,
+          minutes: meeting.minutes,
+          attendees: meeting.attendees || [],
+        })));
+        if (meetingsError) mapError(meetingsError);
+      }
+    }
+
+    const full = await departmentsStorage.getAll();
+    return full.find((d) => d.id === id);
+  },
+  findByName: async (name: string): Promise<DepartmentProfile | undefined> => {
+    const all = await departmentsStorage.getAll();
+    return all.find((d) => d.name === name);
+  },
+};
+
+export const departmentAnnouncementsStorage = {
+  getAll: async (): Promise<DepartmentAnnouncement[]> => {
+    const { data, error } = await supabase.from('department_announcements').select('*').order('created_at', { ascending: false });
+    if (error) mapError(error);
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      department: row.department,
+      title: row.title,
+      body: row.body,
+      author: row.author || undefined,
+      createdAt: row.created_at,
+    }));
+  },
+  save: async (items: DepartmentAnnouncement[]) => {
+    const payload = items.map((row) => ({
+      id: row.id,
+      department: row.department,
+      title: row.title,
+      body: row.body,
+      author: row.author,
+      created_at: row.createdAt,
+    }));
+    const { error } = await supabase.from('department_announcements').upsert(payload, { onConflict: 'id' });
+    if (error) mapError(error);
+  },
+  add: async (data: Omit<DepartmentAnnouncement, 'id' | 'createdAt'>): Promise<DepartmentAnnouncement> => {
+    const { data: inserted, error } = await supabase.from('department_announcements').insert({
+      department: data.department,
+      title: data.title,
+      body: data.body,
+      author: data.author,
+    }).select().single();
+    if (error) mapError(error);
+    return {
+      id: inserted.id,
+      department: inserted.department,
+      title: inserted.title,
+      body: inserted.body,
+      author: inserted.author || undefined,
+      createdAt: inserted.created_at,
+    };
+  },
+  getByDepartment: async (dept: string): Promise<DepartmentAnnouncement[]> => {
+    const { data, error } = await supabase.from('department_announcements').select('*').eq('department', dept).order('created_at', { ascending: false });
+    if (error) mapError(error);
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      department: row.department,
+      title: row.title,
+      body: row.body,
+      author: row.author || undefined,
+      createdAt: row.created_at,
+    }));
+  },
+};
+
+export const adminAnnouncementsStorage = {
+  getAll: async (): Promise<AdminAnnouncement[]> => {
+    const { data, error } = await supabase.from('admin_announcements').select('*').order('created_at', { ascending: false });
+    if (error) mapError(error);
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      title: row.title,
+      message: row.message,
+      targetRole: row.target_role,
+      author: row.author || undefined,
+      createdAt: row.created_at,
+    }));
+  },
+  save: async (items: AdminAnnouncement[]) => {
+    const payload = items.map((row) => ({
+      id: row.id,
+      title: row.title,
+      message: row.message,
+      target_role: row.targetRole,
+      author: row.author,
+      created_at: row.createdAt,
+    }));
+    const { error } = await supabase.from('admin_announcements').upsert(payload, { onConflict: 'id' });
+    if (error) mapError(error);
+  },
+  add: async (data: Omit<AdminAnnouncement, 'id' | 'createdAt'>): Promise<AdminAnnouncement> => {
+    const { data: inserted, error } = await supabase.from('admin_announcements').insert({
+      title: data.title,
+      message: data.message,
+      target_role: data.targetRole,
+      author: data.author,
+    }).select().single();
+    if (error) mapError(error);
+    return {
+      id: inserted.id,
+      title: inserted.title,
+      message: inserted.message,
+      targetRole: inserted.target_role,
+      author: inserted.author || undefined,
+      createdAt: inserted.created_at,
+    };
+  },
+  getByTargetRole: async (role: Exclude<AdminAnnouncementTargetRole, 'all'>): Promise<AdminAnnouncement[]> => {
+    const { data, error } = await supabase.from('admin_announcements').select('*').or(`target_role.eq.all,target_role.eq.${role}`);
+    if (error) mapError(error);
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      title: row.title,
+      message: row.message,
+      targetRole: row.target_role,
+      author: row.author || undefined,
+      createdAt: row.created_at,
+    }));
+  },
+};
+
+const resolveUserId = async (userKey: string): Promise<string | null> => {
+  if (isUuid(userKey)) return userKey;
+  const { data, error } = await supabase.from('profiles').select('id').eq('email', userKey.toLowerCase()).maybeSingle();
+  if (error) mapError(error);
+  return data?.id || null;
 };
 
 export const adminAnnouncementReadStorage = {
-  getReadIds: (userKey: string): string[] => {
-    const allReads = getAdminAnnouncementReads();
-    return allReads[userKey] || [];
+  getReadIds: async (userKey: string): Promise<string[]> => {
+    const userId = await resolveUserId(userKey);
+    if (!userId) return [];
+    const { data, error } = await supabase.from('admin_announcement_reads').select('announcement_id').eq('user_id', userId);
+    if (error) mapError(error);
+    return (data || []).map((row: any) => row.announcement_id);
   },
-  markRead: (userKey: string, announcementId: string) => {
-    const allReads = getAdminAnnouncementReads();
-    const existing = new Set(allReads[userKey] || []);
-    existing.add(announcementId);
-    allReads[userKey] = Array.from(existing);
-    saveAdminAnnouncementReads(allReads);
+  markRead: async (userKey: string, announcementId: string) => {
+    const userId = await resolveUserId(userKey);
+    if (!userId) return;
+    const { error } = await supabase.from('admin_announcement_reads').upsert({ user_id: userId, announcement_id: announcementId }, { onConflict: 'announcement_id,user_id' });
+    if (error) mapError(error);
   },
-  markManyRead: (userKey: string, announcementIds: string[]) => {
-    const allReads = getAdminAnnouncementReads();
-    const existing = new Set(allReads[userKey] || []);
-    announcementIds.forEach((id) => existing.add(id));
-    allReads[userKey] = Array.from(existing);
-    saveAdminAnnouncementReads(allReads);
+  markManyRead: async (userKey: string, announcementIds: string[]) => {
+    const userId = await resolveUserId(userKey);
+    if (!userId || !announcementIds.length) return;
+    const payload = announcementIds.map((announcementId) => ({ user_id: userId, announcement_id: announcementId }));
+    const { error } = await supabase.from('admin_announcement_reads').upsert(payload, { onConflict: 'announcement_id,user_id' });
+    if (error) mapError(error);
   },
 };

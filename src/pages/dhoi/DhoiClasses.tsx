@@ -412,7 +412,7 @@ export default function DhoiClasses() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Class Name</Label>
-              <Input value={classForm.name} onChange={(e) => setClassForm({ ...classForm, name: e.target.value })} placeholder="e.g. Form 1, Grade 7" />
+              <Input value={classForm.name} onChange={(e) => setClassForm({ ...classForm, name: e.target.value })} placeholder="e.g. PP1, Grade 7" />
             </div>
             <div className="space-y-2">
               <Label>Level</Label>

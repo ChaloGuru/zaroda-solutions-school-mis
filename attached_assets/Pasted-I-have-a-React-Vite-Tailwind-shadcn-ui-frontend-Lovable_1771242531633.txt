@@ -1,4 +1,4 @@
-I have a React + Vite + Tailwind + shadcn/ui frontend (Lovable-built) with a login page already designed. I need you to build a complete authentication system with role-based routing. No Supabase — use React Context + localStorage for now.
+I have a React + Vite + Tailwind + shadcn/ui frontend (Lovable-built) with a login page already designed. I need you to build a complete authentication system with role-based routing using Supabase Auth and React Context.
 Roles and dashboards needed:
 
 superadmin → /superadmin-dashboard (already built)
@@ -29,13 +29,13 @@ Has a role selector dropdown (SuperAdmin, HOI, DHOI, Teacher, Student, Parent)
 When SuperAdmin is selected → show fields: School Code, Email, Password
 When Teacher is selected → show a toggle between Login and Sign Up
 When HOI, DHOI, Student, Parent are selected → show Login form only (just email + password) with a message "Contact your administrator to get your account" — no functionality yet
-After successful login, store the user role and details in localStorage and React Context
+After successful login, store the user role and details in Supabase-backed session state and React Context
 
 Auth Context (src/context/AuthContext.tsx):
 
 Create an AuthProvider that wraps the whole app
 Exposes: currentUser, userRole, login(), logout(), signup()
-On logout → clear localStorage and redirect to /login
+On logout → clear session state and redirect to /login
 
 Protected Routes:
 
@@ -59,4 +59,4 @@ Wrap all routes with AuthProvider
 Protect every dashboard route with ProtectedRoute + correct role
 Default route / → redirect to /login
 
-Use React Router v6, React Context API, localStorage. Keep the existing login page design and just wire up the logic. Make sure the login form gives clear error messages for wrong credentials.
+Use React Router v6, React Context API, and Supabase Auth. Keep the existing login page design and just wire up the logic. Make sure the login form gives clear error messages for wrong credentials.

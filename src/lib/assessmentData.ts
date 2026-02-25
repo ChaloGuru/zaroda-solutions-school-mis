@@ -2458,22 +2458,14 @@ function normalizeAssessmentGrade(grade: string): string {
     'grade 7': 'Grade 7',
     jss1: 'Grade 7',
     'jss 1': 'Grade 7',
-    form1: 'Grade 7',
-    'form 1': 'Grade 7',
     grade8: 'Grade 8',
     'grade 8': 'Grade 8',
     jss2: 'Grade 8',
     'jss 2': 'Grade 8',
-    form2: 'Grade 8',
-    'form 2': 'Grade 8',
     grade9: 'Grade 9',
     'grade 9': 'Grade 9',
     jss3: 'Grade 9',
     'jss 3': 'Grade 9',
-    form3: 'Grade 9',
-    'form 3': 'Grade 9',
-    form4: 'Grade 9',
-    'form 4': 'Grade 9',
   };
 
   return aliases[value] || aliases[compact] || grade;

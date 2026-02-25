@@ -36,49 +36,97 @@ const cardVariants = {
 };
 
 export default function SettingsSection() {
-  const [settings, setSettings] = useState<PlatformSettings>(settingsStorage.get());
+  const defaultSettings: PlatformSettings = {
+    platform_name: 'Zaroda Solutions',
+    support_email: 'support@zaroda.io',
+    support_phone: '+254 700 000 000',
+    default_currency: 'KES',
+    academic_year: '2024',
+    term: 'Term 3',
+    enable_notifications: true,
+    enable_sms: true,
+    enable_email: true,
+    maintenance_mode: false,
+    max_schools: 100,
+    billing_cycle: 'termly',
+  };
+
+  const [settings, setSettings] = useState<PlatformSettings>(defaultSettings);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    setSettings(settingsStorage.get());
+    const load = async () => {
+      try {
+        const loaded = await settingsStorage.get();
+        setSettings(loaded);
+      } catch (error) {
+        toast({
+          title: 'Failed to load settings',
+          description: error instanceof Error ? error.message : 'Could not load platform settings.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    void load();
   }, []);
 
   const updateField = <K extends keyof PlatformSettings>(key: K, value: PlatformSettings[K]) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSave = () => {
-    settingsStorage.save(settings);
-    toast({
-      title: 'Settings saved',
-      description: 'Platform settings have been updated successfully.',
-    });
+  const handleSave = async () => {
+    try {
+      setIsSaving(true);
+      await settingsStorage.save(settings);
+      toast({
+        title: 'Settings saved',
+        description: 'Platform settings have been updated successfully.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Failed to save settings',
+        description: error instanceof Error ? error.message : 'Could not save platform settings.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleReset = () => {
-    const defaults: PlatformSettings = {
-      platform_name: 'Zaroda Solutions',
-      support_email: 'support@zaroda.io',
-      support_phone: '+254 700 000 000',
-      default_currency: 'KES',
-      academic_year: '2024',
-      term: 'Term 3',
-      enable_notifications: true,
-      enable_sms: true,
-      enable_email: true,
-      maintenance_mode: false,
-      max_schools: 100,
-      billing_cycle: 'termly',
-    };
-    settingsStorage.save(defaults);
-    setSettings(defaults);
-    setResetDialogOpen(false);
-    toast({
-      title: 'Settings reset',
-      description: 'All settings have been restored to their default values.',
-    });
+  const handleReset = async () => {
+    try {
+      setIsSaving(true);
+      await settingsStorage.save(defaultSettings);
+      setSettings(defaultSettings);
+      setResetDialogOpen(false);
+      toast({
+        title: 'Settings reset',
+        description: 'All settings have been restored to their default values.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Failed to reset settings',
+        description: error instanceof Error ? error.message : 'Could not reset settings to default values.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12 text-muted-foreground">
+        Loading settings...
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -312,13 +360,13 @@ export default function SettingsSection() {
         transition={{ delay: 0.5 }}
         className="flex items-center justify-end gap-3 pt-4"
       >
-        <Button variant="outline" onClick={() => setResetDialogOpen(true)}>
+        <Button variant="outline" onClick={() => setResetDialogOpen(true)} disabled={isSaving}>
           <RotateCcw className="w-4 h-4 mr-2" />
           Reset to Defaults
         </Button>
-        <Button onClick={handleSave}>
+        <Button onClick={() => { void handleSave(); }} disabled={isSaving}>
           <Save className="w-4 h-4 mr-2" />
-          Save Changes
+          {isSaving ? 'Saving...' : 'Save Changes'}
         </Button>
       </motion.div>
 
@@ -332,7 +380,7 @@ export default function SettingsSection() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleReset} className="bg-red-600 hover:bg-red-700">
+            <AlertDialogAction onClick={() => { void handleReset(); }} className="bg-red-600 hover:bg-red-700" disabled={isSaving}>
               Reset Settings
             </AlertDialogAction>
           </AlertDialogFooter>

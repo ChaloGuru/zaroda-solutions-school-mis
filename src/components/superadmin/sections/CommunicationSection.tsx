@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,35 +30,71 @@ const TARGET_BADGE: Record<AdminAnnouncementTargetRole, string> = {
 
 export default function CommunicationSection() {
   const { toast } = useToast();
-  const [announcements, setAnnouncements] = useState<AdminAnnouncement[]>(adminAnnouncementsStorage.getAll());
+  const [announcements, setAnnouncements] = useState<AdminAnnouncement[]>([]);
+  const [activeUsers, setActiveUsers] = useState<Array<{ role: string; status: string }>>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSending, setIsSending] = useState(false);
   const [form, setForm] = useState({
     title: '',
     message: '',
     targetRole: 'all' as AdminAnnouncementTargetRole,
   });
 
-  const recipientCount = useMemo(() => {
-    const users = platformUsersStorage.getAll().filter((user) => user.status === 'active');
-    if (form.targetRole === 'all') return users.length;
-    return users.filter((user) => user.role === form.targetRole).length;
-  }, [form.targetRole]);
+  const loadData = async () => {
+    try {
+      const [announcementRows, users] = await Promise.all([
+        adminAnnouncementsStorage.getAll(),
+        platformUsersStorage.getAll(),
+      ]);
+      setAnnouncements(announcementRows);
+      setActiveUsers(users.filter((user) => user.status === 'active').map((user) => ({ role: user.role, status: user.status })));
+    } catch (error) {
+      toast({
+        title: 'Failed to load communication data',
+        description: error instanceof Error ? error.message : 'Could not load announcements and recipients.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const submitAnnouncement = () => {
+  useEffect(() => {
+    void loadData();
+  }, []);
+
+  const recipientCount = useMemo(() => {
+    if (form.targetRole === 'all') return activeUsers.length;
+    return activeUsers.filter((user) => user.role === form.targetRole).length;
+  }, [activeUsers, form.targetRole]);
+
+  const submitAnnouncement = async () => {
     if (!form.title.trim() || !form.message.trim()) {
       toast({ title: 'Missing fields', description: 'Title and message are required.', variant: 'destructive' });
       return;
     }
 
-    adminAnnouncementsStorage.add({
-      title: form.title.trim(),
-      message: form.message.trim(),
-      targetRole: form.targetRole,
-      author: 'SuperAdmin',
-    });
+    try {
+      setIsSending(true);
+      await adminAnnouncementsStorage.add({
+        title: form.title.trim(),
+        message: form.message.trim(),
+        targetRole: form.targetRole,
+        author: 'SuperAdmin',
+      });
 
-    setAnnouncements(adminAnnouncementsStorage.getAll());
-    setForm({ title: '', message: '', targetRole: 'all' });
-    toast({ title: 'Announcement sent', description: `Message sent to ${recipientCount} recipient(s).` });
+      await loadData();
+      setForm({ title: '', message: '', targetRole: 'all' });
+      toast({ title: 'Announcement sent', description: `Message sent to ${recipientCount} recipient(s).` });
+    } catch (error) {
+      toast({
+        title: 'Failed to send announcement',
+        description: error instanceof Error ? error.message : 'Could not send announcement.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -99,7 +135,9 @@ export default function CommunicationSection() {
           </div>
 
           <div className="flex justify-end">
-            <Button onClick={submitAnnouncement}>Send Announcement</Button>
+            <Button onClick={() => { void submitAnnouncement(); }} disabled={isSending || isLoading}>
+              {isSending ? 'Sending...' : 'Send Announcement'}
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -109,7 +147,9 @@ export default function CommunicationSection() {
           <CardTitle className="text-lg">Recent Announcements</CardTitle>
         </CardHeader>
         <CardContent>
-          {announcements.length === 0 ? (
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground text-center py-6">Loading announcements...</p>
+          ) : announcements.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-6">No announcements sent yet.</p>
           ) : (
             <div className="space-y-3">

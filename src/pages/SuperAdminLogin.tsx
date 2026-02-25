@@ -6,9 +6,9 @@ import { Label } from '@/components/ui/label';
 import { ArrowLeft, Mail, Lock, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import zarodaLogo from '@/assets/zaroda-logo.png';
+import { useAuthContext, getDashboardForRole } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 
-// TODO: Replace with Replit backend API
-const API_BASE = 'https://your-replit.replit.dev/api';
 import { mapAuthError } from '@/lib/validation';
 
 const SuperAdminLogin = () => {
@@ -17,6 +17,7 @@ const SuperAdminLogin = () => {
     email: '',
     password: '',
   });
+  const { login } = useAuthContext();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -29,28 +30,68 @@ const SuperAdminLogin = () => {
     setIsSubmitting(true);
     
     try {
-      // TODO: Call Replit backend: POST /api/auth/admin-login
-      // const response = await fetch(`${API_BASE}/auth/admin-login`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     email: formData.email.trim().toLowerCase(),
-      //     password: formData.password
-      //   })
-      // });
-      // const data = await response.json();
+      const result = await login(
+        formData.email.trim().toLowerCase(),
+        formData.password,
+        '',
+        'superadmin'
+      );
+
+      if (!result.success) {
+        toast({
+          title: 'Login failed',
+          description: mapAuthError(result.error || 'Invalid admin credentials.'),
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const { data: authUserData, error: authUserError } = await supabase.auth.getUser();
+      if (authUserError || !authUserData.user) {
+        toast({
+          title: 'Login failed',
+          description: mapAuthError(authUserError?.message || 'Could not verify account session.'),
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', authUserData.user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        toast({
+          title: 'Login failed',
+          description: mapAuthError(profileError.message),
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (!profile || profile.role !== 'superadmin') {
+        await supabase.auth.signOut();
+        toast({
+          title: 'Access denied',
+          description: 'This account is not a Super Admin account.',
+          variant: 'destructive',
+        });
+        return;
+      }
       
       toast({
-        title: "Login successful!",
-        description: "Welcome to the Admin Dashboard. Connect to Replit backend.",
+        title: 'Login successful!',
+        description: 'Welcome to the Super Admin Dashboard.',
       });
       
-      navigate('/super-admin');
-    } catch {
+      navigate(getDashboardForRole('superadmin'), { replace: true });
+    } catch (error) {
       toast({
-        title: "Login failed",
-        description: "Connection error. Please check Replit backend.",
-        variant: "destructive",
+        title: 'Login failed',
+        description: mapAuthError(error instanceof Error ? error.message : 'Unexpected error during admin login.'),
+        variant: 'destructive',
       });
     } finally {
       setIsSubmitting(false);

@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileText, Search, Printer, Download, BarChart3, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { hoiStudentsStorage, hoiSubjectAssignmentsStorage, HoiStudent, HoiSubjectAssignment } from '@/lib/hoiStorage';
-import { assessmentStorage, AssessmentRecord } from '@/lib/storage';
+import { assessmentStorage, AssessmentRecord, type AssessmentScore } from '@/lib/storage';
 import { exportToPdf } from '@/lib/pdfExport';
 
 interface ClassReportsProps {
@@ -28,10 +28,6 @@ interface StudentSubjectScore {
   rank: number;
 }
 
-type AssessmentScore = {
-  score: number | string;
-};
-
 export default function ClassReports({ classId, className, streamId, streamName }: ClassReportsProps) {
   const [students, setStudents] = useState<HoiStudent[]>([]);
   const [assignments, setAssignments] = useState<HoiSubjectAssignment[]>([]);
@@ -42,25 +38,46 @@ export default function ClassReports({ classId, className, streamId, streamName 
   const subjectReportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const s = hoiStudentsStorage.getAll().filter(s => s.class_id === classId && s.stream_id === streamId && s.status === 'active');
-    setStudents(s);
-    setAssignments(hoiSubjectAssignmentsStorage.getAll().filter(a => a.class_id === classId && a.stream_id === streamId));
-    setAssessments(assessmentStorage.getAll());
+    const loadClassReportData = async () => {
+      const s = hoiStudentsStorage.getAll().filter(s => s.class_id === classId && s.stream_id === streamId && s.status === 'active');
+      setStudents(s);
+      setAssignments(hoiSubjectAssignmentsStorage.getAll().filter(a => a.class_id === classId && a.stream_id === streamId));
+      setAssessments(await assessmentStorage.getAll());
+    };
+
+    void loadClassReportData();
   }, [classId, streamId]);
 
   const subjectNames = [...new Set(assignments.map(a => a.subject_name))];
 
   const getScoreValue = (scores: AssessmentScore[]): number => {
     if (!scores || scores.length === 0) return 0;
-    const numericScores = scores.filter(s => typeof s.score === 'number');
+    const extractNumeric = (value: number | string | undefined): number | null => {
+      if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+      if (typeof value === 'string' && value.trim() !== '') {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : null;
+      }
+      return null;
+    };
+
+    const numericScores = scores
+      .flatMap((s) => [extractNumeric(s.cat1), extractNumeric(s.cat2), extractNumeric(s.endTerm)])
+      .filter((value): value is number => value !== null);
+
     if (numericScores.length > 0) {
-      return numericScores.reduce((sum, s) => sum + s.score, 0) / numericScores.length;
+      return numericScores.reduce((sum, value) => sum + value, 0) / numericScores.length;
     }
+
     const gradeMap: Record<string, number> = { 'EE': 4, 'ME': 3, 'AE': 2, 'BE': 1 };
-    const gradedScores = scores.filter(s => typeof s.score === 'string' && gradeMap[s.score]);
+    const gradedScores = scores
+      .map((s) => s.perfLevel)
+      .filter((level): level is keyof typeof gradeMap => !!level && level in gradeMap);
+
     if (gradedScores.length > 0) {
-      return (gradedScores.reduce((sum, s) => sum + (gradeMap[s.score] || 0), 0) / gradedScores.length) * 25;
+      return (gradedScores.reduce((sum, level) => sum + gradeMap[level], 0) / gradedScores.length) * 25;
     }
+
     return 0;
   };
 
@@ -76,7 +93,7 @@ export default function ClassReports({ classId, className, streamId, streamName 
         r.term === parseInt(selectedTerm)
       );
       if (records.length > 0) {
-        const scores = records.flatMap(r => (r.scores || []) as AssessmentScore[]);
+        const scores = records.flatMap(r => r.scores || []);
         const avg = getScoreValue(scores);
         subjects[subj] = { total: avg, count: records.length, avg };
         totalScore += avg;
@@ -156,14 +173,14 @@ export default function ClassReports({ classId, className, streamId, streamName 
                   <Button variant="outline" size="sm" onClick={() => window.print()}>
                     <Printer className="w-4 h-4 mr-1" />Print
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => reportRef.current && exportToPdf(reportRef.current, `${className}_${streamName}_Term${selectedTerm}_Results`)}>
+                  <Button variant="outline" size="sm" onClick={() => reportRef.current && void exportToPdf(reportRef.current.id, { title: `${className} ${streamName} Term ${selectedTerm} Results`, filename: `${className}_${streamName}_Term${selectedTerm}_Results.pdf` })}>
                     <Download className="w-4 h-4 mr-1" />PDF
                   </Button>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div ref={reportRef}>
+              <div id="class-overall-report" ref={reportRef}>
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -224,13 +241,13 @@ export default function ClassReports({ classId, className, streamId, streamName 
                   <FileText className="w-4 h-4 text-primary" />
                   Subject Performance Analysis - Term {selectedTerm}
                 </CardTitle>
-                <Button variant="outline" size="sm" onClick={() => subjectReportRef.current && exportToPdf(subjectReportRef.current, `${className}_${streamName}_Subject_Analysis`)}>
+                <Button variant="outline" size="sm" onClick={() => subjectReportRef.current && void exportToPdf(subjectReportRef.current.id, { title: `${className} ${streamName} Subject Analysis`, filename: `${className}_${streamName}_Subject_Analysis.pdf` })}>
                   <Download className="w-4 h-4 mr-1" />PDF
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
-              <div ref={subjectReportRef}>
+              <div id="class-subject-report" ref={subjectReportRef}>
                 <Table>
                   <TableHeader>
                     <TableRow>

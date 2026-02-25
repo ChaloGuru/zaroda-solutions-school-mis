@@ -36,7 +36,7 @@ import HoiReports from './HoiReports';
 import HoiSettings from './HoiSettings';
 
 export type SectionId =
-  | 'overview' | 'school' | 'classes' | 'teachers' | 'students'
+  | 'overview' | 'school' | 'classes' | 'teachers' | 'hods' | 'students'
   | 'officials' | 'subjects' | 'timetable' | 'attendance'
   | 'finances' | 'library' | 'sports' | 'elections'
   | 'reports' | 'settings';

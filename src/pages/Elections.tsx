@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/lib/supabase';
 import { Vote, Users, Trophy, Plus, Printer, ChevronRight, BarChart3, ArrowLeft } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -50,7 +51,7 @@ const defaultPositions = [
 ];
 
 const Elections = () => {
-  const { user, profile } = useAuth();
+  const { currentUser } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [positions, setPositions] = useState<Position[]>([]);
@@ -77,19 +78,19 @@ const Elections = () => {
   });
 
   useEffect(() => {
-    if (profile?.school_id) {
-      loadElectionData();
+    if (currentUser?.schoolId) {
+      void loadElectionData();
     }
-  }, [profile?.school_id]);
+  }, [currentUser?.schoolId]);
 
   const loadElectionData = async () => {
-    if (!profile?.school_id) return;
+    if (!currentUser?.schoolId) return;
 
     // Load positions
     const { data: positionsData } = await supabase
       .from('election_positions')
       .select('*')
-      .eq('school_id', profile.school_id);
+      .eq('school_id', currentUser.schoolId);
     
     if (positionsData) setPositions(positionsData);
 
@@ -97,7 +98,7 @@ const Elections = () => {
     const { data: electionsData } = await supabase
       .from('elections')
       .select('*')
-      .eq('school_id', profile.school_id)
+      .eq('school_id', currentUser.schoolId)
       .order('created_at', { ascending: false });
     
     if (electionsData) {
@@ -131,12 +132,12 @@ const Elections = () => {
   };
 
   const handleAddPosition = async () => {
-    if (!profile?.school_id || !newPosition.name) return;
+    if (!currentUser?.schoolId || !newPosition.name) return;
 
     const { error } = await supabase
       .from('election_positions')
       .insert({
-        school_id: profile.school_id,
+        school_id: currentUser.schoolId,
         name: newPosition.name,
         description: newPosition.description,
         scope: newPosition.scope,
@@ -149,7 +150,7 @@ const Elections = () => {
       toast({ title: 'Success', description: 'Position added successfully' });
       setNewPosition({ name: '', description: '', scope: 'whole_school', category: '' });
       setShowAddPosition(false);
-      loadElectionData();
+      await loadElectionData();
     }
   };
 
@@ -172,14 +173,14 @@ const Elections = () => {
       toast({ title: 'Success', description: 'Candidate added successfully' });
       setNewCandidate({ student_name: '', grade: '', stream: '', manifesto: '' });
       setShowAddCandidate(false);
-      loadElectionData();
+      await loadElectionData();
     }
   };
 
   const handleVote = async (candidateId: string, positionId: string) => {
-    if (!activeElection || !user) return;
+    if (!activeElection || !currentUser) return;
 
-    const voterIdentifier = user.id; // Using user ID as voter identifier
+    const voterIdentifier = currentUser.id;
 
     const { error } = await supabase
       .from('election_votes')
@@ -198,7 +199,7 @@ const Elections = () => {
       }
     } else {
       toast({ title: 'Vote Cast!', description: 'Your vote has been recorded' });
-      loadElectionData();
+      await loadElectionData();
     }
   };
 
@@ -207,11 +208,11 @@ const Elections = () => {
   };
 
   const initializeDefaultPositions = async () => {
-    if (!profile?.school_id) return;
+    if (!currentUser?.schoolId) return;
 
     for (const pos of defaultPositions) {
       await supabase.from('election_positions').insert({
-        school_id: profile.school_id,
+        school_id: currentUser.schoolId,
         name: pos.name,
         description: pos.description,
         scope: pos.scope,
@@ -220,10 +221,10 @@ const Elections = () => {
     }
     
     toast({ title: 'Success', description: 'Default positions created' });
-    loadElectionData();
+    await loadElectionData();
   };
 
-  if (!user) {
+  if (!currentUser) {
     return (
       <div className="min-h-screen">
         <Header />

@@ -13,6 +13,7 @@ import {
 import { platformUsersStorage, activityStorage, schoolsStorage } from '@/lib/storage';
 import { sendWelcomeEmail } from '@/lib/email';
 import type { PlatformUser, LoginActivity } from '@/lib/storage';
+import { supabase } from '@/lib/supabase';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 
 const ROLE_OPTIONS = [
@@ -60,26 +61,15 @@ const ACTION_COLORS: Record<string, string> = {
 };
 
 type TabId = 'all_users' | 'create_user' | 'activity_log';
-
-const getStoredPasswords = (): Record<string, string> => {
-  try {
-    const data = localStorage.getItem('zaroda_passwords');
-    return data ? JSON.parse(data) : {};
-  } catch {
-    return {};
-  }
-};
-
-const savePassword = (email: string, password: string) => {
-  const passwords = getStoredPasswords();
-  passwords[email.toLowerCase()] = password;
-  localStorage.setItem('zaroda_passwords', JSON.stringify(passwords));
-};
+type LoginActivityWithCreatedAt = LoginActivity & { created_at: string };
 
 export default function UsersSection() {
   const [activeTab, setActiveTab] = useState<TabId>('all_users');
   const [users, setUsers] = useState<PlatformUser[]>([]);
-  const [activities, setActivities] = useState<LoginActivity[]>([]);
+  const [activities, setActivities] = useState<LoginActivityWithCreatedAt[]>([]);
+  const [schools, setSchools] = useState<Array<{ school_code: string; name: string }>>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -90,7 +80,7 @@ export default function UsersSection() {
   const [showViewModal, setShowViewModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedUser, setSelectedUser] = useState<PlatformUser | null>(null);
-  const [userActivities, setUserActivities] = useState<LoginActivity[]>([]);
+  const [userActivities, setUserActivities] = useState<LoginActivityWithCreatedAt[]>([]);
   const { toast } = useToast();
   const perPage = 10;
 
@@ -106,14 +96,33 @@ export default function UsersSection() {
     grade: '',
   });
 
-  const loadData = () => {
-    setUsers(platformUsersStorage.getAll());
-    setActivities(activityStorage.getRecent(200));
+  const loadData = async () => {
+    try {
+      const [usersData, activitiesData, schoolsData] = await Promise.all([
+        platformUsersStorage.getAll(),
+        activityStorage.getRecent(200),
+        schoolsStorage.getAll(),
+      ]);
+      setUsers(usersData);
+      setActivities(activitiesData.map((activity) => ({
+        ...activity,
+        created_at: (activity as LoginActivityWithCreatedAt).created_at || activity.timestamp,
+      })));
+      setSchools(schoolsData);
+    } catch (error) {
+      toast({
+        title: 'Failed to load users',
+        description: error instanceof Error ? error.message : 'Could not load user management data.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  useEffect(() => { loadData(); }, []);
-
-  const schools = schoolsStorage.getAll();
+  useEffect(() => {
+    void loadData();
+  }, []);
 
   const filteredUsers = users.filter(u => {
     const matchSearch = !search || u.fullName.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase()) || u.schoolName.toLowerCase().includes(search.toLowerCase());
@@ -150,165 +159,212 @@ export default function UsersSection() {
     setFormData(prev => ({ ...prev, schoolCode, schoolName: school?.name || '' }));
   };
 
-  const handleCreateUser = () => {
+  const handleCreateUser = async () => {
     if (!formData.fullName.trim() || !formData.email.trim() || !formData.password.trim() || !formData.schoolCode.trim() || !formData.phone.trim()) {
       toast({ title: 'Missing fields', description: 'Please fill in all required fields.', variant: 'destructive' });
       return;
     }
 
-    const existing = platformUsersStorage.findByEmail(formData.email.trim());
-    if (existing) {
-      toast({ title: 'Email exists', description: 'A user with this email already exists.', variant: 'destructive' });
-      return;
-    }
+    try {
+      setIsSubmitting(true);
+      const email = formData.email.trim().toLowerCase();
+      const fullName = formData.fullName.trim();
+      const role = formData.role as PlatformUser['role'];
+      const schoolCode = formData.schoolCode.trim();
+      const schoolName = formData.schoolName.trim() || schoolCode;
+      const phone = formData.phone.trim();
+      const status: PlatformUser['status'] = 'active';
 
-    const newUser = platformUsersStorage.add({
-      email: formData.email.trim().toLowerCase(),
-      fullName: formData.fullName.trim(),
-      role: formData.role as PlatformUser['role'],
-      schoolCode: formData.schoolCode.trim(),
-      schoolName: formData.schoolName.trim() || formData.schoolCode.trim(),
-      phone: formData.phone.trim(),
-      status: 'active',
-      subject: formData.subject.trim() || undefined,
-      grade: formData.grade.trim() || undefined,
-      createdBy: 'SuperAdmin',
-    });
+      const existing = await platformUsersStorage.findByEmail(email);
+      if (existing) {
+        toast({ title: 'Email exists', description: 'A user with this email already exists.', variant: 'destructive' });
+        return;
+      }
 
-    savePassword(formData.email.trim().toLowerCase(), formData.password);
+      const { data: authData, error: createAuthError } = await supabase.auth.admin.createUser({
+        email,
+        password: formData.password,
+        email_confirm: true,
+      });
+      if (createAuthError) throw createAuthError;
 
-    if (formData.role === 'dhoi') {
+      const authUser = authData.user;
+      if (!authUser) throw new Error('Auth user was not created.');
+
+      const { error: profileUpsertError } = await supabase.from('profiles').upsert({
+        id: authUser.id,
+        email,
+        full_name: fullName,
+        role,
+        school_id: null,
+        school_code: schoolCode,
+        school_name: schoolName,
+        phone,
+        status,
+        subject: formData.subject.trim() || null,
+        grade: formData.grade.trim() || null,
+        created_by: 'SuperAdmin',
+      }, { onConflict: 'id' });
+      if (profileUpsertError) throw profileUpsertError;
+
+      const newUser: PlatformUser = {
+        id: authUser.id,
+        email,
+        fullName,
+        role,
+        schoolCode,
+        schoolName,
+        phone,
+        status,
+        subject: formData.subject.trim() || undefined,
+        grade: formData.grade.trim() || undefined,
+        createdBy: 'SuperAdmin',
+        createdAt: new Date().toISOString(),
+        lastLogin: null,
+        loginCount: 0,
+      };
+
+      await activityStorage.add({
+        userId: newUser.id,
+        email: newUser.email,
+        fullName: newUser.fullName,
+        role: newUser.role,
+        action: 'account_created',
+        details: `Account created by SuperAdmin with role: ${newUser.role.toUpperCase()}`,
+      });
+
       try {
-        const existing = JSON.parse(localStorage.getItem('zaroda_dhoi_account') || '[]');
-        const accounts = Array.isArray(existing) ? existing : existing ? [existing] : [];
-        accounts.push({
-          id: newUser.id,
+        await sendWelcomeEmail({
           email: newUser.email,
           fullName: newUser.fullName,
-          password: formData.password,
-          schoolCode: formData.schoolCode.trim(),
-          phone: formData.phone.trim(),
-          status: 'active',
+          role: newUser.role,
+          schoolName: newUser.schoolName,
+          schoolCode: newUser.schoolCode,
           createdBy: 'SuperAdmin',
-          createdAt: new Date().toISOString(),
         });
-        localStorage.setItem('zaroda_dhoi_account', JSON.stringify(accounts));
-      } catch {
-        setFormData((current) => current);
-      }
+      } catch {}
+
+      toast({ title: 'User created', description: `${newUser.fullName} (${newUser.role.toUpperCase()}) account has been created successfully.` });
+      resetForm();
+      setShowCreateModal(false);
+      await loadData();
+    } catch (error) {
+      toast({
+        title: 'Failed to create user',
+        description: error instanceof Error ? error.message : 'Could not create user account.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
     }
-
-    activityStorage.add({
-      userId: newUser.id,
-      email: newUser.email,
-      fullName: newUser.fullName,
-      role: newUser.role,
-      action: 'account_created',
-      details: `Account created by SuperAdmin with role: ${newUser.role.toUpperCase()}`,
-    });
-
-    void sendWelcomeEmail({
-      email: newUser.email,
-      fullName: newUser.fullName,
-      role: newUser.role,
-      schoolName: newUser.schoolName,
-      schoolCode: newUser.schoolCode,
-      createdBy: 'SuperAdmin',
-    });
-
-    toast({ title: 'User created', description: `${newUser.fullName} (${newUser.role.toUpperCase()}) account has been created successfully. They can now log in with the assigned credentials.` });
-    resetForm();
-    setShowCreateModal(false);
-    loadData();
   };
 
-  const handleEditUser = () => {
+  const handleEditUser = async () => {
     if (!selectedUser) return;
     if (!formData.fullName.trim() || !formData.email.trim() || !formData.phone.trim()) {
       toast({ title: 'Missing fields', description: 'Please fill in all required fields.', variant: 'destructive' });
       return;
     }
 
-    const oldEmail = selectedUser.email.toLowerCase();
-    const newEmail = formData.email.trim().toLowerCase();
+    try {
+      setIsSubmitting(true);
+      const newEmail = formData.email.trim().toLowerCase();
 
-    platformUsersStorage.update(selectedUser.id, {
-      fullName: formData.fullName.trim(),
-      email: newEmail,
-      phone: formData.phone.trim(),
-      schoolCode: formData.schoolCode.trim(),
-      schoolName: formData.schoolName.trim() || formData.schoolCode.trim(),
-      subject: formData.subject.trim() || undefined,
-      grade: formData.grade.trim() || undefined,
-    });
+      await platformUsersStorage.update(selectedUser.id, {
+        fullName: formData.fullName.trim(),
+        email: newEmail,
+        phone: formData.phone.trim(),
+        schoolCode: formData.schoolCode.trim(),
+        schoolName: formData.schoolName.trim() || formData.schoolCode.trim(),
+        subject: formData.subject.trim() || undefined,
+        grade: formData.grade.trim() || undefined,
+      });
 
-    if (formData.password.trim()) {
-      savePassword(newEmail, formData.password.trim());
-    } else if (oldEmail !== newEmail) {
-      const passwords = getStoredPasswords();
-      if (passwords[oldEmail]) {
-        passwords[newEmail] = passwords[oldEmail];
-        delete passwords[oldEmail];
-        localStorage.setItem('zaroda_passwords', JSON.stringify(passwords));
-      }
+      await activityStorage.add({
+        userId: selectedUser.id,
+        email: formData.email.trim().toLowerCase(),
+        fullName: formData.fullName.trim(),
+        role: selectedUser.role,
+        action: 'account_updated',
+        details: 'Account updated by SuperAdmin',
+      });
+
+      toast({ title: 'User updated', description: `${formData.fullName.trim()}'s account has been updated.` });
+      setShowEditModal(false);
+      setSelectedUser(null);
+      await loadData();
+    } catch (error) {
+      toast({
+        title: 'Failed to update user',
+        description: error instanceof Error ? error.message : 'Could not update user account.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
     }
-
-    activityStorage.add({
-      userId: selectedUser.id,
-      email: formData.email.trim().toLowerCase(),
-      fullName: formData.fullName.trim(),
-      role: selectedUser.role,
-      action: 'account_updated',
-      details: `Account updated by SuperAdmin${formData.password.trim() ? ' (password changed)' : ''}`,
-    });
-
-    toast({ title: 'User updated', description: `${formData.fullName.trim()}'s account has been updated.` });
-    setShowEditModal(false);
-    setSelectedUser(null);
-    loadData();
   };
 
-  const handleToggleStatus = (user: PlatformUser) => {
-    const newStatus = user.status === 'active' ? 'suspended' : 'active';
-    platformUsersStorage.update(user.id, { status: newStatus });
+  const handleToggleStatus = async (user: PlatformUser) => {
+    try {
+      setIsSubmitting(true);
+      const newStatus = user.status === 'active' ? 'suspended' : 'active';
+      await platformUsersStorage.update(user.id, { status: newStatus });
 
-    activityStorage.add({
-      userId: user.id,
-      email: user.email,
-      fullName: user.fullName,
-      role: user.role,
-      action: newStatus === 'suspended' ? 'account_suspended' : 'account_activated',
-      details: `Account ${newStatus} by SuperAdmin`,
-    });
+      await activityStorage.add({
+        userId: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role,
+        action: newStatus === 'suspended' ? 'account_suspended' : 'account_activated',
+        details: `Account ${newStatus} by SuperAdmin`,
+      });
 
-    toast({ title: newStatus === 'suspended' ? 'User suspended' : 'User activated', description: `${user.fullName}'s account has been ${newStatus}.` });
-    loadData();
+      toast({ title: newStatus === 'suspended' ? 'User suspended' : 'User activated', description: `${user.fullName}'s account has been ${newStatus}.` });
+      await loadData();
+    } catch (error) {
+      toast({
+        title: 'Failed to update status',
+        description: error instanceof Error ? error.message : 'Could not update account status.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleDeleteUser = () => {
+  const handleDeleteUser = async () => {
     if (!selectedUser) return;
 
-    platformUsersStorage.remove(selectedUser.id);
+    try {
+      setIsSubmitting(true);
+      const { error: deleteAuthError } = await supabase.auth.admin.deleteUser(selectedUser.id);
+      if (deleteAuthError) throw deleteAuthError;
 
-    // Also remove from password storage
-    const passwords = getStoredPasswords();
-    delete passwords[selectedUser.email.toLowerCase()];
-    localStorage.setItem('zaroda_passwords', JSON.stringify(passwords));
+      await platformUsersStorage.remove(selectedUser.id);
 
-    activityStorage.add({
-      userId: selectedUser.id,
-      email: selectedUser.email,
-      fullName: selectedUser.fullName,
-      role: selectedUser.role,
-      action: 'account_deleted',
-      details: `Account deleted permanently by SuperAdmin`,
-    });
+      await activityStorage.add({
+        userId: selectedUser.id,
+        email: selectedUser.email,
+        fullName: selectedUser.fullName,
+        role: selectedUser.role,
+        action: 'account_deleted',
+        details: 'Account deleted permanently by SuperAdmin',
+      });
 
-    toast({ title: 'User deleted', description: `${selectedUser.fullName}'s account has been permanently deleted.` });
-    setShowDeleteConfirm(false);
-    setShowEditModal(false);
-    setSelectedUser(null);
-    loadData();
+      toast({ title: 'User deleted', description: `${selectedUser.fullName}'s account has been permanently deleted.` });
+      setShowDeleteConfirm(false);
+      setShowEditModal(false);
+      setSelectedUser(null);
+      await loadData();
+    } catch (error) {
+      toast({
+        title: 'Failed to delete user',
+        description: error instanceof Error ? error.message : 'Could not delete user account.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const openEdit = (user: PlatformUser) => {
@@ -327,10 +383,25 @@ export default function UsersSection() {
     setShowEditModal(true);
   };
 
-  const openView = (user: PlatformUser) => {
-    setSelectedUser(user);
-    setUserActivities(activityStorage.getByUser(user.id));
-    setShowViewModal(true);
+  const openView = async (user: PlatformUser) => {
+    try {
+      setIsSubmitting(true);
+      setSelectedUser(user);
+      const logs = await activityStorage.getByUser(user.id);
+      setUserActivities(logs.map((activity) => ({
+        ...activity,
+        created_at: (activity as LoginActivityWithCreatedAt).created_at || activity.timestamp,
+      })));
+      setShowViewModal(true);
+    } catch (error) {
+      toast({
+        title: 'Failed to load user activity',
+        description: error instanceof Error ? error.message : 'Could not load selected user activity.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const formatDate = (dateStr: string | null) => {
@@ -343,6 +414,14 @@ export default function UsersSection() {
     { id: 'create_user', label: 'Create User', icon: UserPlus },
     { id: 'activity_log', label: 'Activity Log', icon: Activity },
   ];
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12 text-muted-foreground">
+        Loading users...
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -508,18 +587,19 @@ export default function UsersSection() {
                         <td className="p-3 text-sm font-medium">{user.loginCount}</td>
                         <td className="p-3">
                           <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="sm" onClick={() => openView(user)} title="View details">
+                            <Button variant="ghost" size="sm" onClick={() => { void openView(user); }} title="View details" disabled={isSubmitting}>
                               <Eye size={14} />
                             </Button>
-                            <Button variant="ghost" size="sm" onClick={() => openEdit(user)} title="Edit user">
+                            <Button variant="ghost" size="sm" onClick={() => openEdit(user)} title="Edit user" disabled={isSubmitting}>
                               <Edit2 size={14} />
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleToggleStatus(user)}
+                              onClick={() => { void handleToggleStatus(user); }}
                               title={user.status === 'active' ? 'Suspend user' : 'Activate user'}
                               className={user.status === 'active' ? 'text-red-500 hover:text-red-600' : 'text-emerald-500 hover:text-emerald-600'}
+                              disabled={isSubmitting}
                             >
                               {user.status === 'active' ? <Ban size={14} /> : <CheckCircle size={14} />}
                             </Button>
@@ -639,7 +719,7 @@ export default function UsersSection() {
                 </div>
               )}
               <div className="flex gap-3 pt-2">
-                <Button onClick={handleCreateUser} className="gap-2">
+                <Button onClick={() => { void handleCreateUser(); }} className="gap-2" disabled={isSubmitting}>
                   <UserPlus size={16} />
                   Create User Account
                 </Button>
@@ -691,7 +771,7 @@ export default function UsersSection() {
                           </span>
                         </td>
                         <td className="p-3 text-sm text-muted-foreground">{act.details || '-'}</td>
-                        <td className="p-3 text-sm text-muted-foreground">{formatDate(act.timestamp)}</td>
+                        <td className="p-3 text-sm text-muted-foreground">{formatDate(act.created_at)}</td>
                       </tr>
                     ))
                   )}
@@ -758,7 +838,7 @@ export default function UsersSection() {
               </Select>
             </div>
             <div className="flex gap-3 pt-2">
-              <Button onClick={handleCreateUser} className="flex-1">Create User</Button>
+              <Button onClick={() => { void handleCreateUser(); }} className="flex-1" disabled={isSubmitting}>Create User</Button>
               <Button variant="outline" onClick={() => setShowCreateModal(false)}>Cancel</Button>
             </div>
           </div>
@@ -798,9 +878,9 @@ export default function UsersSection() {
               </Select>
             </div>
             <div className="flex gap-3 pt-2">
-              <Button onClick={handleEditUser} className="flex-1">Save Changes</Button>
+              <Button onClick={() => { void handleEditUser(); }} className="flex-1" disabled={isSubmitting}>Save Changes</Button>
               <Button variant="outline" onClick={() => setShowEditModal(false)}>Cancel</Button>
-              <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)}>
+              <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)} disabled={isSubmitting}>
                 <Trash2 size={14} className="mr-2" /> Delete
               </Button>
             </div>
@@ -879,7 +959,7 @@ export default function UsersSection() {
                   <p className="text-sm text-muted-foreground">No activity recorded</p>
                 ) : (
                   <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                    {userActivities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 20).map(act => (
+                    {userActivities.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 20).map(act => (
                       <div key={act.id} className="flex items-center justify-between p-2 rounded bg-muted/50">
                         <div>
                           <span className={`text-sm font-medium ${ACTION_COLORS[act.action]}`}>
@@ -887,7 +967,7 @@ export default function UsersSection() {
                           </span>
                           {act.details && <p className="text-xs text-muted-foreground">{act.details}</p>}
                         </div>
-                        <span className="text-xs text-muted-foreground">{formatDate(act.timestamp)}</span>
+                        <span className="text-xs text-muted-foreground">{formatDate(act.created_at)}</span>
                       </div>
                     ))}
                   </div>
@@ -901,8 +981,9 @@ export default function UsersSection() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => { handleToggleStatus(selectedUser); setShowViewModal(false); }}
+                  onClick={() => { void handleToggleStatus(selectedUser); setShowViewModal(false); }}
                   className={selectedUser.status === 'active' ? 'text-red-500' : 'text-emerald-500'}
+                  disabled={isSubmitting}
                 >
                   {selectedUser.status === 'active' ? <><Ban size={14} className="mr-2" /> Suspend</> : <><CheckCircle size={14} className="mr-2" /> Activate</>}
                 </Button>
@@ -922,7 +1003,7 @@ export default function UsersSection() {
           </AlertDialogHeader>
           <div className="flex gap-3 justify-end">
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteUser} className="bg-red-600 hover:bg-red-700">
+            <AlertDialogAction onClick={() => { void handleDeleteUser(); }} className="bg-red-600 hover:bg-red-700" disabled={isSubmitting}>
               Delete Account
             </AlertDialogAction>
           </div>

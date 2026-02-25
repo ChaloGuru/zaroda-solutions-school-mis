@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { departmentsStorage } from '@/lib/storage';
+import type { DepartmentProfile as DepartmentProfileType } from '@/lib/storage';
 import { useAuthContext } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,56 +14,64 @@ const DepartmentProfile = () => {
   const { toast } = useToast();
   const deptName = currentUser?.department || '';
 
-  const [profile, setProfile] = useState(() => departmentsStorage.findByName(deptName));
+  const [profile, setProfile] = useState<DepartmentProfileType | null>(null);
   const [openEdit, setOpenEdit] = useState(false);
   const [form, setForm] = useState({ name: deptName, motto: '', description: '', newSubject: '' });
 
   useEffect(() => {
-    const p = departmentsStorage.findByName(deptName);
-    setProfile(p);
-    if (p) setForm({ name: p.name, motto: p.motto || '', description: p.description || '', newSubject: '' });
+    const loadProfile = async () => {
+      const p = await departmentsStorage.findByName(deptName);
+      setProfile(p || null);
+      if (p) setForm({ name: p.name, motto: p.motto || '', description: p.description || '', newSubject: '' });
+    };
+    void loadProfile();
   }, [deptName]);
 
-  const saveProfile = () => {
+  const saveProfile = async () => {
     if (!form.name.trim()) { toast({ title: 'Validation', description: 'Department name required', variant: 'destructive' }); return; }
     if (profile) {
-      departmentsStorage.update(profile.id, { name: form.name, motto: form.motto, description: form.description });
+      await departmentsStorage.update(profile.id, { name: form.name, motto: form.motto, description: form.description });
+      const refreshed = await departmentsStorage.findByName(form.name.trim());
+      setProfile(refreshed || null);
       toast({ title: 'Updated', description: 'Department profile updated.' });
     } else {
-      const created = departmentsStorage.add({ name: form.name, motto: form.motto, description: form.description, subjects: [], goals: [], meetings: [] });
+      const created = await departmentsStorage.add({ name: form.name, motto: form.motto, description: form.description, subjects: [], goals: [], meetings: [] });
       setProfile(created);
       toast({ title: 'Created', description: 'Department profile created.' });
     }
     setOpenEdit(false);
   };
 
-  const addSubject = () => {
+  const addSubject = async () => {
     if (!form.newSubject.trim() || !profile) return;
     const subjects = [...(profile.subjects || []), form.newSubject.trim()];
-    departmentsStorage.update(profile.id, { subjects });
-    setProfile(departmentsStorage.findByName(profile.name));
+    await departmentsStorage.update(profile.id, { subjects });
+    const refreshed = await departmentsStorage.findByName(profile.name);
+    setProfile(refreshed || null);
     setForm({ ...form, newSubject: '' });
     toast({ title: 'Added', description: 'Subject added.' });
   };
 
-  const addGoal = () => {
+  const addGoal = async () => {
     if (!profile) return;
     const text = prompt('Enter goal text');
     if (!text) return;
     const goals = [...(profile.goals || []), { id: Date.now().toString(), text }];
-    departmentsStorage.update(profile.id, { goals });
-    setProfile(departmentsStorage.findByName(profile.name));
+    await departmentsStorage.update(profile.id, { goals });
+    const refreshed = await departmentsStorage.findByName(profile.name);
+    setProfile(refreshed || null);
     toast({ title: 'Saved', description: 'Goal added.' });
   };
 
-  const addMeeting = () => {
+  const addMeeting = async () => {
     if (!profile) return;
     const date = prompt('Meeting date (YYYY-MM-DD)');
     const agenda = prompt('Agenda');
     if (!date || !agenda) return;
     const meetings = [...(profile.meetings || []), { id: Date.now().toString(), date, agenda, minutes: '', attendees: [] }];
-    departmentsStorage.update(profile.id, { meetings });
-    setProfile(departmentsStorage.findByName(profile.name));
+    await departmentsStorage.update(profile.id, { meetings });
+    const refreshed = await departmentsStorage.findByName(profile.name);
+    setProfile(refreshed || null);
     toast({ title: 'Saved', description: 'Meeting scheduled.' });
   };
 

@@ -15,6 +15,7 @@ import {
 } from '@/lib/hoiStorage';
 import { platformUsersStorage } from '@/lib/storage';
 import { sendWelcomeEmail } from '@/lib/email';
+import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -104,17 +105,23 @@ const emptyDutyForm = {
   remarks: '',
 };
 
-function getTeacherCodes(): Record<string, string> {
-  try {
-    const stored = localStorage.getItem(TEACHER_CODES_KEY);
-    return stored ? JSON.parse(stored) : {};
-  } catch {
-    return {};
-  }
+async function getTeacherCodes(): Promise<Record<string, string>> {
+  const { data, error } = await supabase.from('teacher_codes').select('teacher_id,code');
+  if (error) return {};
+  return (data || []).reduce((acc: Record<string, string>, row: any) => {
+    if (row.teacher_id && row.code) {
+      acc[row.teacher_id] = String(row.code);
+    }
+    return acc;
+  }, {});
 }
 
-function setTeacherCodes(codes: Record<string, string>) {
-  localStorage.setItem(TEACHER_CODES_KEY, JSON.stringify(codes));
+async function saveTeacherCode(teacherId: string, code: string): Promise<void> {
+  await supabase.from('teacher_codes').upsert({ teacher_id: teacherId, code }, { onConflict: 'teacher_id' });
+}
+
+async function removeTeacherCode(teacherId: string): Promise<void> {
+  await supabase.from('teacher_codes').delete().eq('teacher_id', teacherId);
 }
 
 export default function DhoiTeachers() {
@@ -149,17 +156,17 @@ export default function DhoiTeachers() {
   const [deleteAssignDialog, setDeleteAssignDialog] = useState<{ open: boolean; id: string | null }>({ open: false, id: null });
   const [deleteDutyDialog, setDeleteDutyDialog] = useState<{ open: boolean; id: string | null }>({ open: false, id: null });
 
-  const loadData = () => {
+  const loadData = async () => {
     setTeachers(hoiTeachersStorage.getAll());
     setAssignments(hoiSubjectAssignmentsStorage.getAll());
     setSubjects(hoiSubjectsStorage.getAll());
     setClasses(hoiClassesStorage.getAll());
     setStreams(hoiStreamsStorage.getAll());
     setDuties(hoiTeacherDutiesStorage.getAll());
-    setTeacherCodesState(getTeacherCodes());
+    setTeacherCodesState(await getTeacherCodes());
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { void loadData(); }, []);
 
   const getCode = (teacherId: string) => teacherCodes[teacherId] || '—';
 
@@ -227,7 +234,7 @@ export default function DhoiTeachers() {
     setTeacherDialogOpen(true);
   };
 
-  const saveTeacher = () => {
+  const saveTeacher = async () => {
     if (!teacherForm.full_name.trim() || !teacherForm.email.trim() || !teacherForm.employee_id.trim() || !teacherForm.teacher_code.trim()) {
       toast({ title: 'Validation Error', description: 'Full name, email, employee ID, and teacher code are required.', variant: 'destructive' });
       return;
@@ -237,7 +244,7 @@ export default function DhoiTeachers() {
       return;
     }
     const codeVal = teacherForm.teacher_code.trim().toUpperCase();
-    const existingCodes = getTeacherCodes();
+    const existingCodes = await getTeacherCodes();
     const codeConflict = Object.entries(existingCodes).find(([tid, c]) => c === codeVal && tid !== (editingTeacher?.id || ''));
     if (codeConflict) {
       toast({ title: 'Duplicate Code', description: `Teacher code "${codeVal}" is already assigned to another teacher.`, variant: 'destructive' });
@@ -263,17 +270,16 @@ export default function DhoiTeachers() {
 
     if (editingTeacher) {
       hoiTeachersStorage.update(editingTeacher.id, { ...teacherData, ...classTeacherFields });
-      const codes = getTeacherCodes();
-      codes[editingTeacher.id] = codeVal;
-      setTeacherCodes(codes);
+      await saveTeacherCode(editingTeacher.id, codeVal);
       if (password.trim()) {
-        const passwords = JSON.parse(localStorage.getItem('zaroda_passwords') || '{}');
-        passwords[teacherForm.email.trim().toLowerCase()] = password.trim();
-        localStorage.setItem('zaroda_passwords', JSON.stringify(passwords));
+        toast({
+          title: 'Password Notice',
+          description: 'Teacher profile updated in Supabase. Password changes must be handled via Supabase Auth.',
+        });
       }
-      const existingPU = platformUsersStorage.findByEmail(teacherForm.email.trim().toLowerCase());
+      const existingPU = await platformUsersStorage.findByEmail(teacherForm.email.trim().toLowerCase());
       if (existingPU) {
-        platformUsersStorage.update(existingPU.id, {
+        await platformUsersStorage.update(existingPU.id, {
           isClassTeacher: classTeacherFields.is_class_teacher,
           classTeacherClassId: classTeacherFields.class_teacher_class_id,
           classTeacherClassName: classTeacherFields.class_teacher_class_name,
@@ -284,15 +290,17 @@ export default function DhoiTeachers() {
       toast({ title: 'Teacher Updated', description: `${teacherForm.full_name} has been updated.` });
     } else {
       const newTeacher = hoiTeachersStorage.add({ ...teacherData, ...classTeacherFields, hired_at: new Date().toISOString().split('T')[0] });
-      const codes = getTeacherCodes();
-      codes[newTeacher.id] = codeVal;
-      setTeacherCodes(codes);
-      const passwords = JSON.parse(localStorage.getItem('zaroda_passwords') || '{}');
-      passwords[teacherForm.email.trim().toLowerCase()] = password.trim();
-      localStorage.setItem('zaroda_passwords', JSON.stringify(passwords));
-      const existing = platformUsersStorage.getAll().find(u => u.email.toLowerCase() === teacherForm.email.trim().toLowerCase());
+      await saveTeacherCode(newTeacher.id, codeVal);
+      if (password.trim()) {
+        toast({
+          title: 'Password Notice',
+          description: 'Teacher profile created in Supabase. Password setup must be completed via Supabase Auth.',
+        });
+      }
+      const allUsers = await platformUsersStorage.getAll();
+      const existing = allUsers.find(u => u.email.toLowerCase() === teacherForm.email.trim().toLowerCase());
       if (!existing) {
-        platformUsersStorage.add({
+        await platformUsersStorage.add({
           email: teacherForm.email.trim().toLowerCase(),
           fullName: teacherForm.full_name.trim(),
           role: 'teacher',
@@ -308,7 +316,7 @@ export default function DhoiTeachers() {
           classTeacherStreamName: classTeacherFields.class_teacher_stream_name,
         });
       } else {
-        platformUsersStorage.update(existing.id, {
+        await platformUsersStorage.update(existing.id, {
           isClassTeacher: classTeacherFields.is_class_teacher,
           classTeacherClassId: classTeacherFields.class_teacher_class_id,
           classTeacherClassName: classTeacherFields.class_teacher_class_name,
@@ -327,7 +335,7 @@ export default function DhoiTeachers() {
       toast({ title: 'Teacher Added', description: `${teacherForm.full_name} has been added with code ${codeVal}. They can now log in with their email and password.` });
     }
     setTeacherDialogOpen(false);
-    loadData();
+    await loadData();
   };
 
   const toggleTeacherStatus = () => {
@@ -340,19 +348,19 @@ export default function DhoiTeachers() {
     loadData();
   };
 
-  const isSystemCreatedTeacher = (teacher: HoiTeacher) => {
-    const platformUser = platformUsersStorage.findByEmail(teacher.email);
+  const isSystemCreatedTeacher = async (teacher: HoiTeacher) => {
+    const platformUser = await platformUsersStorage.findByEmail(teacher.email);
     if (!platformUser) return true;
     if (platformUser.role !== 'teacher') return false;
     const createdBy = (platformUser.createdBy || '').trim().toLowerCase();
     return SYSTEM_CREATED_BY.has(createdBy);
   };
 
-  const deleteTeacher = () => {
+  const deleteTeacher = async () => {
     const teacher = deleteTeacherDialog.teacher;
     if (!teacher) return;
 
-    if (!isSystemCreatedTeacher(teacher)) {
+    if (!(await isSystemCreatedTeacher(teacher))) {
       toast({
         title: 'Delete Not Allowed',
         description: 'Only system-created teacher accounts can be deleted by HOI/DHOI.',
@@ -382,27 +390,16 @@ export default function DhoiTeachers() {
 
     hoiTeachersStorage.remove(teacher.id);
 
-    const teacherAccount = platformUsersStorage.findByEmail(teacher.email);
+    const teacherAccount = await platformUsersStorage.findByEmail(teacher.email);
     if (teacherAccount?.role === 'teacher') {
-      platformUsersStorage.remove(teacherAccount.id);
+      await platformUsersStorage.remove(teacherAccount.id);
     }
 
-    const email = teacher.email.trim().toLowerCase();
-    const passwords = JSON.parse(localStorage.getItem('zaroda_passwords') || '{}');
-    if (passwords[email]) {
-      delete passwords[email];
-      localStorage.setItem('zaroda_passwords', JSON.stringify(passwords));
-    }
-
-    const codes = getTeacherCodes();
-    if (codes[teacher.id]) {
-      delete codes[teacher.id];
-      setTeacherCodes(codes);
-    }
+    await removeTeacherCode(teacher.id);
 
     toast({ title: 'Teacher Deleted', description: `${teacher.full_name} and related records have been removed.` });
     setDeleteTeacherDialog({ open: false, teacher: null });
-    loadData();
+    await loadData();
   };
 
   const saveAssignment = () => {

@@ -4,7 +4,7 @@ import { Sidebar } from "@/components/superadmin/Sidebar";
 import { TopNav } from "@/components/superadmin/TopNav";
 import { StatsCards } from "@/components/superadmin/StatsCards";
 import { RevenueChart } from "@/components/superadmin/RevenueChart";
-import { SchoolsTable } from "@/components/dashboard/SchoolsTable";
+import { SchoolsTable } from "@/components/teacher/SchoolsTable";
 
 const Index = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);

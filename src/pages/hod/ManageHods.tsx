@@ -4,19 +4,23 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { hodStorage } from '@/lib/storage';
+import { getJsonValue, setJsonValue } from '@/lib/appKv';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 
 const DEPARTMENTS = ['STEM', 'Arts and Sports', 'Social Sciences'];
 
 const ManageHods = () => {
-  const [hods, setHods] = useState(() => hodStorage.getAll());
+  const [hods, setHods] = useState<Awaited<ReturnType<typeof hodStorage.getAll>>>([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ fullName: '', email: '', password: '', phone: '', employeeId: '', department: DEPARTMENTS[0], hodCode: '' });
   const { toast } = useToast();
 
   useEffect(() => {
-    setHods(hodStorage.getAll());
+    const loadHods = async () => {
+      setHods(await hodStorage.getAll());
+    };
+    void loadHods();
   }, []);
 
   const reset = () => setForm({ fullName: '', email: '', password: '', phone: '', employeeId: '', department: DEPARTMENTS[0], hodCode: '' });
@@ -24,14 +28,13 @@ const ManageHods = () => {
   const savePassword = (email: string, pwd: string) => {
     try {
       const key = 'zaroda_passwords';
-      const existing = localStorage.getItem(key);
-      const pwds = existing ? JSON.parse(existing) : {};
+      const pwds = getJsonValue<Record<string, string>>(key, {});
       pwds[email.toLowerCase()] = pwd;
-      localStorage.setItem(key, JSON.stringify(pwds));
+      setJsonValue(key, pwds);
     } catch (e) { /* ignore */ }
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     // validation
     if (!form.fullName.trim() || !form.email.trim() || !form.password.trim() || !form.department.trim()) {
       toast({ title: 'Missing fields', description: 'Please fill all required fields.', variant: 'destructive' });
@@ -43,12 +46,12 @@ const ManageHods = () => {
     if (form.password.length < 6) { toast({ title: 'Weak password', description: 'Password must be at least 6 characters.', variant: 'destructive' }); return; }
     if (!form.employeeId.trim()) { toast({ title: 'Missing employee ID', description: 'Please provide an employee ID.', variant: 'destructive' }); return; }
 
-    const existing = hodStorage.findByEmail(emailVal);
+    const existing = await hodStorage.findByEmail(emailVal);
     if (existing) { toast({ title: 'Exists', description: 'An HOD with this email already exists.', variant: 'destructive' }); return; }
 
-    const created = hodStorage.add({ fullName: form.fullName.trim(), email: emailVal, phone: form.phone.trim(), employeeId: form.employeeId.trim(), department: form.department, hodCode: form.hodCode.trim(), schoolCode: '' });
+    const created = await hodStorage.add({ fullName: form.fullName.trim(), email: emailVal, phone: form.phone.trim(), employeeId: form.employeeId.trim(), department: form.department, hodCode: form.hodCode.trim(), schoolCode: '' });
     savePassword(created.email, form.password.trim());
-    setHods(hodStorage.getAll());
+    setHods(await hodStorage.getAll());
     toast({ title: 'HOD created', description: `${created.fullName} created successfully.` });
     reset();
     setOpen(false);

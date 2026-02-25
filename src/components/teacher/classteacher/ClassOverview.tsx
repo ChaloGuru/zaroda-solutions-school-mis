@@ -20,11 +20,16 @@ export default function ClassOverview({ classId, className, streamId, streamName
   const [assessments, setAssessments] = useState<AssessmentRecord[]>([]);
 
   useEffect(() => {
-    const allStudents = hoiStudentsStorage.getAll().filter(s => s.class_id === classId && s.stream_id === streamId && s.status === 'active');
-    setStudents(allStudents);
-    setAssignments(hoiSubjectAssignmentsStorage.getAll().filter(a => a.class_id === classId && a.stream_id === streamId));
-    setAttendance(hoiAttendanceStorage.getAll().filter(a => a.class_id === classId && a.stream_id === streamId));
-    setAssessments(assessmentStorage.getAll().filter(r => allStudents.some(s => s.id === r.studentId || s.admission_no === r.admissionNo)));
+    const loadClassData = async () => {
+      const allStudents = hoiStudentsStorage.getAll().filter(s => s.class_id === classId && s.stream_id === streamId && s.status === 'active');
+      const allAssessments = await assessmentStorage.getAll();
+      setStudents(allStudents);
+      setAssignments(hoiSubjectAssignmentsStorage.getAll().filter(a => a.class_id === classId && a.stream_id === streamId));
+      setAttendance(hoiAttendanceStorage.getAll().filter(a => a.class_id === classId && a.stream_id === streamId));
+      setAssessments(allAssessments.filter(r => allStudents.some(s => s.id === r.studentId || s.admission_no === r.admissionNo)));
+    };
+
+    void loadClassData();
   }, [classId, streamId]);
 
   const maleCount = students.filter(s => s.gender === 'Male').length;

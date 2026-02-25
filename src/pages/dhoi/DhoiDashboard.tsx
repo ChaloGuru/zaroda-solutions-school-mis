@@ -32,7 +32,7 @@ import DhoiReports from './DhoiReports';
 import DhoiSettings from './DhoiSettings';
 
 export type SectionId =
-  | 'overview' | 'teachers' | 'students' | 'classes'
+  | 'overview' | 'teachers' | 'hods' | 'students' | 'classes'
   | 'officials' | 'subjects' | 'timetable' | 'attendance'
   | 'library' | 'sports' | 'elections'
   | 'reports' | 'settings';

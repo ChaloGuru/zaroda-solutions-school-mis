@@ -13,9 +13,16 @@ const PAGE_SIZE = 10;
 const LessonNotes = () => {
   const { currentUser } = useAuthContext();
   const { toast } = useToast();
-  const all = lessonNotesStorage.getAll();
+  const [all, setAll] = useState<LessonNote[]>([]);
   // filter by department via subject matching department name
   const notes = useMemo(() => all.filter(n => n.subject.includes(currentUser?.department || '')), [all, currentUser]);
+
+  React.useEffect(() => {
+    const loadNotes = async () => {
+      setAll(await lessonNotesStorage.getAll());
+    };
+    void loadNotes();
+  }, []);
 
   const [page, setPage] = useState(0);
   const pageItems = notes.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
@@ -26,15 +33,17 @@ const LessonNotes = () => {
   const [comment, setComment] = useState('');
 
   const openReview = (note: LessonNote) => { setActiveNote(note); setComment(note.hodComments || ''); setOpen(true); };
-  const approve = () => {
+  const approve = async () => {
     if (!activeNote) return;
-    lessonNotesStorage.update(activeNote.id, { status: 'approved', hodComments: comment });
+    await lessonNotesStorage.update(activeNote.id, { status: 'approved', hodComments: comment });
+    setAll(await lessonNotesStorage.getAll());
     toast({ title: 'Approved', description: 'Lesson note approved.' });
     setOpen(false);
   };
-  const sendBack = () => {
+  const sendBack = async () => {
     if (!activeNote) return;
-    lessonNotesStorage.update(activeNote.id, { status: 'returned', hodComments: comment });
+    await lessonNotesStorage.update(activeNote.id, { status: 'returned', hodComments: comment });
+    setAll(await lessonNotesStorage.getAll());
     toast({ title: 'Returned', description: 'Lesson note returned to teacher.' });
     setOpen(false);
   };

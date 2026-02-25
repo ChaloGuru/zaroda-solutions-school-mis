@@ -62,6 +62,7 @@ import {
   Eye,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getJsonValue } from '@/lib/appKv';
 
 const PAGE_SIZE = 10;
 
@@ -110,12 +111,9 @@ export default function DhoiSubjects() {
     setTeachers(hoiTeachersStorage.getAll());
     setClasses(hoiClassesStorage.getAll());
     setStreams(hoiStreamsStorage.getAll());
-    try {
-      const stored = localStorage.getItem('zaroda_teacher_codes');
-      if (stored) setTeacherCodes(JSON.parse(stored));
-    } catch {
-      setTeacherCodes([]);
-    }
+    const storedCodes = getJsonValue<Record<string, string>>('zaroda_teacher_codes', {});
+    const mappedCodes = Object.entries(storedCodes).map(([teacher_id, code]) => ({ teacher_id, code }));
+    setTeacherCodes(mappedCodes);
   };
 
   useEffect(() => { reload(); }, []);

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { examsStorage, examResultsStorage, assessmentStorage, type Exam } from '@/lib/storage';
+import { examsStorage, examResultsStorage, assessmentStorage, type Exam, type Student, type AssessmentRecord, type ExamResultEntry } from '@/lib/storage';
 import { useAuthContext } from '@/context/AuthContext';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,10 @@ const PAGE_SIZE = 10;
 const Exams = () => {
   const { currentUser } = useAuthContext();
   const { toast } = useToast();
-  const allExams = examsStorage.getAll().filter(e => e.schoolCode === currentUser?.schoolCode || !e.schoolCode);
+  const [allExams, setAllExams] = useState<Exam[]>([]);
+  const [allStudents, setAllStudents] = useState<Student[]>([]);
+  const [allAssessments, setAllAssessments] = useState<AssessmentRecord[]>([]);
+  const [allResults, setAllResults] = useState<ExamResultEntry[]>([]);
   const [openCreate, setOpenCreate] = useState(false);
   const [createForm, setCreateForm] = useState({ name: '', type: '', date: '', subjects: '', classes: '' });
 
@@ -25,11 +28,30 @@ const Exams = () => {
   const [assessmentBookForEntry, setAssessmentBookForEntry] = useState<string>('');
   const [marksMap, setMarksMap] = useState<Record<string, { marksScored: number | null; marksOutOf: number }>>({});
 
-  const createExam = () => {
+  const loadData = async () => {
+    const [exams, students, assessments, results] = await Promise.all([
+      examsStorage.getAll(),
+      studentsStorage.getAll(),
+      assessmentStorage.getAll(),
+      examResultsStorage.getAll(),
+    ]);
+
+    setAllExams(exams.filter(e => e.schoolCode === currentUser?.schoolCode || !e.schoolCode));
+    setAllStudents(students);
+    setAllAssessments(assessments);
+    setAllResults(results);
+  };
+
+  useEffect(() => {
+    void loadData();
+  }, [currentUser?.schoolCode]);
+
+  const createExam = async () => {
     if (!createForm.name || !createForm.type) { toast({ title: 'Missing', description: 'Fill required fields', variant: 'destructive' }); return; }
-    const exam = examsStorage.add({ name: createForm.name, type: createForm.type, date: createForm.date, subjects: createForm.subjects.split(',').map(s => s.trim()), classes: createForm.classes.split(',').map(c => c.trim()), schoolCode: currentUser?.schoolCode });
+    await examsStorage.add({ name: createForm.name, type: createForm.type, date: createForm.date, subjects: createForm.subjects.split(',').map(s => s.trim()), classes: createForm.classes.split(',').map(c => c.trim()), schoolCode: currentUser?.schoolCode });
     toast({ title: 'Exam created' });
     setOpenCreate(false);
+    await loadData();
   };
 
   const openResults = (exam: Exam) => {
@@ -41,12 +63,11 @@ const Exams = () => {
     setOpenEntry(true);
   };
 
-  const students = studentsStorage.getAll().filter(s => (selectedExam?.classes || []).includes(s.grade) || selectedExam?.classes.length === 0);
+  const students = allStudents.filter(s => (selectedExam?.classes || []).includes(s.grade) || selectedExam?.classes.length === 0);
 
   const assessmentBookOptions = useMemo(() => {
     if (!classForEntry || !subjectForEntry) return [] as Array<{ id: string; label: string }>;
-    const matched = assessmentStorage
-      .getAll()
+    const matched = allAssessments
       .filter((record) => record.grade === classForEntry && record.subject === subjectForEntry)
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
@@ -54,7 +75,7 @@ const Exams = () => {
       id: record.id,
       label: `${record.teacherName} • Term ${record.term} • Updated ${new Date(record.updatedAt).toLocaleDateString()}`,
     }));
-  }, [classForEntry, subjectForEntry, openEntry]);
+  }, [classForEntry, subjectForEntry, openEntry, allAssessments]);
 
   useEffect(() => {
     if (assessmentBookOptions.length === 0) {
@@ -73,11 +94,10 @@ const Exams = () => {
   }, [allExams]);
 
   const savedResults = useMemo(() => {
-    return examResultsStorage
-      .getAll()
+    return allResults
       .filter((result) => examLookup.has(result.examId))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }, [examLookup, openEntry]);
+  }, [examLookup, openEntry, allResults]);
 
   return (
     <div>
@@ -216,7 +236,7 @@ const Exams = () => {
 
               <div className="flex justify-end gap-2">
                 <Button variant="secondary" onClick={() => setOpenEntry(false)}>Close</Button>
-                <Button onClick={() => {
+                <Button onClick={async () => {
                   if (!subjectForEntry || !classForEntry) { toast({ title: 'Select subject/class', description: 'Please select a subject and class before saving.', variant: 'destructive' }); return; }
                   const selectedAssessmentBook = assessmentBookOptions.find((option) => option.id === assessmentBookForEntry);
                   const studentList = students;
@@ -225,7 +245,7 @@ const Exams = () => {
                     const ent = marksMap[key];
                     if (!ent || ent.marksScored === null) continue;
                     if (ent.marksScored > ent.marksOutOf) { toast({ title: 'Invalid marks', description: `Marks for ${s.full_name} exceed total`, variant: 'destructive' }); return; }
-                    examResultsStorage.add({
+                    await examResultsStorage.add({
                       examId: selectedExam.id,
                       subject: subjectForEntry,
                       className: classForEntry,
@@ -240,6 +260,7 @@ const Exams = () => {
                   }
                   toast({ title: 'Saved', description: 'Results saved.' });
                   setOpenEntry(false);
+                  await loadData();
                 }}>Save Results</Button>
               </div>
             </div>

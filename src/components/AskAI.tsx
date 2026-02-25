@@ -12,7 +12,7 @@ const AskAI = () => {
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { user } = useAuth();
+  const { currentUser } = useAuth();
   const { toast } = useToast();
 
   const capabilities = [
@@ -36,7 +36,7 @@ const AskAI = () => {
   const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
     
-    if (!user) {
+    if (!currentUser) {
       toast({
         title: "Login Required",
         description: "Please login to use the AI assistant with your school data.",
@@ -68,7 +68,7 @@ const AskAI = () => {
         },
         body: JSON.stringify({
           messages: nextMessages,
-          schoolId: user?.id,
+          schoolId: currentUser.schoolId || currentUser.id,
         }),
       });
 

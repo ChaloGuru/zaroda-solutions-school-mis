@@ -51,6 +51,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { exportToPdf } from '@/lib/pdfExport';
+import { getJsonValue, setJsonValue } from '@/lib/appKv';
 
 const STORAGE_KEY = 'zaroda_master_timetable';
 const TEACHER_CODES_KEY = 'zaroda_teacher_codes';
@@ -121,16 +122,9 @@ export default function DhoiTimetable() {
     setAssignments(hoiSubjectAssignmentsStorage.getAll());
     setSchoolName(hoiSchoolProfileStorage.get().name || 'School');
 
-    const storedCodes = localStorage.getItem(TEACHER_CODES_KEY);
-    if (storedCodes) {
-      setTeacherCodes(JSON.parse(storedCodes));
-    }
+    setTeacherCodes(getJsonValue<Record<string, string>>(TEACHER_CODES_KEY, {}));
 
-    const storedSlots = localStorage.getItem(STORAGE_KEY);
-    if (storedSlots) {
-      const parsed: MasterTimetableSlot[] = JSON.parse(storedSlots);
-      setAllSlots(parsed);
-    }
+    setAllSlots(getJsonValue<MasterTimetableSlot[]>(STORAGE_KEY, []));
 
     setDataReady(true);
   }, []);
@@ -180,7 +174,7 @@ export default function DhoiTimetable() {
 
   const saveSlots = (slots: MasterTimetableSlot[]) => {
     setAllSlots(slots);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(slots));
+    setJsonValue(STORAGE_KEY, slots);
   };
 
   const generateForType = useCallback((type: 'ecde' | 'lower_primary' | 'upper_primary' | 'junior', showToast = false) => {
@@ -200,8 +194,7 @@ export default function DhoiTimetable() {
 
     const generated = generateTimetable(configForType, relevantAssignments, teacherCodes);
 
-    const storedSlots = localStorage.getItem(STORAGE_KEY);
-    const existing: MasterTimetableSlot[] = storedSlots ? JSON.parse(storedSlots) : [];
+    const existing = getJsonValue<MasterTimetableSlot[]>(STORAGE_KEY, []);
     const otherSlots = existing.filter((s) => s.timetableType !== type);
     const newAll = [...otherSlots, ...generated];
 

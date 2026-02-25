@@ -1,4 +1,3 @@
-import html2pdf from 'html2pdf.js';
 import zarodaLogo from '@/assets/zaroda-logo.png';
 
 interface PdfOptions {
@@ -9,9 +8,11 @@ interface PdfOptions {
   fitToOnePage?: boolean;
 }
 
-export function exportToPdf(elementId: string, options: PdfOptions) {
+export async function exportToPdf(elementId: string, options: PdfOptions) {
   const element = document.getElementById(elementId);
   if (!element) return;
+
+  const { default: html2pdf } = await import('html2pdf.js');
 
   const wrapper = document.createElement('div');
   wrapper.style.padding = options.fitToOnePage ? '12px' : '20px';
@@ -98,6 +99,7 @@ export function exportToPdf(elementId: string, options: PdfOptions) {
   wrapper.appendChild(footer);
 
   const isLandscape = options.orientation === 'landscape';
+  const orientation: 'landscape' | 'portrait' = isLandscape ? 'landscape' : 'portrait';
   const margin: [number, number, number, number] = [10, 10, 10, 10];
 
   if (options.fitToOnePage) {
@@ -135,10 +137,10 @@ export function exportToPdf(elementId: string, options: PdfOptions) {
   const opt = {
     margin,
     filename: options.filename || `${options.title.replace(/\s+/g, '_')}.pdf`,
-    image: { type: 'jpeg', quality: 0.98 },
+    image: { type: 'jpeg' as const, quality: 0.98 },
     html2canvas: { scale: options.fitToOnePage ? 1.5 : 2, useCORS: true, logging: false },
     pagebreak: { mode: options.fitToOnePage ? 'avoid-all' : ['css', 'legacy'] },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: isLandscape ? 'landscape' : 'portrait' },
+    jsPDF: { unit: 'mm', format: 'a4', orientation },
   };
 
   html2pdf().set(opt).from(wrapper).save();

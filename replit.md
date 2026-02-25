@@ -8,24 +8,24 @@ A multi-tenant school management platform built with React, TypeScript, Vite, an
 - 2026-02-16: Simplified login page to a single unified form with School Code, Email, and Password fields. Removed role selector dropdown. System auto-detects user role based on credentials (checks SuperAdmin, platform users, DHOI accounts, and stored users in order).
 - 2026-02-16: Built complete DHOI (Deputy Head of Institution) Dashboard with 14 sections: Overview, Teachers (with teacher codes, assignments, duty roster), Students, Classes, Subjects, Master Timetable (3 types: Upper Primary/Junior School/ECDE with locked slots, auto-generate), Officials, Attendance, Library, Sports, Elections, Reports, Settings. DHOI account created by HOI only. Added "My Timetable" read-only tab to Teacher Dashboard. All DHOI sections share HOI data via hoiStorage.ts.
 - 2026-02-16: Connected auth so SuperAdmin creates HOI accounts. Added User Management section to SuperAdmin dashboard (create/edit/suspend/track users). HOI can no longer self-register - must use credentials assigned by SuperAdmin. Added PlatformUser & LoginActivity tracking, activity log, login history, and status checks (suspended accounts blocked). Teacher login also supports SuperAdmin-created accounts.
-- 2026-02-16: Built complete HOI (Head of Institution) Dashboard with 15 sections: Overview, School Management, Classes & Streams, Teacher Management, Student Management, Officials Management, Subjects, Timetable, Attendance Summary, Finances, Library, Sports, Elections, Reports, Settings. All with full CRUD, search/filter, pagination, modal dialogs, charts, and localStorage persistence.
-- 2026-02-16: Created HOI data layer (src/lib/hoiStorage.ts) with generic localStorage helpers, 22 typed interfaces, and seed data for all HOI entities.
+- 2026-02-16: Built complete HOI (Head of Institution) Dashboard with 15 sections: Overview, School Management, Classes & Streams, Teacher Management, Student Management, Officials Management, Subjects, Timetable, Attendance Summary, Finances, Library, Sports, Elections, Reports, Settings. All with full CRUD, search/filter, pagination, modal dialogs, charts, and persistent data storage.
+- 2026-02-16: Created HOI data layer (src/lib/hoiStorage.ts) with typed helpers, 22 interfaces, and seed data for all HOI entities.
 - 2026-02-16: Implemented complete CBC Assessment Book for Teacher Dashboard with grade/subject assignment during signup, comprehensive curriculum data for all 12 grades (Playgroup-Grade 9), assessment records storage, dynamic scoring forms (EE/ME/AE/BE or CAT1/CAT2/END TERM), and tab-based dashboard navigation.
-- 2026-02-16: Built all 5 SuperAdmin dashboard sections: Schools Management, Student Registry, Faculty Management, Finance & Billing, System Settings. Each has full CRUD, search/filter, and uses localStorage for data persistence with seed data.
+- 2026-02-16: Built all 5 SuperAdmin dashboard sections: Schools Management, Student Registry, Faculty Management, Finance & Billing, System Settings. Each has full CRUD, search/filter, and uses persistent data storage with seed data.
 - 2026-02-16: Created data layer (src/lib/storage.ts) with typed interfaces, CRUD helpers, and seed data for schools, students, faculty, invoices, and platform settings.
-- 2026-02-16: Added role-based authentication system using React Context + localStorage. Roles: SuperAdmin, Teacher, HOI, DHOI, Student, Parent. SuperAdmin has hardcoded credentials. Teacher and HOI support signup/login. Other roles show placeholder message.
+- 2026-02-16: Added role-based authentication system using React Context + Supabase Auth. Roles: SuperAdmin, Teacher, HOI, DHOI, Student, Parent. SuperAdmin has hardcoded credentials. Teacher and HOI support signup/login. Other roles show placeholder message.
 - 2026-02-16: Initial import and Replit environment setup. Configured Vite dev server on port 5000 with proxy-friendly host settings.
 
 ## Project Architecture
 - **Framework**: React 18 + TypeScript
 - **Build Tool**: Vite 7
 - **Styling**: Tailwind CSS + shadcn/ui components
-- **Auth**: React Context + localStorage (no backend yet)
-- **Data**: localStorage with typed CRUD helpers (src/lib/storage.ts, src/lib/hoiStorage.ts)
+- **Auth**: React Context + Supabase Auth
+- **Data**: Supabase-backed typed CRUD helpers (src/lib/storage.ts, src/lib/hoiStorage.ts)
 - **Charts**: Recharts for data visualization
 - **Animations**: Framer Motion
 - **Routing**: React Router v6 with ProtectedRoute component
-- **State/Data**: TanStack React Query + localStorage
+- **State/Data**: TanStack React Query + Supabase
 
 ### Authentication System
 - `src/context/AuthContext.tsx` - Auth provider with login/signup/logout + activity tracking
@@ -51,7 +51,7 @@ A multi-tenant school management platform built with React, TypeScript, Vite, an
 #### HOI-specific (src/lib/hoiStorage.ts)
 - Generic helpers: getData, setData, addItem, updateItem, deleteItem (crypto.randomUUID)
 - 22 interfaces: HoiClass, HoiStream, HoiTeacher, HoiStudent, HoiOfficial, HoiSubject, HoiSubjectAssignment, HoiTeacherDuty, HoiTimetableSlot, HoiAttendance, HoiFeePayment, HoiExpense, HoiBook, HoiBookIssue, HoiSport, HoiSportsTeam, HoiSportsEvent, HoiElection, HoiCandidate, HoiAnnouncement, HoiSchoolProfile, HoiCalendarEvent
-- All with seed data and localStorage key naming: zaroda_hoi_*
+- All with seed data and platform-managed persistence for HOI domain records
 
 ### SuperAdmin Dashboard Sections
 - `src/components/superadmin/sections/SchoolsSection.tsx` - Full CRUD school management
@@ -111,8 +111,8 @@ A multi-tenant school management platform built with React, TypeScript, Vite, an
 
 ## User Preferences
 - Keep existing login page design, only add logic
-- No Supabase auth - use React Context + localStorage
-- All data stored in localStorage with clear key names (zaroda_*)
+- Supabase auth + React Context
+- Persistent data stored in Supabase-managed tables and profile metadata
 - Every item has unique id (crypto.randomUUID)
 - Tables have pagination (10 rows per page)
 - All forms have validation

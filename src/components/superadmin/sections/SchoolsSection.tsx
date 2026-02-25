@@ -40,6 +40,7 @@ import {
   CheckCircle,
   XCircle,
   Pause,
+  Loader2,
   ArrowUpRight,
   ArrowDownRight,
   MoreHorizontal,
@@ -56,7 +57,7 @@ import { cn } from '@/lib/utils';
 const emptyForm = {
   name: '',
   school_code: '',
-  school_type: '',
+  school_type: '' as School['school_type'] | '',
   county: '',
   sub_county: '',
   zone: '',
@@ -69,20 +70,39 @@ const emptyForm = {
   faculty_count: 0,
 };
 
+type SchoolForm = typeof emptyForm;
+
 export default function SchoolsSection() {
   const [schools, setSchools] = useState<School[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSchool, setEditingSchool] = useState<School | null>(null);
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState<SchoolForm>(emptyForm);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; school: School | null }>({ open: false, school: null });
   const [categoriesInput, setCategoriesInput] = useState('');
   const { toast } = useToast();
 
-  const loadSchools = () => setSchools(schoolsStorage.getAll());
+  const loadSchools = async () => {
+    setIsLoading(true);
+    try {
+      const rows = await schoolsStorage.getAll();
+      setSchools(rows);
+    } catch (error) {
+      toast({
+        title: 'Failed to load schools',
+        description: error instanceof Error ? error.message : 'Could not fetch schools from Supabase.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  useEffect(() => { loadSchools(); }, []);
+  useEffect(() => {
+    void loadSchools();
+  }, []);
 
   const filtered = schools.filter((s) => {
     const term = searchTerm.toLowerCase();
@@ -124,35 +144,74 @@ export default function SchoolsSection() {
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
-    if (!form.name || !form.school_code) {
-      toast({ title: 'Validation Error', description: 'School name and code are required.', variant: 'destructive' });
+  const handleSave = async () => {
+    if (!form.name || !form.school_code || !form.school_type) {
+      toast({ title: 'Validation Error', description: 'School name, code, and type are required.', variant: 'destructive' });
       return;
     }
     const cats = categoriesInput.split(',').map(c => c.trim()).filter(Boolean);
-    if (editingSchool) {
-      schoolsStorage.update(editingSchool.id, { ...form, categories: cats });
-      toast({ title: 'School Updated', description: `${form.name} has been updated successfully.` });
-    } else {
-      schoolsStorage.add({ ...form, categories: cats });
-      toast({ title: 'School Added', description: `${form.name} has been added successfully.` });
+    const payload: Omit<School, 'id' | 'created_at'> = {
+      name: form.name,
+      school_code: form.school_code,
+      school_type: form.school_type as School['school_type'],
+      county: form.county,
+      sub_county: form.sub_county,
+      zone: form.zone,
+      contact_name: form.contact_name,
+      contact_email: form.contact_email,
+      contact_phone: form.contact_phone,
+      status: form.status,
+      categories: cats,
+      student_count: form.student_count,
+      faculty_count: form.faculty_count,
+    };
+    try {
+      if (editingSchool) {
+        await schoolsStorage.update(editingSchool.id, payload);
+        toast({ title: 'School Updated', description: `${form.name} has been updated successfully.` });
+      } else {
+        await schoolsStorage.add(payload);
+        toast({ title: 'School Added', description: `${form.name} has been added successfully.` });
+      }
+      setDialogOpen(false);
+      await loadSchools();
+    } catch (error) {
+      toast({
+        title: 'Save failed',
+        description: error instanceof Error ? error.message : 'Could not save school to Supabase.',
+        variant: 'destructive',
+      });
     }
-    setDialogOpen(false);
-    loadSchools();
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteDialog.school) return;
-    schoolsStorage.remove(deleteDialog.school.id);
-    toast({ title: 'School Deleted', description: `${deleteDialog.school.name} has been permanently removed.` });
-    setDeleteDialog({ open: false, school: null });
-    loadSchools();
+    try {
+      await schoolsStorage.remove(deleteDialog.school.id);
+      toast({ title: 'School Deleted', description: `${deleteDialog.school.name} has been permanently removed.` });
+      setDeleteDialog({ open: false, school: null });
+      await loadSchools();
+    } catch (error) {
+      toast({
+        title: 'Delete failed',
+        description: error instanceof Error ? error.message : 'Could not delete school from Supabase.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleStatusChange = (id: string, newStatus: 'active' | 'suspended') => {
-    schoolsStorage.update(id, { status: newStatus });
-    toast({ title: 'Status Updated', description: `School has been ${newStatus === 'active' ? 'activated' : 'suspended'}.` });
-    loadSchools();
+  const handleStatusChange = async (id: string, newStatus: 'active' | 'suspended') => {
+    try {
+      await schoolsStorage.update(id, { status: newStatus });
+      toast({ title: 'Status Updated', description: `School has been ${newStatus === 'active' ? 'activated' : 'suspended'}.` });
+      await loadSchools();
+    } catch (error) {
+      toast({
+        title: 'Status update failed',
+        description: error instanceof Error ? error.message : 'Could not update status in Supabase.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const updateField = (field: string, value: string | number) => {
@@ -251,7 +310,12 @@ export default function SchoolsSection() {
           </div>
         </div>
 
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <div className="p-12 text-center flex items-center justify-center gap-2 text-muted-foreground">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            Loading schools...
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="p-12 text-center">
             <p className="text-muted-foreground">No schools found.</p>
           </div>

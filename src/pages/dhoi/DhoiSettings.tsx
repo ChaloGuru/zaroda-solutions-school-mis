@@ -12,6 +12,8 @@ import {
   Moon,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuthContext } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 interface DhoiSettingsProps {
   onSignOut: () => void;
@@ -19,6 +21,7 @@ interface DhoiSettingsProps {
 
 export default function DhoiSettings({ onSignOut }: DhoiSettingsProps) {
   const { toast } = useToast();
+  const { currentUser } = useAuthContext();
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -29,7 +32,7 @@ export default function DhoiSettings({ onSignOut }: DhoiSettingsProps) {
     setIsDark(document.documentElement.classList.contains('dark'));
   }, []);
 
-  const handlePasswordChange = () => {
+  const handlePasswordChange = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
       toast({ title: 'Validation Error', description: 'All password fields are required', variant: 'destructive' });
       return;
@@ -44,35 +47,16 @@ export default function DhoiSettings({ onSignOut }: DhoiSettingsProps) {
     }
 
     try {
-      const currentUserStr = localStorage.getItem('zaroda_current_user');
-      if (!currentUserStr) {
+      const email = currentUser?.email?.toLowerCase();
+      if (!email) {
         toast({ title: 'Error', description: 'No user session found', variant: 'destructive' });
         return;
       }
-      const currentUser = JSON.parse(currentUserStr);
-      const email = currentUser.email?.toLowerCase();
 
-      const passwords: Record<string, string> = JSON.parse(localStorage.getItem('zaroda_passwords') || '{}');
-      if (passwords[email] !== currentPassword) {
-        toast({ title: 'Error', description: 'Current password is incorrect', variant: 'destructive' });
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) {
+        toast({ title: 'Error', description: error.message || 'Failed to update password', variant: 'destructive' });
         return;
-      }
-
-      passwords[email] = newPassword;
-      localStorage.setItem('zaroda_passwords', JSON.stringify(passwords));
-
-      const dhoiAccountsStr = localStorage.getItem('zaroda_dhoi_account');
-      if (dhoiAccountsStr) {
-        const dhoiAccounts = JSON.parse(dhoiAccountsStr);
-        if (Array.isArray(dhoiAccounts)) {
-          const idx = (dhoiAccounts as DhoiStoredAccount[]).findIndex((a) => a.email?.toLowerCase() === email);
-          if (idx !== -1) {
-            dhoiAccounts[idx] = { ...dhoiAccounts[idx], password: newPassword };
-            localStorage.setItem('zaroda_dhoi_account', JSON.stringify(dhoiAccounts));
-          }
-        } else if (dhoiAccounts?.email?.toLowerCase() === email) {
-          localStorage.setItem('zaroda_dhoi_account', JSON.stringify({ ...dhoiAccounts, password: newPassword }));
-        }
       }
 
       toast({ title: 'Password Changed', description: 'Your password has been updated successfully' });
@@ -178,8 +162,3 @@ export default function DhoiSettings({ onSignOut }: DhoiSettingsProps) {
     </div>
   );
 }
-
-type DhoiStoredAccount = {
-  email?: string;
-  password?: string;
-};

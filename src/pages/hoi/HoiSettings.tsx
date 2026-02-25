@@ -13,12 +13,11 @@ import {
   Moon,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/lib/supabase';
 
 interface HoiSettingsProps {
   onSignOut: () => void;
 }
-
-const NOTIF_KEY = 'zaroda_hoi_notification_prefs';
 
 interface NotifPrefs {
   email: boolean;
@@ -37,14 +36,20 @@ export default function HoiSettings({ onSignOut }: HoiSettingsProps) {
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem(NOTIF_KEY);
-    if (stored) {
-      setNotifPrefs(JSON.parse(stored));
-    }
+    const loadPrefs = async () => {
+      try {
+        const { data } = await supabase.auth.getUser();
+        const stored = data.user?.user_metadata?.hoi_notification_prefs as NotifPrefs | undefined;
+        if (stored) setNotifPrefs(stored);
+      } catch {
+        setNotifPrefs({ email: true, sms: false, push: true });
+      }
+    };
+    void loadPrefs();
     setIsDark(document.documentElement.classList.contains('dark'));
   }, []);
 
-  const handlePasswordChange = () => {
+  const handlePasswordChange = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
       toast({ title: 'Validation Error', description: 'All password fields are required', variant: 'destructive' });
       return;
@@ -57,16 +62,34 @@ export default function HoiSettings({ onSignOut }: HoiSettingsProps) {
       toast({ title: 'Validation Error', description: 'Passwords do not match', variant: 'destructive' });
       return;
     }
+
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      toast({ title: 'Error', description: error.message || 'Failed to update password', variant: 'destructive' });
+      return;
+    }
+
     toast({ title: 'Password Changed', description: 'Your password has been updated successfully' });
     setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
   };
 
-  const updateNotifPref = (key: keyof NotifPrefs, value: boolean) => {
+  const updateNotifPref = async (key: keyof NotifPrefs, value: boolean) => {
     const updated = { ...notifPrefs, [key]: value };
     setNotifPrefs(updated);
-    localStorage.setItem(NOTIF_KEY, JSON.stringify(updated));
+
+    const { error } = await supabase.auth.updateUser({
+      data: {
+        hoi_notification_prefs: updated,
+      },
+    });
+
+    if (error) {
+      toast({ title: 'Error', description: error.message || 'Failed to save preferences', variant: 'destructive' });
+      return;
+    }
+
     toast({ title: 'Preferences Saved' });
   };
 

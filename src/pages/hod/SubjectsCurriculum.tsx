@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { schemeOfWorkStorage } from '@/lib/storage';
+import { schemeOfWorkStorage, type SchemeOfWork } from '@/lib/storage';
 import { useAuthContext } from '@/context/AuthContext';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -15,17 +15,25 @@ const SubjectsCurriculum = () => {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ term: '', subject: '', className: '' });
-  const all = schemeOfWorkStorage.getAll();
+  const [all, setAll] = useState<SchemeOfWork[]>([]);
   // filter by department — assume subject naming contains dept or HOD's department matches subject
   const items = useMemo(() => all.filter(s => s.subject.includes(currentUser?.department || '')), [all, currentUser]);
   const [page, setPage] = useState(0);
 
+  React.useEffect(() => {
+    const loadSchemes = async () => {
+      setAll(await schemeOfWorkStorage.getAll());
+    };
+    void loadSchemes();
+  }, []);
+
   const pageCount = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
   const pageItems = items.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
 
-  const createScheme = () => {
+  const createScheme = async () => {
     if (!form.term || !form.subject || !form.className) { toast({ title: 'Missing', description: 'Fill required fields', variant: 'destructive' }); return; }
-    schemeOfWorkStorage.add({ term: form.term, subject: form.subject, className: form.className, weeks: [], schoolCode: currentUser?.schoolCode });
+    await schemeOfWorkStorage.add({ term: form.term, subject: form.subject, className: form.className, weeks: [], schoolCode: currentUser?.schoolCode });
+    setAll(await schemeOfWorkStorage.getAll());
     toast({ title: 'Saved', description: 'Scheme of work created.' });
     setOpen(false);
   };

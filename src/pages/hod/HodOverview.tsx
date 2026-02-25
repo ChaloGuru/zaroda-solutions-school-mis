@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAuthContext } from '@/context/AuthContext';
-import { facultyStorage, schemeOfWorkStorage, studentsStorage, examResultsStorage, lessonNotesStorage, departmentAnnouncementsStorage } from '@/lib/storage';
+import { facultyStorage, schemeOfWorkStorage, studentsStorage, examResultsStorage, lessonNotesStorage, departmentAnnouncementsStorage, type Faculty, type SchemeOfWork, type LessonNote, type ExamResultEntry, type DepartmentAnnouncement } from '@/lib/storage';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -12,25 +12,51 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recha
 const HodOverview = ({ onNavigate }: { onNavigate?: (s: string) => void }) => {
   const { currentUser } = useAuthContext();
   const { toast } = useToast();
+  const [allTeachers, setAllTeachers] = useState<Faculty[]>([]);
+  const [allSchemes, setAllSchemes] = useState<SchemeOfWork[]>([]);
+  const [allStudents, setAllStudents] = useState<Awaited<ReturnType<typeof studentsStorage.getAll>>>([]);
+  const [allLessonNotes, setAllLessonNotes] = useState<LessonNote[]>([]);
+  const [allExamResults, setAllExamResults] = useState<ExamResultEntry[]>([]);
+  const [announcements, setAnnouncements] = useState<DepartmentAnnouncement[]>([]);
 
-  const teachers = useMemo(() => facultyStorage.getAll().filter(t => t.department === currentUser?.department), [currentUser]);
-  const schemes = useMemo(() => schemeOfWorkStorage.getAll().filter(s => s.subject.includes(currentUser?.department || '')), [currentUser]);
-  const students = useMemo(() => studentsStorage.getAll(), []);
-  const lessonNotes = useMemo(() => lessonNotesStorage.getAll().filter(n => n.subject.includes(currentUser?.department || '')), [currentUser]);
+  useEffect(() => {
+    const loadData = async () => {
+      const [teachers, schemes, students, lessonNotes, results, deptAnnouncements] = await Promise.all([
+        facultyStorage.getAll(),
+        schemeOfWorkStorage.getAll(),
+        studentsStorage.getAll(),
+        lessonNotesStorage.getAll(),
+        examResultsStorage.getAll(),
+        departmentAnnouncementsStorage.getByDepartment(currentUser?.department || ''),
+      ]);
+
+      setAllTeachers(teachers);
+      setAllSchemes(schemes);
+      setAllStudents(students);
+      setAllLessonNotes(lessonNotes);
+      setAllExamResults(results);
+      setAnnouncements(deptAnnouncements);
+    };
+
+    void loadData();
+  }, [currentUser?.department]);
+
+  const teachers = useMemo(() => allTeachers.filter(t => t.department === currentUser?.department), [allTeachers, currentUser]);
+  const schemes = useMemo(() => allSchemes.filter(s => s.subject.includes(currentUser?.department || '')), [allSchemes, currentUser]);
+  const lessonNotes = useMemo(() => allLessonNotes.filter(n => n.subject.includes(currentUser?.department || '')), [allLessonNotes, currentUser]);
 
   const studentsTaking = useMemo(() => {
-    // count unique students referenced in exam results or lesson notes for department
-    const results = examResultsStorage.getAll().filter(r => r.subject.includes(currentUser?.department || ''));
+    const results = allExamResults.filter(r => r.subject.includes(currentUser?.department || ''));
     const ids = new Set(results.map(r => r.studentId));
     return ids.size || lessonNotes.length;
-  }, [currentUser]);
+  }, [allExamResults, lessonNotes, currentUser]);
 
   const avgPerformance = useMemo(() => {
-    const results = examResultsStorage.getAll().filter(r => r.subject.includes(currentUser?.department || ''));
+    const results = allExamResults.filter(r => r.subject.includes(currentUser?.department || ''));
     if (results.length === 0) return 0;
     const avg = Math.round(results.reduce((s, r) => s + r.percentage, 0) / results.length);
     return avg;
-  }, [currentUser]);
+  }, [allExamResults, currentUser]);
 
   const recentLessonNotes = lessonNotes.filter(n => {
     const d = new Date(n.createdAt);
@@ -39,28 +65,27 @@ const HodOverview = ({ onNavigate }: { onNavigate?: (s: string) => void }) => {
 
   const chartData = useMemo(() => {
     const bySubject: Record<string, { total: number; count: number }> = {};
-    const results = examResultsStorage.getAll().filter(r => r.subject.includes(currentUser?.department || ''));
+    const results = allExamResults.filter(r => r.subject.includes(currentUser?.department || ''));
     for (const r of results) {
       bySubject[r.subject] = bySubject[r.subject] || { total: 0, count: 0 };
       bySubject[r.subject].total += r.percentage;
       bySubject[r.subject].count += 1;
     }
     return Object.entries(bySubject).map(([k, v]) => ({ subject: k, avg: Math.round(v.total / v.count) }));
-  }, [currentUser]);
+  }, [allExamResults, currentUser]);
 
   // announcements
   const [annOpen, setAnnOpen] = useState(false);
   const [annForm, setAnnForm] = useState({ title: '', body: '' });
 
-  const postAnnouncement = () => {
+  const postAnnouncement = async () => {
     if (!annForm.title.trim() || !annForm.body.trim()) { toast({ title: 'Missing', description: 'Title and body required', variant: 'destructive' }); return; }
-    departmentAnnouncementsStorage.add({ department: currentUser?.department || '', title: annForm.title.trim(), body: annForm.body.trim(), author: currentUser?.fullName || '', createdAt: new Date().toISOString() });
+    await departmentAnnouncementsStorage.add({ department: currentUser?.department || '', title: annForm.title.trim(), body: annForm.body.trim(), author: currentUser?.fullName || '' });
+    setAnnouncements(await departmentAnnouncementsStorage.getByDepartment(currentUser?.department || ''));
     setAnnForm({ title: '', body: '' });
     setAnnOpen(false);
     toast({ title: 'Posted', description: 'Announcement posted to your department.' });
   };
-
-  const announcements = departmentAnnouncementsStorage.getByDepartment(currentUser?.department || '');
 
   return (
     <div className="space-y-6">

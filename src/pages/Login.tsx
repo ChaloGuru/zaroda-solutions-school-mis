@@ -50,7 +50,7 @@ const Login = () => {
     setIsSubmitting(true);
 
     try {
-      const result = login(formData.email, formData.password, formData.schoolCode, role);
+      const result = await login(formData.email, formData.password, formData.schoolCode, role);
       if (result.success) {
         toast({ title: 'Login successful!', description: 'Welcome back to Zaroda Solutions.' });
       } else {

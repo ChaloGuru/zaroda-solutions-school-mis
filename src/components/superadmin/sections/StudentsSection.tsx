@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { studentsStorage, schoolsStorage, Student } from '@/lib/storage';
+import { studentsStorage, schoolsStorage, Student, School } from '@/lib/storage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +40,7 @@ import {
   Search,
   Pencil,
   Trash2,
+  Loader2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -60,6 +61,8 @@ const emptyForm = {
 
 export default function StudentsSection() {
   const [students, setStudents] = useState<Student[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [schoolFilter, setSchoolFilter] = useState('all');
@@ -69,11 +72,27 @@ export default function StudentsSection() {
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; student: Student | null }>({ open: false, student: null });
   const { toast } = useToast();
 
-  const schools = schoolsStorage.getAll();
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const [studentRows, schoolRows] = await Promise.all([
+        studentsStorage.getAll(),
+        schoolsStorage.getAll(),
+      ]);
+      setStudents(studentRows);
+      setSchools(schoolRows);
+    } catch (error) {
+      toast({
+        title: 'Failed to load students',
+        description: error instanceof Error ? error.message : 'Could not fetch records from server.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const loadStudents = () => setStudents(studentsStorage.getAll());
-
-  useEffect(() => { loadStudents(); }, []);
+  useEffect(() => { void loadData(); }, []);
 
   const getSchoolName = (schoolId: string) => {
     const school = schools.find(s => s.id === schoolId);
@@ -117,28 +136,44 @@ export default function StudentsSection() {
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.full_name || !form.admission_no || !form.school_id) {
       toast({ title: 'Validation Error', description: 'Full name, admission number, and school are required.', variant: 'destructive' });
       return;
     }
-    if (editingStudent) {
-      studentsStorage.update(editingStudent.id, form);
-      toast({ title: 'Student Updated', description: `${form.full_name} has been updated successfully.` });
-    } else {
-      studentsStorage.add(form);
-      toast({ title: 'Student Added', description: `${form.full_name} has been added successfully.` });
+    try {
+      if (editingStudent) {
+        await studentsStorage.update(editingStudent.id, form);
+        toast({ title: 'Student Updated', description: `${form.full_name} has been updated successfully.` });
+      } else {
+        await studentsStorage.add(form);
+        toast({ title: 'Student Added', description: `${form.full_name} has been added successfully.` });
+      }
+      setDialogOpen(false);
+      await loadData();
+    } catch (error) {
+      toast({
+        title: editingStudent ? 'Update failed' : 'Creation failed',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
     }
-    setDialogOpen(false);
-    loadStudents();
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteDialog.student) return;
-    studentsStorage.remove(deleteDialog.student.id);
-    toast({ title: 'Student Deleted', description: `${deleteDialog.student.full_name} has been permanently removed.` });
-    setDeleteDialog({ open: false, student: null });
-    loadStudents();
+    try {
+      await studentsStorage.remove(deleteDialog.student.id);
+      toast({ title: 'Student Deleted', description: `${deleteDialog.student.full_name} has been permanently removed.` });
+      setDeleteDialog({ open: false, student: null });
+      await loadData();
+    } catch (error) {
+      toast({
+        title: 'Delete failed',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const updateField = (field: string, value: string) => {
@@ -249,7 +284,12 @@ export default function StudentsSection() {
           </div>
         </div>
 
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <div className="p-12 text-center flex items-center justify-center gap-2 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Loading students...
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="p-12 text-center">
             <p className="text-muted-foreground">No students found.</p>
           </div>
@@ -361,7 +401,7 @@ export default function StudentsSection() {
             </div>
             <div className="space-y-2">
               <Label>Grade</Label>
-              <Input value={form.grade} onChange={(e) => updateField('grade', e.target.value)} placeholder="e.g. Form 3" />
+              <Input value={form.grade} onChange={(e) => updateField('grade', e.target.value)} placeholder="e.g. Grade 7" />
             </div>
             <div className="space-y-2">
               <Label>Stream</Label>

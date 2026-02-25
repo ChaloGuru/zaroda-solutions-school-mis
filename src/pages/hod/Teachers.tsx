@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { facultyStorage, hodObservationsStorage, type Faculty } from '@/lib/storage';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -13,8 +13,15 @@ const PAGE_SIZE = 10;
 const TeachersInDept = () => {
   const { currentUser } = useAuthContext();
   const { toast } = useToast();
-  const allTeachers = facultyStorage.getAll();
+  const [allTeachers, setAllTeachers] = useState<Faculty[]>([]);
   const teachers = useMemo(() => allTeachers.filter(t => t.department === currentUser?.department), [allTeachers, currentUser]);
+
+  useEffect(() => {
+    const loadTeachers = async () => {
+      setAllTeachers(await facultyStorage.getAll());
+    };
+    void loadTeachers();
+  }, []);
 
   const [page, setPage] = useState(0);
   const pageCount = Math.ceil(teachers.length / PAGE_SIZE);

@@ -2,7 +2,7 @@ I have an existing React + Vite + Tailwind + shadcn/ui project with a SuperAdmin
 
 ROUTE: /hoi-dashboard (already protected by role-based auth)
 LAYOUT:
-Build a sidebar layout with a top navbar. The sidebar should have collapsible menu sections. Use shadcn/ui components, Tailwind, and lucide-react icons throughout. Store all data in localStorage for now (backend will be added later). Make every section its own page/tab that renders inside the dashboard layout without leaving the page.
+Build a sidebar layout with a top navbar. The sidebar should have collapsible menu sections. Use shadcn/ui components, Tailwind, and lucide-react icons throughout. Store all data in Supabase. Make every section its own page/tab that renders inside the dashboard layout without leaving the page.
 
 SIDEBAR MENU SECTIONS AND FEATURES:
 1. Overview (Home)
@@ -82,7 +82,7 @@ Outstanding fees — list of students who haven't paid with amounts owed
 Expense tracking — add school expenses (item, amount, category, date)
 Revenue vs Expenses summary card
 Monthly financial report view
-All data stored in localStorage for now
+All data stored in Supabase
 
 11. Library
 
@@ -125,12 +125,12 @@ Logout button → clears auth and redirects to /login
 
 
 DATA STORAGE:
-Use localStorage for all data with clear key names like zaroda_teachers, zaroda_students, zaroda_classes, zaroda_finances etc. so it's easy to replace with API calls later.
+Use Supabase tables for all data with clear entity naming so the architecture is consistent.
 Create a src/lib/storage.ts utility file with helper functions:
 
-getData(key) → parse from localStorage
-setData(key, data) → stringify to localStorage
-addItem(key, item) → add to an array in localStorage
+getData(key) → query from Supabase
+setData(key, data) → upsert to Supabase
+addItem(key, item) → insert into Supabase table
 updateItem(key, id, updates) → update one item by id
 deleteItem(key, id) → remove one item by id
 

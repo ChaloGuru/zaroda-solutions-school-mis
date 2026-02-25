@@ -89,22 +89,14 @@ export default function HoiOverview({ onNavigate }: HoiOverviewProps) {
       'grade 7': 'Grade 7',
       jss1: 'Grade 7',
       'jss 1': 'Grade 7',
-      form1: 'Grade 7',
-      'form 1': 'Grade 7',
       grade8: 'Grade 8',
       'grade 8': 'Grade 8',
       jss2: 'Grade 8',
       'jss 2': 'Grade 8',
-      form2: 'Grade 8',
-      'form 2': 'Grade 8',
       grade9: 'Grade 9',
       'grade 9': 'Grade 9',
       jss3: 'Grade 9',
       'jss 3': 'Grade 9',
-      form3: 'Grade 9',
-      'form 3': 'Grade 9',
-      form4: 'Grade 9',
-      'form 4': 'Grade 9',
     };
     return classMap[normalized] || classMap[compact] || value;
   };
@@ -143,56 +135,60 @@ export default function HoiOverview({ onNavigate }: HoiOverviewProps) {
   }, [students]);
 
   useEffect(() => {
-    const students = hoiStudentsStorage.getAll();
-    const teachers = hoiTeachersStorage.getAll();
-    const classes = hoiClassesStorage.getAll();
-    const fees = hoiFeesStorage.getAll();
-    const attendance = hoiAttendanceStorage.getAll();
-    const anns = hoiAnnouncementsStorage.getAll();
+    const loadOverviewData = async () => {
+      const students = hoiStudentsStorage.getAll();
+      const teachers = hoiTeachersStorage.getAll();
+      const classes = hoiClassesStorage.getAll();
+      const fees = hoiFeesStorage.getAll();
+      const attendance = hoiAttendanceStorage.getAll();
+      const anns = hoiAnnouncementsStorage.getAll();
 
-    setTotalStudents(students.length);
-    setTotalTeachers(teachers.length);
-    setTotalClasses(classes.length);
+      setTotalStudents(students.length);
+      setTotalTeachers(teachers.length);
+      setTotalClasses(classes.length);
 
-    const now = new Date();
-    const thisMonth = now.getMonth();
-    const thisYear = now.getFullYear();
-    const monthRevenue = fees
-      .filter((f) => {
-        const d = new Date(f.date);
-        return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
-      })
-      .reduce((sum, f) => sum + f.amount, 0);
-    setTotalRevenue(monthRevenue);
+      const now = new Date();
+      const thisMonth = now.getMonth();
+      const thisYear = now.getFullYear();
+      const monthRevenue = fees
+        .filter((f) => {
+          const d = new Date(f.date);
+          return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+        })
+        .reduce((sum, f) => sum + f.amount, 0);
+      setTotalRevenue(monthRevenue);
 
-    const todayStr = now.toISOString().split('T')[0];
-    const todayAtt = attendance.filter((a) => a.date === todayStr);
-    const presentCount = todayAtt.filter((a) => a.status === 'present').length;
-    const rate = todayAtt.length > 0 ? Math.round((presentCount / todayAtt.length) * 100) : 0;
-    setAttendanceRate(rate);
+      const todayStr = now.toISOString().split('T')[0];
+      const todayAtt = attendance.filter((a) => a.date === todayStr);
+      const presentCount = todayAtt.filter((a) => a.status === 'present').length;
+      const rate = todayAtt.length > 0 ? Math.round((presentCount / todayAtt.length) * 100) : 0;
+      setAttendanceRate(rate);
 
-    setAnnouncements(anns.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-    setAdminAnnouncements(adminAnnouncementsStorage.getByTargetRole('hoi'));
+      setAnnouncements(anns.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      setAdminAnnouncements(await adminAnnouncementsStorage.getByTargetRole('hoi'));
 
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const cData = months.map((m, i) => {
-      const mFees = fees.filter((f) => new Date(f.date).getMonth() === i).reduce((s, f) => s + f.amount, 0);
-      const mAtt = attendance.filter((a) => new Date(a.date).getMonth() === i);
-      const mPresent = mAtt.filter((a) => a.status === 'present').length;
-      const mRate = mAtt.length > 0 ? Math.round((mPresent / mAtt.length) * 100) : 0;
-      return { name: m, revenue: mFees / 1000, attendance: mRate };
-    });
-    setChartData(cData);
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const cData = months.map((m, i) => {
+        const mFees = fees.filter((f) => new Date(f.date).getMonth() === i).reduce((s, f) => s + f.amount, 0);
+        const mAtt = attendance.filter((a) => new Date(a.date).getMonth() === i);
+        const mPresent = mAtt.filter((a) => a.status === 'present').length;
+        const mRate = mAtt.length > 0 ? Math.round((mPresent / mAtt.length) * 100) : 0;
+        return { name: m, revenue: mFees / 1000, attendance: mRate };
+      });
+      setChartData(cData);
 
-    setReadAdminAnnouncementIds(adminAnnouncementReadStorage.getReadIds(adminAnnouncementUserKey));
+      setReadAdminAnnouncementIds(await adminAnnouncementReadStorage.getReadIds(adminAnnouncementUserKey));
+    };
+
+    void loadOverviewData();
   }, [adminAnnouncementUserKey]);
 
   const unreadAdminCount = adminAnnouncements.filter((announcement) => !readAdminAnnouncementIds.includes(announcement.id)).length;
 
-  const markAllAdminAnnouncementsRead = () => {
+  const markAllAdminAnnouncementsRead = async () => {
     const ids = adminAnnouncements.map((announcement) => announcement.id);
-    adminAnnouncementReadStorage.markManyRead(adminAnnouncementUserKey, ids);
-    setReadAdminAnnouncementIds(adminAnnouncementReadStorage.getReadIds(adminAnnouncementUserKey));
+    await adminAnnouncementReadStorage.markManyRead(adminAnnouncementUserKey, ids);
+    setReadAdminAnnouncementIds(await adminAnnouncementReadStorage.getReadIds(adminAnnouncementUserKey));
   };
 
   const statCards = [
@@ -203,7 +199,7 @@ export default function HoiOverview({ onNavigate }: HoiOverviewProps) {
     { label: 'Attendance Today', value: `${attendanceRate}%`, icon: ClipboardCheck, color: 'text-sky-600', bg: 'bg-sky-500/10' },
   ];
 
-  const quickActions = [
+  const quickActions: Array<{ label: string; section: Parameters<HoiOverviewProps['onNavigate']>[0]; icon: typeof UserPlus }> = [
     { label: 'Add Teacher', section: 'teachers', icon: UserPlus },
     { label: 'Add Student', section: 'students', icon: GraduationCap },
     { label: 'View Timetable', section: 'timetable', icon: CalendarDays },

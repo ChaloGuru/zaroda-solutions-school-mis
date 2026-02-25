@@ -7,9 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ArrowLeft, School, User, Mail, Phone, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import zarodaLogo from '@/assets/zaroda-logo.png';
-
-// TODO: Replace with Replit backend API
-const API_BASE = 'https://your-replit.replit.dev/api';
+import { useAuthContext, getDashboardForRole, type UserRole } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { signUpSchema, mapAuthError } from '@/lib/validation';
 
 const counties = [
@@ -41,6 +40,7 @@ const SignUp = () => {
   
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { signup, currentUser } = useAuthContext();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -72,35 +72,83 @@ const SignUp = () => {
     setIsSubmitting(true);
 
     try {
-      // TODO: Replace with fetch(`${API_BASE}/auth/signup`)
-      // const response = await fetch(`${API_BASE}/auth/signup`, {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     school: formData.schoolName,
-      //     schoolCode: formData.schoolCode,
-      //     email: formData.email,
-      //     password: formData.password,
-      //     contactName: formData.contactName,
-      //     phone: formData.phone,
-      //     county: formData.county,
-      //     subCounty: formData.subCounty,
-      //     zone: formData.zone,
-      //     schoolType: formData.schoolType
-      //   })
-      // });
-      // const data = await response.json();
+      const result = await signup({
+        fullName: formData.contactName.trim(),
+        email: formData.email.trim().toLowerCase(),
+        password: formData.password,
+        schoolCode: formData.schoolCode.trim(),
+        phone: formData.phone.trim(),
+        subject: 'General',
+        grade: 'Grade 7',
+      });
+
+      if (!result.success) {
+        toast({
+          title: 'Registration failed',
+          description: mapAuthError(result.error || 'Could not create account. Please try again.'),
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        const { data: school, error: schoolError } = await supabase
+          .from('schools')
+          .select('id,name,school_code')
+          .eq('school_code', formData.schoolCode.trim())
+          .maybeSingle();
+
+        if (schoolError) {
+          toast({
+            title: 'Registration partial success',
+            description: mapAuthError(schoolError.message),
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        const { error: profileError } = await supabase.from('profiles').upsert(
+          {
+            id: user.id,
+            full_name: formData.contactName.trim(),
+            email: formData.email.trim().toLowerCase(),
+            role: 'teacher',
+            school_id: school?.id || null,
+            school_code: school?.school_code || formData.schoolCode.trim(),
+            school_name: school?.name || formData.schoolName.trim(),
+            phone: formData.phone.trim(),
+            status: 'active',
+            created_by: 'Self-registered',
+          },
+          { onConflict: 'id' }
+        );
+
+        if (profileError) {
+          toast({
+            title: 'Registration partial success',
+            description: mapAuthError(profileError.message),
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+
+      const roleToRoute: UserRole = currentUser?.role || 'teacher';
       
       toast({
         title: "Registration successful!",
-        description: "Your school has been registered. Connect to Replit backend.",
+        description: "Your account has been created successfully.",
       });
       
-      navigate('/login');
-    } catch {
+      navigate(getDashboardForRole(roleToRoute), { replace: true });
+    } catch (error) {
       toast({
         title: "Registration failed",
-        description: "Connection error. Please check Replit backend.",
+        description: mapAuthError(error instanceof Error ? error.message : 'Unexpected signup error.'),
         variant: "destructive",
       });
     } finally {

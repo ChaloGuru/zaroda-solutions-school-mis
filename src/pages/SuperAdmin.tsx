@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   CheckCircle,
   XCircle,
   Pause,
   ArrowUpRight,
   LayoutDashboard,
-  School,
+  School as SchoolIcon,
   Users,
   GraduationCap,
   DollarSign,
@@ -23,7 +23,7 @@ import SettingsSection from '@/components/superadmin/sections/SettingsSection';
 import UsersSection from '@/components/superadmin/sections/UsersSection';
 import CommunicationSection from '@/components/superadmin/sections/CommunicationSection';
 import DashboardLayout, { type MenuGroup } from '@/components/DashboardLayout';
-import { schoolsStorage, studentsStorage, facultyStorage, invoicesStorage } from '@/lib/storage';
+import { schoolsStorage, studentsStorage, facultyStorage, invoicesStorage, type School, type Student, type Faculty, type Invoice } from '@/lib/storage';
 
 const menuGroups: MenuGroup[] = [
   {
@@ -36,7 +36,7 @@ const menuGroups: MenuGroup[] = [
   {
     label: 'Management',
     items: [
-      { id: 'schools', label: 'Schools', icon: School },
+      { id: 'schools', label: 'Schools', icon: SchoolIcon },
       { id: 'students', label: 'Student Registry', icon: Users },
       { id: 'faculty', label: 'Faculty', icon: GraduationCap },
     ],
@@ -53,17 +53,43 @@ const menuGroups: MenuGroup[] = [
 
 const SuperAdmin = () => {
   const [activeSection, setActiveSection] = useState('dashboard');
+  const [schools, setSchools] = useState<School[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [faculty, setFaculty] = useState<Faculty[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
 
-  const renderDashboardContent = () => {
-    const schools = schoolsStorage.getAll();
-    const students = studentsStorage.getAll();
-    const faculty = facultyStorage.getAll();
-    const invoices = invoicesStorage.getAll();
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      const [schoolsData, studentsData, facultyData, invoicesData] = await Promise.all([
+        schoolsStorage.getAll(),
+        studentsStorage.getAll(),
+        facultyStorage.getAll(),
+        invoicesStorage.getAll(),
+      ]);
+      setSchools(schoolsData);
+      setStudents(studentsData);
+      setFaculty(facultyData);
+      setInvoices(invoicesData);
+    };
+
+    void loadDashboardData();
+  }, [activeSection]);
+
+  const dashboardStats = useMemo(() => {
     const activeSchools = schools.filter(s => s.status === 'active').length;
     const pendingSchools = schools.filter(s => s.status === 'pending').length;
     const suspendedSchools = schools.filter(s => s.status === 'suspended').length;
     const totalRevenue = invoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + i.amount, 0);
 
+    return {
+      activeSchools,
+      pendingSchools,
+      suspendedSchools,
+      totalRevenue,
+    };
+  }, [schools, invoices]);
+
+  const renderDashboardContent = () => {
     return (
       <>
         <div className="mb-6">
@@ -76,7 +102,7 @@ const SuperAdmin = () => {
             { label: 'Total Schools', value: schools.length, color: 'bg-primary/10 text-primary', icon: '🏫' },
             { label: 'Total Students', value: students.length, color: 'bg-secondary/10 text-secondary', icon: '👨‍🎓' },
             { label: 'Total Faculty', value: faculty.length, color: 'bg-accent/10 text-accent', icon: '👩‍🏫' },
-            { label: 'Total Revenue', value: `KES ${totalRevenue.toLocaleString()}`, color: 'bg-primary/10 text-primary', icon: '💰' },
+            { label: 'Total Revenue', value: `KES ${dashboardStats.totalRevenue.toLocaleString()}`, color: 'bg-primary/10 text-primary', icon: '💰' },
           ].map((stat, i) => (
             <motion.div
               key={stat.label}
@@ -107,21 +133,21 @@ const SuperAdmin = () => {
                   <CheckCircle className="w-4 h-4 text-secondary" />
                   <span className="text-sm font-medium text-foreground">Active</span>
                 </div>
-                <span className="text-lg font-bold text-secondary">{activeSchools}</span>
+                <span className="text-lg font-bold text-secondary">{dashboardStats.activeSchools}</span>
               </div>
               <div className="flex items-center justify-between p-3 rounded-lg bg-accent/10 border border-accent/20">
                 <div className="flex items-center gap-2">
                   <Pause className="w-4 h-4 text-accent" />
                   <span className="text-sm font-medium text-foreground">Pending</span>
                 </div>
-                <span className="text-lg font-bold text-accent">{pendingSchools}</span>
+                <span className="text-lg font-bold text-accent">{dashboardStats.pendingSchools}</span>
               </div>
               <div className="flex items-center justify-between p-3 rounded-lg bg-destructive/10 border border-destructive/20">
                 <div className="flex items-center gap-2">
                   <XCircle className="w-4 h-4 text-destructive" />
                   <span className="text-sm font-medium text-foreground">Suspended</span>
                 </div>
-                <span className="text-lg font-bold text-destructive">{suspendedSchools}</span>
+                <span className="text-lg font-bold text-destructive">{dashboardStats.suspendedSchools}</span>
               </div>
             </div>
             <div className="mt-5">
