@@ -9,7 +9,7 @@ type WelcomeEmailInput = {
 
 export async function sendWelcomeEmail(input: WelcomeEmailInput): Promise<{ sent: boolean; error?: string }> {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
     return { sent: false, error: 'Supabase environment variables are not configured.' };
