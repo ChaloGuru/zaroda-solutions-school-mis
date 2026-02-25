@@ -19,7 +19,7 @@ export const menuItems = [
   { icon: UserCog, label: "User Management", id: "users" },
   { icon: School, label: "Schools", id: "schools" },
   { icon: Users, label: "Student Registry", id: "students" },
-  { icon: GraduationCap, label: "Faculty", id: "faculty" },
+  { icon: GraduationCap, label: "Staff Establishment", id: "staffEstablishment" },
   { icon: DollarSign, label: "Finance", id: "finance" },
   { icon: Settings, label: "Settings", id: "settings" },
 ];

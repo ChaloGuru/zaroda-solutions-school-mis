@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { facultyStorage, schoolsStorage, Faculty, School } from '@/lib/storage';
+import { staffEstablishmentStorage, schoolsStorage, type StaffEstablishment, type School } from '@/lib/storage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -66,31 +66,31 @@ const emptyForm = {
   status: 'active' as 'active' | 'on_leave' | 'terminated',
 };
 
-export default function FacultySection() {
-  const [faculty, setFaculty] = useState<Faculty[]>([]);
+export default function StaffEstablishmentSection() {
+  const [staffEstablishment, setStaffEstablishment] = useState<StaffEstablishment[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [schoolFilter, setSchoolFilter] = useState('all');
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingFaculty, setEditingFaculty] = useState<Faculty | null>(null);
+  const [editingStaffEstablishment, setEditingStaffEstablishment] = useState<StaffEstablishment | null>(null);
   const [form, setForm] = useState(emptyForm);
-  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; member: Faculty | null }>({ open: false, member: null });
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; member: StaffEstablishment | null }>({ open: false, member: null });
   const { toast } = useToast();
 
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [facultyRows, schoolRows] = await Promise.all([
-        facultyStorage.getAll(),
+      const [staffEstablishmentRows, schoolRows] = await Promise.all([
+        staffEstablishmentStorage.getAll(),
         schoolsStorage.getAll(),
       ]);
-      setFaculty(facultyRows);
+      setStaffEstablishment(staffEstablishmentRows);
       setSchools(schoolRows);
     } catch (error) {
       toast({
-        title: 'Failed to load faculty',
+        title: 'Failed to load staff establishment',
         description: error instanceof Error ? error.message : 'Could not fetch records from server.',
         variant: 'destructive',
       });
@@ -106,7 +106,7 @@ export default function FacultySection() {
     return school ? school.name : 'Unknown';
   };
 
-  const filtered = faculty.filter((f) => {
+  const filtered = staffEstablishment.filter((f) => {
     const term = searchTerm.toLowerCase();
     const matchesSearch = !term || f.full_name.toLowerCase().includes(term) || f.staff_no.toLowerCase().includes(term) || f.email.toLowerCase().includes(term) || f.department.toLowerCase().includes(term) || getSchoolName(f.school_id).toLowerCase().includes(term);
     const matchesStatus = statusFilter === 'all' || f.status === statusFilter;
@@ -114,19 +114,19 @@ export default function FacultySection() {
     return matchesSearch && matchesStatus && matchesSchool;
   });
 
-  const totalFaculty = faculty.length;
-  const activeCount = faculty.filter(f => f.status === 'active').length;
-  const onLeaveCount = faculty.filter(f => f.status === 'on_leave').length;
-  const departmentsCount = new Set(faculty.map(f => f.department)).size;
+  const totalStaffEstablishment = staffEstablishment.length;
+  const activeCount = staffEstablishment.filter(f => f.status === 'active').length;
+  const onLeaveCount = staffEstablishment.filter(f => f.status === 'on_leave').length;
+  const departmentsCount = new Set(staffEstablishment.map(f => f.department)).size;
 
   const openAddDialog = () => {
-    setEditingFaculty(null);
+    setEditingStaffEstablishment(null);
     setForm(emptyForm);
     setDialogOpen(true);
   };
 
-  const openEditDialog = (member: Faculty) => {
-    setEditingFaculty(member);
+  const openEditDialog = (member: StaffEstablishment) => {
+    setEditingStaffEstablishment(member);
     setForm({
       full_name: member.full_name,
       staff_no: member.staff_no,
@@ -148,18 +148,18 @@ export default function FacultySection() {
       return;
     }
     try {
-      if (editingFaculty) {
-        await facultyStorage.update(editingFaculty.id, form);
-        toast({ title: 'Faculty Updated', description: `${form.full_name} has been updated successfully.` });
+      if (editingStaffEstablishment) {
+        await staffEstablishmentStorage.update(editingStaffEstablishment.id, form);
+        toast({ title: 'Staff Establishment Updated', description: `${form.full_name} has been updated successfully.` });
       } else {
-        await facultyStorage.add(form);
-        toast({ title: 'Faculty Added', description: `${form.full_name} has been added successfully.` });
+        await staffEstablishmentStorage.add(form);
+        toast({ title: 'Staff Establishment Added', description: `${form.full_name} has been added successfully.` });
       }
       setDialogOpen(false);
       await loadData();
     } catch (error) {
       toast({
-        title: editingFaculty ? 'Update failed' : 'Creation failed',
+        title: editingStaffEstablishment ? 'Update failed' : 'Creation failed',
         description: error instanceof Error ? error.message : 'Please try again.',
         variant: 'destructive',
       });
@@ -169,8 +169,8 @@ export default function FacultySection() {
   const handleDelete = async () => {
     if (!deleteDialog.member) return;
     try {
-      await facultyStorage.remove(deleteDialog.member.id);
-      toast({ title: 'Faculty Deleted', description: `${deleteDialog.member.full_name} has been permanently removed.` });
+      await staffEstablishmentStorage.remove(deleteDialog.member.id);
+      toast({ title: 'Staff Establishment Deleted', description: `${deleteDialog.member.full_name} has been permanently removed.` });
       setDeleteDialog({ open: false, member: null });
       await loadData();
     } catch (error) {
@@ -182,9 +182,9 @@ export default function FacultySection() {
     }
   };
 
-  const handleStatusChange = async (member: Faculty, newStatus: 'active' | 'on_leave' | 'terminated') => {
+  const handleStatusChange = async (member: StaffEstablishment, newStatus: 'active' | 'on_leave' | 'terminated') => {
     try {
-      await facultyStorage.update(member.id, { status: newStatus });
+      await staffEstablishmentStorage.update(member.id, { status: newStatus });
       const statusLabels = { active: 'activated', on_leave: 'put on leave', terminated: 'terminated' };
       toast({ title: 'Status Updated', description: `${member.full_name} has been ${statusLabels[newStatus]}.` });
       await loadData();
@@ -205,12 +205,12 @@ export default function FacultySection() {
     <div>
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">Faculty Management</h1>
+          <h1 className="text-4xl font-bold text-foreground mb-2">Staff Establishment Management</h1>
           <p className="text-muted-foreground">Manage all teaching staff and administrative personnel</p>
         </div>
         <Button onClick={openAddDialog} className="gap-2">
           <Plus className="w-4 h-4" />
-          Add Faculty
+          Add Staff
         </Button>
       </div>
 
@@ -225,8 +225,8 @@ export default function FacultySection() {
               Total
             </div>
           </div>
-          <p className="text-3xl font-bold text-foreground mb-1">{totalFaculty}</p>
-          <p className="text-sm text-muted-foreground">Total Faculty</p>
+          <p className="text-3xl font-bold text-foreground mb-1">{totalStaffEstablishment}</p>
+          <p className="text-sm text-muted-foreground">Total Staff Establishment</p>
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass-card rounded-2xl p-6">
@@ -240,7 +240,7 @@ export default function FacultySection() {
             </div>
           </div>
           <p className="text-3xl font-bold text-foreground mb-1">{activeCount}</p>
-          <p className="text-sm text-muted-foreground">Active Faculty</p>
+          <p className="text-sm text-muted-foreground">Active Staff Establishment</p>
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-card rounded-2xl p-6">
@@ -278,7 +278,7 @@ export default function FacultySection() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Search faculty by name, staff no, email, department..."
+                placeholder="Search staff establishment by name, staff no, email, department..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -307,11 +307,11 @@ export default function FacultySection() {
         {isLoading ? (
           <div className="p-12 text-center flex items-center justify-center gap-2 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
-            Loading faculty...
+            Loading staff establishment...
           </div>
         ) : filtered.length === 0 ? (
           <div className="p-12 text-center">
-            <p className="text-muted-foreground">No faculty members found.</p>
+            <p className="text-muted-foreground">No staff establishment members found.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -417,7 +417,7 @@ export default function FacultySection() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingFaculty ? 'Edit Faculty' : 'Add New Faculty'}</DialogTitle>
+            <DialogTitle>{editingStaffEstablishment ? 'Edit Staff' : 'Add New Staff'}</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
             <div className="space-y-2">
@@ -489,7 +489,7 @@ export default function FacultySection() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave}>{editingFaculty ? 'Save Changes' : 'Add Faculty'}</Button>
+            <Button onClick={handleSave}>{editingStaffEstablishment ? 'Save Changes' : 'Add Staff'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -497,7 +497,7 @@ export default function FacultySection() {
       <AlertDialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Faculty Member?</AlertDialogTitle>
+            <AlertDialogTitle>Delete Staff Member?</AlertDialogTitle>
             <AlertDialogDescription>
               This will permanently delete <strong>{deleteDialog.member?.full_name}</strong> and all associated records. This action cannot be undone.
             </AlertDialogDescription>

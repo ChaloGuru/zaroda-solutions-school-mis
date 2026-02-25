@@ -20,7 +20,7 @@ const stats = [
     color: "accent",
   },
   {
-    label: "Faculty Members",
+    label: "Staff Establishment",
     value: "892",
     change: "+23",
     trend: "up",

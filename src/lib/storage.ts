@@ -34,7 +34,7 @@ export interface Student {
   enrolled_at: string;
 }
 
-export interface Faculty {
+export interface StaffEstablishment {
   id: string;
   full_name: string;
   staff_no: string;
@@ -336,26 +336,26 @@ export const studentsStorage = {
   },
 };
 
-export const facultyStorage = {
-  getAll: async (): Promise<Faculty[]> => {
+export const staffEstablishmentStorage = {
+  getAll: async (): Promise<StaffEstablishment[]> => {
     const { data, error } = await supabase.from('faculty').select('*');
     if (error) mapError(error);
-    return (data || []) as Faculty[];
+    return (data || []) as StaffEstablishment[];
   },
-  save: async (faculty: Faculty[]) => {
-    const { error } = await supabase.from('faculty').upsert(faculty, { onConflict: 'id' });
+  save: async (staffEstablishment: StaffEstablishment[]) => {
+    const { error } = await supabase.from('faculty').upsert(staffEstablishment, { onConflict: 'id' });
     if (error) mapError(error);
   },
-  add: async (member: Omit<Faculty, 'id' | 'hired_at'>): Promise<Faculty> => {
+  add: async (member: Omit<StaffEstablishment, 'id' | 'hired_at'>): Promise<StaffEstablishment> => {
     const payload = { ...member, hired_at: new Date().toISOString().slice(0, 10) };
     const { data, error } = await supabase.from('faculty').insert(payload).select().single();
     if (error) mapError(error);
-    return data as Faculty;
+    return data as StaffEstablishment;
   },
-  update: async (id: string, data: Partial<Faculty>): Promise<Faculty | undefined> => {
+  update: async (id: string, data: Partial<StaffEstablishment>): Promise<StaffEstablishment | undefined> => {
     const { data: updated, error } = await supabase.from('faculty').update(data).eq('id', id).select().maybeSingle();
     if (error) mapError(error);
-    return updated as Faculty | undefined;
+    return updated as StaffEstablishment | undefined;
   },
   remove: async (id: string) => {
     const { error } = await supabase.from('faculty').delete().eq('id', id);

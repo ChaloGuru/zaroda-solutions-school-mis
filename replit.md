@@ -11,8 +11,8 @@ A multi-tenant school management platform built with React, TypeScript, Vite, an
 - 2026-02-16: Built complete HOI (Head of Institution) Dashboard with 15 sections: Overview, School Management, Classes & Streams, Teacher Management, Student Management, Officials Management, Subjects, Timetable, Attendance Summary, Finances, Library, Sports, Elections, Reports, Settings. All with full CRUD, search/filter, pagination, modal dialogs, charts, and persistent data storage.
 - 2026-02-16: Created HOI data layer (src/lib/hoiStorage.ts) with typed helpers, 22 interfaces, and seed data for all HOI entities.
 - 2026-02-16: Implemented complete CBC Assessment Book for Teacher Dashboard with grade/subject assignment during signup, comprehensive curriculum data for all 12 grades (Playgroup-Grade 9), assessment records storage, dynamic scoring forms (EE/ME/AE/BE or CAT1/CAT2/END TERM), and tab-based dashboard navigation.
-- 2026-02-16: Built all 5 SuperAdmin dashboard sections: Schools Management, Student Registry, Faculty Management, Finance & Billing, System Settings. Each has full CRUD, search/filter, and uses persistent data storage with seed data.
-- 2026-02-16: Created data layer (src/lib/storage.ts) with typed interfaces, CRUD helpers, and seed data for schools, students, faculty, invoices, and platform settings.
+- 2026-02-16: Built all 5 SuperAdmin dashboard sections: Schools Management, Student Registry, Staff Establishment Management, Finance & Billing, System Settings. Each has full CRUD, search/filter, and uses persistent data storage with seed data.
+- 2026-02-16: Created data layer (src/lib/storage.ts) with typed interfaces, CRUD helpers, and seed data for schools, students, staff establishment, invoices, and platform settings.
 - 2026-02-16: Added role-based authentication system using React Context + Supabase Auth. Roles: SuperAdmin, Teacher, HOI, DHOI, Student, Parent. SuperAdmin has hardcoded credentials. Teacher and HOI support signup/login. Other roles show placeholder message.
 - 2026-02-16: Initial import and Replit environment setup. Configured Vite dev server on port 5000 with proxy-friendly host settings.
 
@@ -43,7 +43,7 @@ A multi-tenant school management platform built with React, TypeScript, Vite, an
 #### Platform-wide (src/lib/storage.ts)
 - **School**: id, name, code, type, county, sub_county, contact info, status, categories, counts
 - **Student**: id, full_name, admission_no, school_id, grade, stream, guardian info, gender, dob, status
-- **Faculty**: id, full_name, staff_no, school_id, role, department, email, phone, qualification, status
+- **Staff Establishment**: id, full_name, staff_no, school_id, role, department, email, phone, qualification, status
 - **Invoice**: id, school_id, school_name, description, amount, period, status, due_date, paid_at
 - **PlatformSettings**: platform config, academic year, notifications, billing cycle, maintenance mode
 - **AssessmentRecord**: teacher/student assessment data with scoring
@@ -56,7 +56,7 @@ A multi-tenant school management platform built with React, TypeScript, Vite, an
 ### SuperAdmin Dashboard Sections
 - `src/components/superadmin/sections/SchoolsSection.tsx` - Full CRUD school management
 - `src/components/superadmin/sections/StudentsSection.tsx` - Student registry with school association
-- `src/components/superadmin/sections/FacultySection.tsx` - Staff management with department/role
+- `src/components/superadmin/sections/StaffEstablishmentSection.tsx` - Staff establishment management with department/role
 - `src/components/superadmin/sections/FinanceSection.tsx` - Invoice management, revenue tracking
 - `src/components/superadmin/sections/SettingsSection.tsx` - Platform configuration
 

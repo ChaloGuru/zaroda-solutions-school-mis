@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { facultyStorage, hodObservationsStorage, type Faculty } from '@/lib/storage';
+import { staffEstablishmentStorage, hodObservationsStorage, type StaffEstablishment } from '@/lib/storage';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -13,12 +13,12 @@ const PAGE_SIZE = 10;
 const TeachersInDept = () => {
   const { currentUser } = useAuthContext();
   const { toast } = useToast();
-  const [allTeachers, setAllTeachers] = useState<Faculty[]>([]);
+  const [allTeachers, setAllTeachers] = useState<StaffEstablishment[]>([]);
   const teachers = useMemo(() => allTeachers.filter(t => t.department === currentUser?.department), [allTeachers, currentUser]);
 
   useEffect(() => {
     const loadTeachers = async () => {
-      setAllTeachers(await facultyStorage.getAll());
+      setAllTeachers(await staffEstablishmentStorage.getAll());
     };
     void loadTeachers();
   }, []);
@@ -26,14 +26,14 @@ const TeachersInDept = () => {
   const [page, setPage] = useState(0);
   const pageCount = Math.ceil(teachers.length / PAGE_SIZE);
 
-  const [selectedTeacher, setSelectedTeacher] = useState<Faculty | null>(null);
+  const [selectedTeacher, setSelectedTeacher] = useState<StaffEstablishment | null>(null);
   const [obsOpen, setObsOpen] = useState(false);
   const [obsForm, setObsForm] = useState({ lessonDate: '', classObserved: '', topic: '', strengths: '', areasToImprove: '', rating: 3, recommendations: '' });
 
   const start = page * PAGE_SIZE;
   const pageItems = teachers.slice(start, start + PAGE_SIZE);
 
-  const openObservation = (teacher: Faculty) => { setSelectedTeacher(teacher); setObsOpen(true); };
+  const openObservation = (teacher: StaffEstablishment) => { setSelectedTeacher(teacher); setObsOpen(true); };
 
   const submitObservation = () => {
     if (!selectedTeacher) return;
@@ -48,7 +48,7 @@ const TeachersInDept = () => {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-4">Teachers in {currentUser?.department}</h2>
+      <h2 className="text-lg font-semibold mb-4">Staff Establishment in {currentUser?.department}</h2>
       <div className="bg-card border border-border rounded-md p-4">
         <Table>
           <TableHeader>

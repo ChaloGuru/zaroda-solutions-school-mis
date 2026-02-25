@@ -71,7 +71,7 @@ const Index = () => {
                   Generate Reports
                 </button>
                 <button className="w-full py-3 px-4 rounded-xl bg-secondary text-secondary-foreground font-medium hover:bg-secondary/80 transition-colors text-sm border border-border/50">
-                  Manage Faculty
+                  Manage Staff Establishment
                 </button>
               </div>
 
@@ -96,7 +96,7 @@ const Index = () => {
                   <div className="flex items-start gap-3">
                     <div className="w-2 h-2 rounded-full bg-primary mt-2" />
                     <div>
-                      <p className="text-sm text-foreground">New faculty added</p>
+                      <p className="text-sm text-foreground">New staff added</p>
                       <p className="text-xs text-muted-foreground">Sunrise Primary • 6h ago</p>
                     </div>
                   </div>

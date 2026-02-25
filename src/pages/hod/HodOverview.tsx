@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuthContext } from '@/context/AuthContext';
-import { facultyStorage, schemeOfWorkStorage, studentsStorage, examResultsStorage, lessonNotesStorage, departmentAnnouncementsStorage, type Faculty, type SchemeOfWork, type LessonNote, type ExamResultEntry, type DepartmentAnnouncement } from '@/lib/storage';
+import { staffEstablishmentStorage, schemeOfWorkStorage, studentsStorage, examResultsStorage, lessonNotesStorage, departmentAnnouncementsStorage, type StaffEstablishment, type SchemeOfWork, type LessonNote, type ExamResultEntry, type DepartmentAnnouncement } from '@/lib/storage';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -12,7 +12,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recha
 const HodOverview = ({ onNavigate }: { onNavigate?: (s: string) => void }) => {
   const { currentUser } = useAuthContext();
   const { toast } = useToast();
-  const [allTeachers, setAllTeachers] = useState<Faculty[]>([]);
+  const [allTeachers, setAllTeachers] = useState<StaffEstablishment[]>([]);
   const [allSchemes, setAllSchemes] = useState<SchemeOfWork[]>([]);
   const [allStudents, setAllStudents] = useState<Awaited<ReturnType<typeof studentsStorage.getAll>>>([]);
   const [allLessonNotes, setAllLessonNotes] = useState<LessonNote[]>([]);
@@ -22,7 +22,7 @@ const HodOverview = ({ onNavigate }: { onNavigate?: (s: string) => void }) => {
   useEffect(() => {
     const loadData = async () => {
       const [teachers, schemes, students, lessonNotes, results, deptAnnouncements] = await Promise.all([
-        facultyStorage.getAll(),
+        staffEstablishmentStorage.getAll(),
         schemeOfWorkStorage.getAll(),
         studentsStorage.getAll(),
         lessonNotesStorage.getAll(),

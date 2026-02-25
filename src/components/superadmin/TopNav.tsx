@@ -34,7 +34,7 @@ export function TopNav({ onSearch }: TopNavProps) {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Search schools, students, faculty..."
+            placeholder="Search schools, students, staff establishment..."
             value={searchTerm}
             onChange={handleSearch}
             className="w-80 h-10 pl-11 pr-4 rounded-xl bg-muted border border-border/70 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all outline-none text-sm placeholder:text-muted-foreground"

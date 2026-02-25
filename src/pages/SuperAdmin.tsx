@@ -17,13 +17,13 @@ import { motion } from 'framer-motion';
 import { RevenueChart } from '@/components/superadmin';
 import SchoolsSection from '@/components/superadmin/sections/SchoolsSection';
 import StudentsSection from '@/components/superadmin/sections/StudentsSection';
-import FacultySection from '@/components/superadmin/sections/FacultySection';
+import StaffEstablishmentSection from '@/components/superadmin/sections/StaffEstablishmentSection';
 import FinanceSection from '@/components/superadmin/sections/FinanceSection';
 import SettingsSection from '@/components/superadmin/sections/SettingsSection';
 import UsersSection from '@/components/superadmin/sections/UsersSection';
 import CommunicationSection from '@/components/superadmin/sections/CommunicationSection';
 import DashboardLayout, { type MenuGroup } from '@/components/DashboardLayout';
-import { schoolsStorage, studentsStorage, facultyStorage, invoicesStorage, type School, type Student, type Faculty, type Invoice } from '@/lib/storage';
+import { schoolsStorage, studentsStorage, staffEstablishmentStorage, invoicesStorage, type School, type Student, type StaffEstablishment, type Invoice } from '@/lib/storage';
 
 const menuGroups: MenuGroup[] = [
   {
@@ -38,7 +38,7 @@ const menuGroups: MenuGroup[] = [
     items: [
       { id: 'schools', label: 'Schools', icon: SchoolIcon },
       { id: 'students', label: 'Student Registry', icon: Users },
-      { id: 'faculty', label: 'Faculty', icon: GraduationCap },
+      { id: 'staffEstablishment', label: 'Staff Establishment', icon: GraduationCap },
     ],
   },
   {
@@ -55,20 +55,20 @@ const SuperAdmin = () => {
   const [activeSection, setActiveSection] = useState('dashboard');
   const [schools, setSchools] = useState<School[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
-  const [faculty, setFaculty] = useState<Faculty[]>([]);
+  const [staffEstablishment, setStaffEstablishment] = useState<StaffEstablishment[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
 
   useEffect(() => {
     const loadDashboardData = async () => {
-      const [schoolsData, studentsData, facultyData, invoicesData] = await Promise.all([
+      const [schoolsData, studentsData, staffEstablishmentData, invoicesData] = await Promise.all([
         schoolsStorage.getAll(),
         studentsStorage.getAll(),
-        facultyStorage.getAll(),
+        staffEstablishmentStorage.getAll(),
         invoicesStorage.getAll(),
       ]);
       setSchools(schoolsData);
       setStudents(studentsData);
-      setFaculty(facultyData);
+      setStaffEstablishment(staffEstablishmentData);
       setInvoices(invoicesData);
     };
 
@@ -101,7 +101,7 @@ const SuperAdmin = () => {
           {[
             { label: 'Total Schools', value: schools.length, color: 'bg-primary/10 text-primary', icon: '🏫' },
             { label: 'Total Students', value: students.length, color: 'bg-secondary/10 text-secondary', icon: '👨‍🎓' },
-            { label: 'Total Faculty', value: faculty.length, color: 'bg-accent/10 text-accent', icon: '👩‍🏫' },
+            { label: 'Total Staff Establishment', value: staffEstablishment.length, color: 'bg-accent/10 text-accent', icon: '👩‍🏫' },
             { label: 'Total Revenue', value: `KES ${dashboardStats.totalRevenue.toLocaleString()}`, color: 'bg-primary/10 text-primary', icon: '💰' },
           ].map((stat, i) => (
             <motion.div
@@ -173,7 +173,7 @@ const SuperAdmin = () => {
       case 'users': return <UsersSection />;
       case 'schools': return <SchoolsSection />;
       case 'students': return <StudentsSection />;
-      case 'faculty': return <FacultySection />;
+      case 'staffEstablishment': return <StaffEstablishmentSection />;
       case 'finance': return <FinanceSection />;
       case 'communication': return <CommunicationSection />;
       case 'settings': return <SettingsSection />;

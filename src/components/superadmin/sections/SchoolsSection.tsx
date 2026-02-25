@@ -330,7 +330,7 @@ export default function SchoolsSection() {
                   <th className="text-left py-4 px-6 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Location</th>
                   <th className="text-left py-4 px-6 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Contact</th>
                   <th className="text-center py-4 px-6 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Students</th>
-                  <th className="text-center py-4 px-6 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Faculty</th>
+                  <th className="text-center py-4 px-6 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Staff Establishment</th>
                   <th className="text-center py-4 px-6 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
                   <th className="text-right py-4 px-6 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
                 </tr>
@@ -501,7 +501,7 @@ export default function SchoolsSection() {
               <Input type="number" value={form.student_count} onChange={(e) => updateField('student_count', parseInt(e.target.value) || 0)} />
             </div>
             <div className="space-y-2">
-              <Label>Faculty Count</Label>
+              <Label>Staff Establishment Count</Label>
               <Input type="number" value={form.faculty_count} onChange={(e) => updateField('faculty_count', parseInt(e.target.value) || 0)} />
             </div>
           </div>
