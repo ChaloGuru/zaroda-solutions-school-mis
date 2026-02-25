@@ -28,6 +28,7 @@ const STATUS_COLORS: Record<string, string> = {
   active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
   suspended: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
   inactive: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400',
+  deactivated: 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
 };
 
 const ROLE_COLORS: Record<string, string> = {
@@ -47,7 +48,7 @@ const ACTION_LABELS: Record<string, string> = {
   account_updated: 'Account updated',
   account_suspended: 'Account suspended',
   account_activated: 'Account activated',
-  account_deleted: 'Account deleted',
+  account_deleted: 'Account deactivated',
 };
 
 const ACTION_COLORS: Record<string, string> = {
@@ -181,10 +182,15 @@ export default function UsersSection() {
         return;
       }
 
-      const { data: authData, error: createAuthError } = await supabase.auth.admin.createUser({
+      const { data: authData, error: createAuthError } = await supabase.auth.signUp({
         email,
         password: formData.password,
-        email_confirm: true,
+        options: {
+          data: {
+            full_name: fullName,
+            role,
+          },
+        },
       });
       if (createAuthError) throw createAuthError;
 
@@ -337,10 +343,11 @@ export default function UsersSection() {
 
     try {
       setIsSubmitting(true);
-      const { error: deleteAuthError } = await supabase.auth.admin.deleteUser(selectedUser.id);
-      if (deleteAuthError) throw deleteAuthError;
-
-      await platformUsersStorage.remove(selectedUser.id);
+      const { error: deactivateProfileError } = await supabase
+        .from('profiles')
+        .update({ status: 'deactivated' })
+        .eq('id', selectedUser.id);
+      if (deactivateProfileError) throw deactivateProfileError;
 
       await activityStorage.add({
         userId: selectedUser.id,
@@ -348,10 +355,10 @@ export default function UsersSection() {
         fullName: selectedUser.fullName,
         role: selectedUser.role,
         action: 'account_deleted',
-        details: 'Account deleted permanently by SuperAdmin',
+        details: 'Account deactivated by SuperAdmin',
       });
 
-      toast({ title: 'User deleted', description: `${selectedUser.fullName}'s account has been permanently deleted.` });
+      toast({ title: 'User deactivated', description: `${selectedUser.fullName}'s account has been deactivated.` });
       setShowDeleteConfirm(false);
       setShowEditModal(false);
       setSelectedUser(null);
@@ -537,6 +544,7 @@ export default function UsersSection() {
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="suspended">Suspended</SelectItem>
                 <SelectItem value="inactive">Inactive</SelectItem>
+                <SelectItem value="deactivated">Deactivated</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -881,7 +889,7 @@ export default function UsersSection() {
               <Button onClick={() => { void handleEditUser(); }} className="flex-1" disabled={isSubmitting}>Save Changes</Button>
               <Button variant="outline" onClick={() => setShowEditModal(false)}>Cancel</Button>
               <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)} disabled={isSubmitting}>
-                <Trash2 size={14} className="mr-2" /> Delete
+                <Trash2 size={14} className="mr-2" /> Deactivate
               </Button>
             </div>
           </div>
@@ -996,15 +1004,15 @@ export default function UsersSection() {
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete User Account</AlertDialogTitle>
+            <AlertDialogTitle>Deactivate User Account</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to permanently delete <strong>{selectedUser?.fullName}</strong>'s account? This action cannot be undone and will remove all account data.
+              Are you sure you want to deactivate <strong>{selectedUser?.fullName}</strong>'s account? The user will no longer access the system, and this can be reversed later by updating status.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="flex gap-3 justify-end">
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => { void handleDeleteUser(); }} className="bg-red-600 hover:bg-red-700" disabled={isSubmitting}>
-              Delete Account
+              Deactivate Account
             </AlertDialogAction>
           </div>
         </AlertDialogContent>
