@@ -125,6 +125,93 @@ Deployment: Vercel
 
 Version Control: Git & GitHub
 
+✅ Vercel Deploy Checklist (Build/Output + SPA Routing)
+
+Use this checklist when deploying to avoid 404 errors on page reloads:
+
+1) Project Root
+
+Set Vercel Root Directory to:
+
+zaroda-solutions-school-mis
+
+2) Build Settings
+
+Framework Preset: Vite
+
+Build Command: npm run build
+
+Output Directory: dist
+
+Install Command: npm install
+
+3) SPA Routing Rewrite
+
+Ensure this file exists at project root:
+
+vercel.json
+
+with:
+
+{
+	"rewrites": [
+		{
+			"source": "/(.*)",
+			"destination": "/index.html"
+		}
+	]
+}
+
+4) Environment Variables
+
+Add all required production env vars in Vercel Project Settings → Environment Variables (for example Supabase URL/keys used by the app).
+
+5) Redeploy
+
+After saving settings and env vars, trigger a fresh deployment (not just a cache hit) to apply all changes.
+
+6) Verification
+
+Open a deep route directly (example: /superadmin-dashboard) and refresh the page.
+
+Expected result: route loads normally, no 404.
+
+7) Local Production Preview (recommended before deploy)
+
+Run:
+
+npm run build
+
+npm run preview
+
+Then open the preview URL and test deep-route refresh behavior before pushing to production.
+
+Troubleshooting (Vercel)
+
+- 404 on refresh/deep links
+
+Confirm vercel.json is in the same root Vercel is building from and contains the rewrite to /index.html.
+
+- Build succeeds but site is blank
+
+Check browser console for runtime errors and confirm required environment variables are set in Vercel (Production environment), then redeploy.
+
+- Wrong app/folder deployed
+
+Verify Vercel Root Directory is zaroda-solutions-school-mis (not parent folder).
+
+- Assets/scripts return 404
+
+Ensure Output Directory is dist and Framework Preset is Vite.
+
+- Latest changes not reflected
+
+Trigger a fresh redeploy from the latest commit and clear browser cache/hard refresh.
+
+- Environment variable changes not taking effect
+
+After updating env vars, redeploy the project (env changes do not apply to already-finished deployments).
+
 🚀 Key Features
 
 Single authentication system with automatic role routing
