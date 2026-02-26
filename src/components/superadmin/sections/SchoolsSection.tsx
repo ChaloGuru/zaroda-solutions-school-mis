@@ -29,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,10 +55,12 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
+const schoolTypeOptions: School['school_type'][number][] = ['ECDE', 'Primary', 'Junior Secondary'];
+
 const emptyForm = {
   name: '',
   school_code: '',
-  school_type: '' as School['school_type'] | '',
+  school_type: [] as School['school_type'],
   county: '',
   sub_county: '',
   zone: '',
@@ -145,15 +148,15 @@ export default function SchoolsSection() {
   };
 
   const handleSave = async () => {
-    if (!form.name || !form.school_code || !form.school_type) {
-      toast({ title: 'Validation Error', description: 'School name, code, and type are required.', variant: 'destructive' });
+    if (!form.name || !form.school_code || form.school_type.length === 0) {
+      toast({ title: 'Validation Error', description: 'School name, code, and at least one school type are required.', variant: 'destructive' });
       return;
     }
     const cats = categoriesInput.split(',').map(c => c.trim()).filter(Boolean);
     const payload: Omit<School, 'id' | 'created_at'> = {
       name: form.name,
       school_code: form.school_code,
-      school_type: form.school_type as School['school_type'],
+      school_type: form.school_type,
       county: form.county,
       sub_county: form.sub_county,
       zone: form.zone,
@@ -216,6 +219,15 @@ export default function SchoolsSection() {
 
   const updateField = (field: string, value: string | number) => {
     setForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const toggleSchoolType = (schoolType: School['school_type'][number], checked: boolean) => {
+    setForm(prev => ({
+      ...prev,
+      school_type: checked
+        ? (prev.school_type.includes(schoolType) ? prev.school_type : [...prev.school_type, schoolType])
+        : prev.school_type.filter((type) => type !== schoolType),
+    }));
   };
 
   return (
@@ -356,7 +368,17 @@ export default function SchoolsSection() {
                       </div>
                     </td>
                     <td className="py-4 px-6 font-mono text-sm text-muted-foreground">{school.school_code}</td>
-                    <td className="py-4 px-6 capitalize text-sm">{school.school_type}</td>
+                    <td className="py-4 px-6 text-sm">
+                      <div className="flex flex-wrap gap-1.5">
+                        {school.school_type.length > 0 ? school.school_type.map((type) => (
+                          <Badge key={type} variant="secondary" className="font-medium">
+                            {type}
+                          </Badge>
+                        )) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="py-4 px-6 text-sm">
                       <div className="capitalize font-medium">{school.county}</div>
                       <div className="text-xs text-muted-foreground capitalize">{school.sub_county}</div>
@@ -442,18 +464,23 @@ export default function SchoolsSection() {
               <Label>SCHOOL KNEC CODE</Label>
               <Input value={form.school_code} onChange={(e) => updateField('school_code', e.target.value)} placeholder="e.g. GWA-001" />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 md:col-span-2">
               <Label>School Type</Label>
-              <Select value={form.school_type} onValueChange={(v) => updateField('school_type', v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ECDE">ECDE</SelectItem>
-                  <SelectItem value="Primary">Primary</SelectItem>
-                  <SelectItem value="Junior Secondary">Junior Secondary</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 rounded-md border border-border">
+                {schoolTypeOptions.map((option) => {
+                  const isChecked = form.school_type.includes(option);
+                  return (
+                    <label key={option} className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
+                      <Checkbox
+                        checked={isChecked}
+                        onCheckedChange={(checked) => toggleSchoolType(option, checked === true)}
+                      />
+                      <span>{option}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground">Select at least one school type.</p>
             </div>
             <div className="space-y-2">
               <Label>Status</Label>

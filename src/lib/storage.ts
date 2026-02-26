@@ -4,7 +4,7 @@ export interface School {
   id: string;
   name: string;
   school_code: string;
-  school_type: 'ECDE' | 'Primary' | 'Junior Secondary';
+  school_type: ('ECDE' | 'Primary' | 'Junior Secondary')[];
   county: string;
   sub_county: string;
   zone: string;
@@ -273,6 +273,26 @@ const mapError = (error: unknown): never => {
   throw error instanceof Error ? error : new Error(String(error));
 };
 
+const SCHOOL_TYPES = ['ECDE', 'Primary', 'Junior Secondary'] as const;
+const isSchoolType = (value: unknown): value is School['school_type'][number] =>
+  typeof value === 'string' && SCHOOL_TYPES.includes(value as School['school_type'][number]);
+
+const normalizeSchoolType = (value: unknown): School['school_type'] => {
+  if (Array.isArray(value)) {
+    return value.filter(isSchoolType);
+  }
+  if (isSchoolType(value)) {
+    return [value];
+  }
+  return [];
+};
+
+const normalizeSchool = (row: any): School => ({
+  ...row,
+  school_type: normalizeSchoolType(row?.school_type),
+  categories: Array.isArray(row?.categories) ? row.categories : [],
+});
+
 const isoDate = (value?: string | null) => (value ? String(value) : new Date().toISOString());
 
 const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
@@ -281,7 +301,7 @@ export const schoolsStorage = {
   getAll: async (): Promise<School[]> => {
     const { data, error } = await supabase.from('schools').select('*').order('created_at', { ascending: true });
     if (error) mapError(error);
-    return (data || []) as School[];
+    return (data || []).map(normalizeSchool);
   },
   save: async (schools: School[]) => {
     const { error } = await supabase.from('schools').upsert(schools, { onConflict: 'id' });
@@ -291,12 +311,12 @@ export const schoolsStorage = {
     const payload = { ...school, created_at: new Date().toISOString() };
     const { data, error } = await supabase.from('schools').insert(payload).select().single();
     if (error) mapError(error);
-    return data as School;
+    return normalizeSchool(data);
   },
   update: async (id: string, data: Partial<School>): Promise<School | undefined> => {
     const { data: updated, error } = await supabase.from('schools').update(data).eq('id', id).select().maybeSingle();
     if (error) mapError(error);
-    return updated as School | undefined;
+    return updated ? normalizeSchool(updated) : undefined;
   },
   remove: async (id: string) => {
     const { error } = await supabase.from('schools').delete().eq('id', id);
@@ -305,7 +325,7 @@ export const schoolsStorage = {
   getById: async (id: string): Promise<School | undefined> => {
     const { data, error } = await supabase.from('schools').select('*').eq('id', id).maybeSingle();
     if (error) mapError(error);
-    return data as School | undefined;
+    return data ? normalizeSchool(data) : undefined;
   },
 };
 
