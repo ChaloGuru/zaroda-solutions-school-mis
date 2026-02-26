@@ -66,6 +66,15 @@ const emptyForm = {
   status: 'active' as 'active' | 'on_leave' | 'terminated',
 };
 
+const formatErrorMessage = (error: unknown) => {
+  if (error instanceof Error && error.message) return error.message;
+  if (error && typeof error === 'object') {
+    const details = error as { message?: string; error_description?: string };
+    return details.message || details.error_description || JSON.stringify(error) || 'Please try again.';
+  }
+  return String(error || 'Please try again.');
+};
+
 export default function StaffEstablishmentSection() {
   const [staffEstablishment, setStaffEstablishment] = useState<StaffEstablishment[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
@@ -79,6 +88,21 @@ export default function StaffEstablishmentSection() {
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; member: StaffEstablishment | null }>({ open: false, member: null });
   const { toast } = useToast();
 
+  const refreshSchools = async () => {
+    try {
+      const schoolRows = await schoolsStorage.getAll();
+      console.log('Staff form schools loaded:', schoolRows);
+      setSchools(schoolRows);
+    } catch (error) {
+      console.error('Staff form school load error:', error);
+      toast({
+        title: 'Failed to load schools',
+        description: formatErrorMessage(error),
+        variant: 'destructive',
+      });
+    }
+  };
+
   const loadData = async () => {
     setIsLoading(true);
     try {
@@ -86,12 +110,14 @@ export default function StaffEstablishmentSection() {
         staffEstablishmentStorage.getAll(),
         schoolsStorage.getAll(),
       ]);
+      console.log('Staff loadData schools:', schoolRows);
       setStaffEstablishment(staffEstablishmentRows);
       setSchools(schoolRows);
     } catch (error) {
+      console.error('Staff establishment load error:', error);
       toast({
         title: 'Failed to load staff establishment',
-        description: error instanceof Error ? error.message : 'Could not fetch records from server.',
+        description: formatErrorMessage(error),
         variant: 'destructive',
       });
     } finally {
@@ -122,6 +148,7 @@ export default function StaffEstablishmentSection() {
   const openAddDialog = () => {
     setEditingStaffEstablishment(null);
     setForm(emptyForm);
+    void refreshSchools();
     setDialogOpen(true);
   };
 
@@ -139,6 +166,7 @@ export default function StaffEstablishmentSection() {
       gender: member.gender,
       status: member.status,
     });
+    void refreshSchools();
     setDialogOpen(true);
   };
 

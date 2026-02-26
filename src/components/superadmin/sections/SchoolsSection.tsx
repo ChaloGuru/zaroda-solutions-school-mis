@@ -75,9 +75,19 @@ const emptyForm = {
 
 type SchoolForm = typeof emptyForm;
 
+const formatErrorMessage = (error: unknown) => {
+  if (error instanceof Error && error.message) return error.message;
+  if (error && typeof error === 'object') {
+    const details = error as { message?: string; error_description?: string };
+    return details.message || details.error_description || JSON.stringify(error) || 'Save failed. Please try again.';
+  }
+  return String(error || 'Save failed. Please try again.');
+};
+
 export default function SchoolsSection() {
   const [schools, setSchools] = useState<School[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -89,13 +99,18 @@ export default function SchoolsSection() {
 
   const loadSchools = async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const rows = await schoolsStorage.getAll();
+      console.log('Schools load result:', rows);
       setSchools(rows);
     } catch (error) {
+      console.error('Schools load error:', error);
+      const description = formatErrorMessage(error);
+      setLoadError(description);
       toast({
         title: 'Failed to load schools',
-        description: error instanceof Error ? error.message : 'Could not fetch schools from Supabase.',
+        description,
         variant: 'destructive',
       });
     } finally {
@@ -148,12 +163,12 @@ export default function SchoolsSection() {
   };
 
   const handleSave = async () => {
-    if (!form.name || !form.school_code || form.school_type.length === 0) {
-      toast({ title: 'Validation Error', description: 'School name, code, and at least one school type are required.', variant: 'destructive' });
+    if (!form.name || !form.school_code || form.school_type.length === 0 || !form.contact_name || !form.contact_email) {
+      toast({ title: 'Validation Error', description: 'School name, code, contact name, contact email, and at least one school type are required.', variant: 'destructive' });
       return;
     }
     const cats = categoriesInput.split(',').map(c => c.trim()).filter(Boolean);
-    const payload: Omit<School, 'id' | 'created_at'> = {
+    const payload = {
       name: form.name,
       school_code: form.school_code,
       school_type: form.school_type,
@@ -165,8 +180,6 @@ export default function SchoolsSection() {
       contact_phone: form.contact_phone,
       status: form.status,
       categories: cats,
-      student_count: form.student_count,
-      faculty_count: form.faculty_count,
     };
     try {
       if (editingSchool) {
@@ -179,9 +192,10 @@ export default function SchoolsSection() {
       setDialogOpen(false);
       await loadSchools();
     } catch (error) {
+      console.error('School save error:', error);
       toast({
         title: 'Save failed',
-        description: error instanceof Error ? error.message : 'Could not save school to Supabase.',
+        description: formatErrorMessage(error),
         variant: 'destructive',
       });
     }
@@ -302,6 +316,11 @@ export default function SchoolsSection() {
       </div>
 
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="glass-card rounded-2xl overflow-hidden">
+        {loadError && (
+          <div className="px-6 py-4 border-b border-destructive/30 bg-destructive/10 text-destructive text-sm">
+            Failed to load schools: {loadError}
+          </div>
+        )}
         <div className="px-6 py-5 border-b border-border/50">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
@@ -392,13 +411,13 @@ export default function SchoolsSection() {
                     <td className="py-4 px-6 text-center">
                       <div className="flex items-center justify-center gap-1">
                         <Users className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span className="text-sm font-medium">{school.student_count}</span>
+                        <span className="text-sm font-medium">{school.student_count ?? 0}</span>
                       </div>
                     </td>
                     <td className="py-4 px-6 text-center">
                       <div className="flex items-center justify-center gap-1">
                         <GraduationCap className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span className="text-sm font-medium">{school.faculty_count}</span>
+                        <span className="text-sm font-medium">{school.faculty_count ?? 0}</span>
                       </div>
                     </td>
                     <td className="py-4 px-6 text-center">

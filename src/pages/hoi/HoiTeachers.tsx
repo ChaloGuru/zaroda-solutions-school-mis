@@ -13,7 +13,7 @@ import {
   HoiStream,
   HoiTeacherDuty,
 } from '@/lib/hoiStorage';
-import { platformUsersStorage } from '@/lib/storage';
+import { platformUsersStorage, schoolsStorage, type School } from '@/lib/storage';
 import { sendWelcomeEmail } from '@/lib/email';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
@@ -115,6 +115,15 @@ const emptyDutyForm = {
   remarks: '',
 };
 
+const formatErrorMessage = (error: unknown) => {
+  if (error instanceof Error && error.message) return error.message;
+  if (error && typeof error === 'object') {
+    const details = error as { message?: string; error_description?: string };
+    return details.message || details.error_description || JSON.stringify(error) || 'Please try again.';
+  }
+  return String(error || 'Please try again.');
+};
+
 export default function HoiTeachers() {
   const { toast } = useToast();
 
@@ -124,6 +133,7 @@ export default function HoiTeachers() {
   const [classes, setClasses] = useState<HoiClass[]>([]);
   const [streams, setStreams] = useState<HoiStream[]>([]);
   const [duties, setDuties] = useState<HoiTeacherDuty[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -133,6 +143,7 @@ export default function HoiTeachers() {
   const [teacherDialogOpen, setTeacherDialogOpen] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<HoiTeacher | null>(null);
   const [teacherForm, setTeacherForm] = useState(emptyTeacherForm);
+  const [teacherSchoolId, setTeacherSchoolId] = useState('');
 
   const [deactivateDialog, setDeactivateDialog] = useState<{ open: boolean; teacher: HoiTeacher | null }>({ open: false, teacher: null });
   const [deleteTeacherDialog, setDeleteTeacherDialog] = useState<{ open: boolean; teacher: HoiTeacher | null }>({ open: false, teacher: null });
@@ -157,6 +168,16 @@ export default function HoiTeachers() {
     setClasses(hoiClassesStorage.getAll());
     setStreams(hoiStreamsStorage.getAll());
     setDuties(hoiTeacherDutiesStorage.getAll());
+    try {
+      const schoolRows = await schoolsStorage.getAll();
+      console.log('HOI teacher form schools loaded:', schoolRows);
+      setSchools(schoolRows);
+      if (!teacherSchoolId && schoolRows.length > 0) {
+        setTeacherSchoolId(schoolRows[0].id);
+      }
+    } catch (error) {
+      console.error('HOI teacher school load error:', error);
+    }
     try {
       const dhoiUsers = await platformUsersStorage.getByRole('dhoi');
       const first = dhoiUsers[0];
@@ -277,6 +298,7 @@ export default function HoiTeachers() {
   const openAddTeacher = () => {
     setEditingTeacher(null);
     setTeacherForm(emptyTeacherForm);
+    setTeacherSchoolId(schools[0]?.id || '');
     setTeacherDialogOpen(true);
   };
 
@@ -296,6 +318,7 @@ export default function HoiTeachers() {
       class_teacher_class_id: t.class_teacher_class_id || '',
       class_teacher_stream_id: t.class_teacher_stream_id || '',
     });
+    setTeacherSchoolId(schools[0]?.id || '');
     setTeacherDialogOpen(true);
   };
 
@@ -304,87 +327,106 @@ export default function HoiTeachers() {
       toast({ title: 'Validation Error', description: 'Full name, email, and employee ID are required.', variant: 'destructive' });
       return;
     }
+    if (!teacherSchoolId) {
+      toast({ title: 'Validation Error', description: 'Please select a school.', variant: 'destructive' });
+      return;
+    }
     if (!editingTeacher && !teacherForm.password.trim()) {
       toast({ title: 'Validation Error', description: 'Password is required when adding a new teacher.', variant: 'destructive' });
       return;
     }
-    const { password, is_class_teacher, class_teacher_class_id, class_teacher_stream_id, ...teacherData } = teacherForm;
-    const selectedClass = classes.find(c => c.id === class_teacher_class_id);
-    const selectedStream = streams.find(s => s.id === class_teacher_stream_id);
-    const classTeacherFields = is_class_teacher && selectedClass && selectedStream ? {
-      is_class_teacher: true,
-      class_teacher_class_id: selectedClass.id,
-      class_teacher_class_name: selectedClass.name,
-      class_teacher_stream_id: selectedStream.id,
-      class_teacher_stream_name: selectedStream.name,
-    } : {
-      is_class_teacher: false,
-      class_teacher_class_id: undefined,
-      class_teacher_class_name: undefined,
-      class_teacher_stream_id: undefined,
-      class_teacher_stream_name: undefined,
-    };
+    try {
+      const selectedSchool = schools.find((s) => s.id === teacherSchoolId);
+      const { password, is_class_teacher, class_teacher_class_id, class_teacher_stream_id, ...teacherData } = teacherForm;
+      const selectedClass = classes.find(c => c.id === class_teacher_class_id);
+      const selectedStream = streams.find(s => s.id === class_teacher_stream_id);
+      const classTeacherFields = is_class_teacher && selectedClass && selectedStream ? {
+        is_class_teacher: true,
+        class_teacher_class_id: selectedClass.id,
+        class_teacher_class_name: selectedClass.name,
+        class_teacher_stream_id: selectedStream.id,
+        class_teacher_stream_name: selectedStream.name,
+      } : {
+        is_class_teacher: false,
+        class_teacher_class_id: undefined,
+        class_teacher_class_name: undefined,
+        class_teacher_stream_id: undefined,
+        class_teacher_stream_name: undefined,
+      };
 
-    if (editingTeacher) {
-      hoiTeachersStorage.update(editingTeacher.id, { ...teacherData, ...classTeacherFields });
-      if (password.trim()) {
-        toast({
-          title: 'Password Notice',
-          description: 'Teacher profile updated in Supabase. Password changes must be done through Supabase Auth.',
-        });
-      }
-      const existingPU = await platformUsersStorage.findByEmail(teacherForm.email.trim().toLowerCase());
-      if (existingPU) {
-        await platformUsersStorage.update(existingPU.id, {
-          isClassTeacher: classTeacherFields.is_class_teacher,
-          classTeacherClassId: classTeacherFields.class_teacher_class_id,
-          classTeacherClassName: classTeacherFields.class_teacher_class_name,
-          classTeacherStreamId: classTeacherFields.class_teacher_stream_id,
-          classTeacherStreamName: classTeacherFields.class_teacher_stream_name,
-        });
-      }
-      toast({ title: 'Teacher Updated', description: `${teacherForm.full_name} has been updated.` });
-    } else {
-      const newTeacher = hoiTeachersStorage.add({ ...teacherData, ...classTeacherFields, hired_at: new Date().toISOString().split('T')[0] });
-      const allUsers = await platformUsersStorage.getAll();
-      const existing = allUsers.find(u => u.email.toLowerCase() === teacherForm.email.trim().toLowerCase());
-      if (!existing) {
-        await platformUsersStorage.add({
+      if (editingTeacher) {
+        hoiTeachersStorage.update(editingTeacher.id, { ...teacherData, ...classTeacherFields });
+        if (password.trim()) {
+          toast({
+            title: 'Password Notice',
+            description: 'Teacher profile updated in Supabase. Password changes must be done through Supabase Auth.',
+          });
+        }
+        const existingPU = await platformUsersStorage.findByEmail(teacherForm.email.trim().toLowerCase());
+        if (existingPU) {
+          await platformUsersStorage.update(existingPU.id, {
+            schoolCode: selectedSchool?.school_code || existingPU.schoolCode,
+            schoolName: selectedSchool?.name || existingPU.schoolName,
+            isClassTeacher: classTeacherFields.is_class_teacher,
+            classTeacherClassId: classTeacherFields.class_teacher_class_id,
+            classTeacherClassName: classTeacherFields.class_teacher_class_name,
+            classTeacherStreamId: classTeacherFields.class_teacher_stream_id,
+            classTeacherStreamName: classTeacherFields.class_teacher_stream_name,
+          });
+        }
+        toast({ title: 'Teacher Updated', description: `${teacherForm.full_name} has been updated.` });
+      } else {
+        const newTeacher = hoiTeachersStorage.add({ ...teacherData, ...classTeacherFields, hired_at: new Date().toISOString().split('T')[0] });
+        const allUsers = await platformUsersStorage.getAll();
+        const existing = allUsers.find(u => u.email.toLowerCase() === teacherForm.email.trim().toLowerCase());
+        if (!existing) {
+          await platformUsersStorage.add({
+            email: teacherForm.email.trim().toLowerCase(),
+            fullName: teacherForm.full_name.trim(),
+            role: 'teacher',
+            schoolCode: selectedSchool?.school_code || '',
+            schoolName: selectedSchool?.name || '',
+            phone: teacherForm.phone.trim(),
+            status: 'active',
+            createdBy: 'HOI',
+            isClassTeacher: classTeacherFields.is_class_teacher,
+            classTeacherClassId: classTeacherFields.class_teacher_class_id,
+            classTeacherClassName: classTeacherFields.class_teacher_class_name,
+            classTeacherStreamId: classTeacherFields.class_teacher_stream_id,
+            classTeacherStreamName: classTeacherFields.class_teacher_stream_name,
+          });
+        } else {
+          await platformUsersStorage.update(existing.id, {
+            schoolCode: selectedSchool?.school_code || existing.schoolCode,
+            schoolName: selectedSchool?.name || existing.schoolName,
+            isClassTeacher: classTeacherFields.is_class_teacher,
+            classTeacherClassId: classTeacherFields.class_teacher_class_id,
+            classTeacherClassName: classTeacherFields.class_teacher_class_name,
+            classTeacherStreamId: classTeacherFields.class_teacher_stream_id,
+            classTeacherStreamName: classTeacherFields.class_teacher_stream_name,
+          });
+        }
+
+        void sendWelcomeEmail({
           email: teacherForm.email.trim().toLowerCase(),
           fullName: teacherForm.full_name.trim(),
           role: 'teacher',
-          schoolCode: '',
-          schoolName: '',
-          phone: teacherForm.phone.trim(),
-          status: 'active',
+          schoolCode: selectedSchool?.school_code,
           createdBy: 'HOI',
-          isClassTeacher: classTeacherFields.is_class_teacher,
-          classTeacherClassId: classTeacherFields.class_teacher_class_id,
-          classTeacherClassName: classTeacherFields.class_teacher_class_name,
-          classTeacherStreamId: classTeacherFields.class_teacher_stream_id,
-          classTeacherStreamName: classTeacherFields.class_teacher_stream_name,
         });
-      } else {
-        await platformUsersStorage.update(existing.id, {
-          isClassTeacher: classTeacherFields.is_class_teacher,
-          classTeacherClassId: classTeacherFields.class_teacher_class_id,
-          classTeacherClassName: classTeacherFields.class_teacher_class_name,
-          classTeacherStreamId: classTeacherFields.class_teacher_stream_id,
-          classTeacherStreamName: classTeacherFields.class_teacher_stream_name,
-        });
+
+        toast({ title: 'Teacher Added', description: `${teacherForm.full_name} has been added. They can now log in with their email and password.` });
       }
-
-      void sendWelcomeEmail({
-        email: teacherForm.email.trim().toLowerCase(),
-        fullName: teacherForm.full_name.trim(),
-        role: 'teacher',
-        createdBy: 'HOI',
+      setTeacherDialogOpen(false);
+      await loadData();
+    } catch (error) {
+      console.error('HOI teacher save error:', error);
+      toast({
+        title: 'Teacher save failed',
+        description: formatErrorMessage(error),
+        variant: 'destructive',
       });
-
-      toast({ title: 'Teacher Added', description: `${teacherForm.full_name} has been added. They can now log in with their email and password.` });
     }
-    setTeacherDialogOpen(false);
-    await loadData();
   };
 
   const toggleTeacherStatus = () => {
@@ -780,6 +822,17 @@ export default function HoiTeachers() {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>School *</Label>
+                <Select value={teacherSchoolId} onValueChange={setTeacherSchoolId}>
+                  <SelectTrigger><SelectValue placeholder="Select school" /></SelectTrigger>
+                  <SelectContent>
+                    {schools.map((school) => (
+                      <SelectItem key={school.id} value={school.id}>{school.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div>
                 <Label>Employee ID *</Label>
                 <Input value={teacherForm.employee_id} onChange={(e) => setTeacherForm({ ...teacherForm, employee_id: e.target.value })} />

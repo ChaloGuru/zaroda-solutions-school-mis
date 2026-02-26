@@ -13,8 +13,8 @@ export interface School {
   contact_phone: string;
   status: 'active' | 'pending' | 'suspended';
   categories: string[];
-  student_count: number;
-  faculty_count: number;
+  student_count?: number;
+  faculty_count?: number;
   created_at: string;
 }
 
@@ -291,6 +291,8 @@ const normalizeSchool = (row: any): School => ({
   ...row,
   school_type: normalizeSchoolType(row?.school_type),
   categories: Array.isArray(row?.categories) ? row.categories : [],
+  student_count: typeof row?.student_count === 'number' ? row.student_count : 0,
+  faculty_count: typeof row?.faculty_count === 'number' ? row.faculty_count : 0,
 });
 
 const isoDate = (value?: string | null) => (value ? String(value) : new Date().toISOString());
