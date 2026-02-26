@@ -1,4 +1,4 @@
-import { getJsonValue, setJsonValue } from '@/lib/appKv';
+import { getJsonValue, removeJsonValue, setJsonValue } from '@/lib/appKv';
 
 export interface HoiClass {
   id: string;
@@ -302,6 +302,44 @@ function setObject<T>(key: string, data: T): void {
   setJsonValue(key, data);
 }
 
+const HOI_STUDENTS_KEY = 'zaroda_hoi_students';
+const HOI_STUDENTS_MIGRATION_KEY = 'zaroda_hoi_students_seed_migrated_v1';
+const LEGACY_SEED_STUDENT_NAMES = new Set([
+  'Mercy Njeri',
+  'Victor Mwangi',
+  'Angela Wambui',
+  'Kevin Odhiambo',
+  'Faith Akinyi',
+  'Brian Kiprop',
+  'Dennis Otieno',
+  'Lucy Chebet',
+  'Grace Wanjiku',
+  'James Kamau',
+]);
+
+function looksLikeLegacySeedStudent(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false;
+  const row = value as { id?: unknown; full_name?: unknown; admission_no?: unknown };
+  const id = typeof row.id === 'string' ? row.id : '';
+  const fullName = typeof row.full_name === 'string' ? row.full_name : '';
+  const admissionNo = typeof row.admission_no === 'string' ? row.admission_no : '';
+  return (/^hs\d+$/i.test(id) && admissionNo.startsWith('ADM-2025-')) || LEGACY_SEED_STUDENT_NAMES.has(fullName);
+}
+
+function runHoiStudentsSeedMigrationGuard(): void {
+  const migrated = getJsonValue<boolean>(HOI_STUDENTS_MIGRATION_KEY, false);
+  if (migrated) return;
+
+  const existing = getJsonValue<unknown[]>(HOI_STUDENTS_KEY, []);
+  if (existing.some(looksLikeLegacySeedStudent)) {
+    removeJsonValue(HOI_STUDENTS_KEY);
+  }
+
+  setJsonValue(HOI_STUDENTS_MIGRATION_KEY, true);
+}
+
+runHoiStudentsSeedMigrationGuard();
+
 const SEED_CLASSES: HoiClass[] = [
   { id: 'c1', name: 'PP1', level: 'ecde', created_at: '2025-01-10' },
   { id: 'c2', name: 'PP2', level: 'ecde', created_at: '2025-01-10' },
@@ -405,27 +443,12 @@ const SEED_TEACHER_DUTIES: HoiTeacherDuty[] = [
   { id: 'td4', teacher_id: 't7', teacher_name: 'Diana Wairimu', from_date: '2026-03-16', to_date: '2026-03-22', remarks: '' },
 ];
 
-const SEED_STUDENTS: HoiStudent[] = [
-  { id: 'hs1', full_name: 'Kevin Odhiambo', admission_no: 'ADM-2025-001', class_id: 'c9', class_name: 'Grade 7', stream_id: 'str1', stream_name: 'East', gender: 'Male', date_of_birth: '2010-03-15', guardian_name: 'John Odhiambo', guardian_phone: '+254 700 111 222', guardian_email: 'john.o@email.com', status: 'active', enrolled_at: '2025-01-10' },
-  { id: 'hs2', full_name: 'Faith Akinyi', admission_no: 'ADM-2025-002', class_id: 'c9', class_name: 'Grade 7', stream_id: 'str2', stream_name: 'West', gender: 'Female', date_of_birth: '2010-07-22', guardian_name: 'Rose Akinyi', guardian_phone: '+254 700 222 333', guardian_email: 'rose.a@email.com', status: 'active', enrolled_at: '2025-01-10' },
-  { id: 'hs3', full_name: 'Brian Kiprop', admission_no: 'ADM-2025-003', class_id: 'c10', class_name: 'Grade 8', stream_id: 'str3', stream_name: 'East', gender: 'Male', date_of_birth: '2009-11-05', guardian_name: 'Daniel Kiprop', guardian_phone: '+254 700 333 444', guardian_email: 'daniel.k@email.com', status: 'active', enrolled_at: '2024-01-10' },
-  { id: 'hs4', full_name: 'Mercy Njeri', admission_no: 'ADM-2025-004', class_id: 'c10', class_name: 'Grade 8', stream_id: 'str4', stream_name: 'West', gender: 'Female', date_of_birth: '2009-09-18', guardian_name: 'Sarah Njeri', guardian_phone: '+254 700 444 555', guardian_email: 'sarah.n@email.com', status: 'active', enrolled_at: '2024-01-10' },
-  { id: 'hs5', full_name: 'Victor Mwangi', admission_no: 'ADM-2025-005', class_id: 'c11', class_name: 'Grade 9', stream_id: 'str5', stream_name: 'East', gender: 'Male', date_of_birth: '2008-01-30', guardian_name: 'Joseph Mwangi', guardian_phone: '+254 700 555 666', guardian_email: 'joseph.m@email.com', status: 'active', enrolled_at: '2023-01-10' },
-  { id: 'hs6', full_name: 'Angela Wambui', admission_no: 'ADM-2025-006', class_id: 'c11', class_name: 'Grade 9', stream_id: 'str6', stream_name: 'West', gender: 'Female', date_of_birth: '2008-06-12', guardian_name: 'Michael Wambui', guardian_phone: '+254 700 666 777', guardian_email: 'michael.w@email.com', status: 'active', enrolled_at: '2023-01-10' },
-  { id: 'hs7', full_name: 'Dennis Otieno', admission_no: 'ADM-2025-007', class_id: 'c8', class_name: 'Grade 6', stream_id: 'str7', stream_name: 'A', gender: 'Male', date_of_birth: '2007-04-25', guardian_name: 'Patrick Otieno', guardian_phone: '+254 700 777 888', guardian_email: 'patrick.o@email.com', status: 'active', enrolled_at: '2022-01-10' },
-  { id: 'hs8', full_name: 'Lucy Chebet', admission_no: 'ADM-2025-008', class_id: 'c8', class_name: 'Grade 6', stream_id: 'str7', stream_name: 'A', gender: 'Female', date_of_birth: '2007-12-08', guardian_name: 'Timothy Chebet', guardian_phone: '+254 700 888 999', guardian_email: 'timothy.c@email.com', status: 'active', enrolled_at: '2022-01-10' },
-  { id: 'hs9', full_name: 'Grace Wanjiku', admission_no: 'ADM-2025-009', class_id: 'c9', class_name: 'Grade 7', stream_id: 'str1', stream_name: 'East', gender: 'Female', date_of_birth: '2010-05-14', guardian_name: 'Peter Wanjiku', guardian_phone: '+254 700 999 100', guardian_email: 'peter.w@email.com', status: 'active', enrolled_at: '2025-01-10' },
-  { id: 'hs10', full_name: 'James Kamau', admission_no: 'ADM-2025-010', class_id: 'c10', class_name: 'Grade 8', stream_id: 'str3', stream_name: 'East', gender: 'Male', date_of_birth: '2009-02-20', guardian_name: 'Mary Kamau', guardian_phone: '+254 701 100 200', guardian_email: 'mary.k@email.com', status: 'active', enrolled_at: '2024-01-10' },
-];
 
 const SEED_OFFICIALS: HoiOfficial[] = [
   { id: 'of1', full_name: 'Dr. Samuel Kariuki', role: 'Deputy Head', department: 'Administration', email: 's.kariuki@school.ac.ke', phone: '+254 711 100 001', status: 'active' },
   { id: 'of2', full_name: 'Thomas Kimani', role: 'HOD', department: 'Sciences', email: 't.kimani@school.ac.ke', phone: '+254 711 300 001', status: 'active' },
   { id: 'of3', full_name: 'Alice Njoroge', role: 'HOD', department: 'Languages', email: 'a.njoroge@school.ac.ke', phone: '+254 711 200 002', status: 'active' },
   { id: 'of4', full_name: 'Robert Ouma', role: 'Senior Teacher', department: 'Humanities', email: 'r.ouma@school.ac.ke', phone: '+254 711 200 001', status: 'active' },
-  { id: 'of5', full_name: 'Dennis Otieno', role: 'Prefect', department: 'Student Leadership', status: 'active' },
-  { id: 'of6', full_name: 'Angela Wambui', role: 'Prefect', department: 'Student Leadership', status: 'active' },
-  { id: 'of7', full_name: 'Victor Mwangi', role: 'Games Captain', department: 'Sports', status: 'active' },
 ];
 
 const SEED_TIMETABLE: HoiTimetableSlot[] = [
@@ -439,25 +462,9 @@ const SEED_TIMETABLE: HoiTimetableSlot[] = [
   { id: 'tt8', class_id: 'c8', class_name: 'Grade 6', stream_id: 'str7', stream_name: 'A', day: 'Wednesday', period: 1, time_start: '08:00', time_end: '08:40', subject_id: 'sub1', subject_name: 'Mathematics', teacher_id: 't1', teacher_name: 'Jane Muthoni', room: 'Room 6A' },
 ];
 
-const SEED_ATTENDANCE: HoiAttendance[] = [
-  { id: 'att1', student_id: 'hs1', student_name: 'Kevin Odhiambo', class_id: 'c9', class_name: 'Grade 7', stream_id: 'str1', stream_name: 'East', date: '2025-09-15', status: 'present', marked_by: 'Jane Muthoni' },
-  { id: 'att2', student_id: 'hs2', student_name: 'Faith Akinyi', class_id: 'c9', class_name: 'Grade 7', stream_id: 'str2', stream_name: 'West', date: '2025-09-15', status: 'present', marked_by: 'Robert Ouma' },
-  { id: 'att3', student_id: 'hs3', student_name: 'Brian Kiprop', class_id: 'c10', class_name: 'Grade 8', stream_id: 'str3', stream_name: 'East', date: '2025-09-15', status: 'absent', marked_by: 'Alice Njoroge' },
-  { id: 'att4', student_id: 'hs4', student_name: 'Mercy Njeri', class_id: 'c10', class_name: 'Grade 8', stream_id: 'str4', stream_name: 'West', date: '2025-09-15', status: 'present', marked_by: 'Thomas Kimani' },
-  { id: 'att5', student_id: 'hs5', student_name: 'Victor Mwangi', class_id: 'c11', class_name: 'Grade 9', stream_id: 'str5', stream_name: 'East', date: '2025-09-15', status: 'present', marked_by: 'Caroline Achieng' },
-  { id: 'att6', student_id: 'hs7', student_name: 'Dennis Otieno', class_id: 'c8', class_name: 'Grade 6', stream_id: 'str7', stream_name: 'A', date: '2025-09-15', status: 'present', marked_by: 'Diana Wairimu' },
-  { id: 'att7', student_id: 'hs9', student_name: 'Grace Wanjiku', class_id: 'c9', class_name: 'Grade 7', stream_id: 'str1', stream_name: 'East', date: '2025-09-15', status: 'absent', marked_by: 'Jane Muthoni' },
-];
+const SEED_ATTENDANCE: HoiAttendance[] = [];
 
-const SEED_FEES: HoiFeePayment[] = [
-  { id: 'fee1', student_id: 'hs1', student_name: 'Kevin Odhiambo', admission_no: 'ADM-2025-001', amount: 35000, term: 'Term 1', year: 2025, date: '2025-01-15', payment_method: 'mpesa', receipt_no: 'RCP-001', recorded_by: 'Bursar' },
-  { id: 'fee2', student_id: 'hs2', student_name: 'Faith Akinyi', admission_no: 'ADM-2025-002', amount: 35000, term: 'Term 1', year: 2025, date: '2025-01-18', payment_method: 'bank', receipt_no: 'RCP-002', recorded_by: 'Bursar' },
-  { id: 'fee3', student_id: 'hs3', student_name: 'Brian Kiprop', admission_no: 'ADM-2025-003', amount: 20000, term: 'Term 1', year: 2025, date: '2025-01-20', payment_method: 'cash', receipt_no: 'RCP-003', recorded_by: 'Bursar' },
-  { id: 'fee4', student_id: 'hs5', student_name: 'Victor Mwangi', admission_no: 'ADM-2025-005', amount: 35000, term: 'Term 2', year: 2025, date: '2025-05-10', payment_method: 'mpesa', receipt_no: 'RCP-004', recorded_by: 'Bursar' },
-  { id: 'fee5', student_id: 'hs7', student_name: 'Dennis Otieno', admission_no: 'ADM-2025-007', amount: 40000, term: 'Term 1', year: 2025, date: '2025-01-12', payment_method: 'bank', receipt_no: 'RCP-005', recorded_by: 'Bursar' },
-  { id: 'fee6', student_id: 'hs8', student_name: 'Lucy Chebet', admission_no: 'ADM-2025-008', amount: 40000, term: 'Term 1', year: 2025, date: '2025-01-14', payment_method: 'mpesa', receipt_no: 'RCP-006', recorded_by: 'Bursar' },
-  { id: 'fee7', student_id: 'hs4', student_name: 'Mercy Njeri', admission_no: 'ADM-2025-004', amount: 15000, term: 'Term 2', year: 2025, date: '2025-05-15', payment_method: 'cash', receipt_no: 'RCP-007', recorded_by: 'Bursar' },
-];
+const SEED_FEES: HoiFeePayment[] = [];
 
 const SEED_EXPENSES: HoiExpense[] = [
   { id: 'exp1', item: 'Electricity Bill - September', amount: 45000, category: 'utilities', date: '2025-09-05', approved_by: 'Principal' },
@@ -479,13 +486,7 @@ const SEED_BOOKS: HoiBook[] = [
   { id: 'bk7', title: 'Daily Nation Education Digest', author: 'Nation Media Group', isbn: '978-9966-20-001', copies_available: 10, total_copies: 10, category: 'periodical' },
 ];
 
-const SEED_BOOK_ISSUES: HoiBookIssue[] = [
-  { id: 'bi1', book_id: 'bk1', book_title: 'KLB Mathematics Grade 7', student_id: 'hs1', student_name: 'Kevin Odhiambo', date_issued: '2025-09-01', due_date: '2025-09-15', status: 'issued' },
-  { id: 'bi2', book_id: 'bk3', book_title: 'A Doll\'s House', student_id: 'hs2', student_name: 'Faith Akinyi', date_issued: '2025-08-20', due_date: '2025-09-03', date_returned: '2025-09-02', status: 'returned' },
-  { id: 'bi3', book_id: 'bk4', book_title: 'The River and the Source', student_id: 'hs5', student_name: 'Victor Mwangi', date_issued: '2025-08-25', due_date: '2025-09-08', status: 'overdue' },
-  { id: 'bi4', book_id: 'bk2', book_title: 'KLB English Grade 8', student_id: 'hs3', student_name: 'Brian Kiprop', date_issued: '2025-09-05', due_date: '2025-09-19', status: 'issued' },
-  { id: 'bi5', book_id: 'bk6', book_title: 'KLB Chemistry Grade 9', student_id: 'hs6', student_name: 'Angela Wambui', date_issued: '2025-09-10', due_date: '2025-09-24', status: 'issued' },
-];
+const SEED_BOOK_ISSUES: HoiBookIssue[] = [];
 
 const SEED_SPORTS: HoiSport[] = [
   { id: 'sp1', name: 'Football', category: 'team', coach_name: 'Emmanuel Kipchoge' },
@@ -496,16 +497,7 @@ const SEED_SPORTS: HoiSport[] = [
   { id: 'sp6', name: 'Swimming', category: 'individual' },
 ];
 
-const SEED_SPORTS_TEAMS: HoiSportsTeam[] = [
-  { id: 'spt1', sport_id: 'sp1', sport_name: 'Football', student_id: 'hs1', student_name: 'Kevin Odhiambo', position: 'Striker' },
-  { id: 'spt2', sport_id: 'sp1', sport_name: 'Football', student_id: 'hs5', student_name: 'Victor Mwangi', position: 'Goalkeeper' },
-  { id: 'spt3', sport_id: 'sp1', sport_name: 'Football', student_id: 'hs7', student_name: 'Dennis Otieno', position: 'Midfielder' },
-  { id: 'spt4', sport_id: 'sp2', sport_name: 'Netball', student_id: 'hs2', student_name: 'Faith Akinyi', position: 'Goal Shooter' },
-  { id: 'spt5', sport_id: 'sp2', sport_name: 'Netball', student_id: 'hs4', student_name: 'Mercy Njeri', position: 'Centre' },
-  { id: 'spt6', sport_id: 'sp3', sport_name: 'Athletics', student_id: 'hs3', student_name: 'Brian Kiprop', position: '100m Sprint' },
-  { id: 'spt7', sport_id: 'sp3', sport_name: 'Athletics', student_id: 'hs9', student_name: 'Grace Wanjiku', position: '800m' },
-  { id: 'spt8', sport_id: 'sp4', sport_name: 'Rugby', student_id: 'hs10', student_name: 'James Kamau', position: 'Fly-half' },
-];
+const SEED_SPORTS_TEAMS: HoiSportsTeam[] = [];
 
 const SEED_SPORTS_EVENTS: HoiSportsEvent[] = [
   { id: 'se1', name: 'Inter-House Football Tournament', sport_id: 'sp1', sport_name: 'Football', date: '2025-10-15', venue: 'School Grounds', teams_involved: 'Simba House vs Chui House', status: 'upcoming' },
@@ -521,14 +513,7 @@ const SEED_ELECTIONS: HoiElection[] = [
   { id: 'el3', name: '2026 Student Council Elections', positions: ['Head Boy', 'Head Girl', 'Deputy Head Boy', 'Deputy Head Girl'], date: '2026-02-15', status: 'upcoming' },
 ];
 
-const SEED_CANDIDATES: HoiCandidate[] = [
-  { id: 'cand1', election_id: 'el1', student_id: 'hs7', student_name: 'Dennis Otieno', class_name: 'Grade 6', position: 'Head Boy', votes: 187 },
-  { id: 'cand2', election_id: 'el1', student_id: 'hs8', student_name: 'Lucy Chebet', class_name: 'Grade 6', position: 'Head Girl', votes: 203 },
-  { id: 'cand3', election_id: 'el1', student_id: 'hs5', student_name: 'Victor Mwangi', class_name: 'Grade 9', position: 'Games Captain', votes: 165 },
-  { id: 'cand4', election_id: 'el1', student_id: 'hs6', student_name: 'Angela Wambui', class_name: 'Grade 9', position: 'Deputy Head Girl', votes: 142 },
-  { id: 'cand5', election_id: 'el2', student_id: 'hs1', student_name: 'Kevin Odhiambo', class_name: 'Grade 7', position: 'Grade 7 Rep', votes: 32 },
-  { id: 'cand6', election_id: 'el2', student_id: 'hs3', student_name: 'Brian Kiprop', class_name: 'Grade 8', position: 'Grade 8 Rep', votes: 28 },
-];
+const SEED_CANDIDATES: HoiCandidate[] = [];
 
 const SEED_ANNOUNCEMENTS: HoiAnnouncement[] = [
   { id: 'ann1', title: 'Term 3 Opening Day', content: 'All students are expected to report by 8:00 AM on Monday 1st September 2025. Full school uniform is mandatory.', priority: 'high', date: '2025-08-25', author: 'Principal' },
@@ -655,19 +640,19 @@ export const hoiTeacherDutiesStorage = {
 
 export const hoiStudentsStorage = {
   getAll: (): HoiStudent[] => {
-    const students = getSeeded<HoiStudent>('zaroda_hoi_students', SEED_STUDENTS);
+    const students = getData<HoiStudent>(HOI_STUDENTS_KEY);
     const normalized = students.map((student) => ({
       ...student,
       upi: student.upi || '',
     }));
     if (JSON.stringify(normalized) !== JSON.stringify(students)) {
-      setData('zaroda_hoi_students', normalized);
+      setData(HOI_STUDENTS_KEY, normalized);
     }
     return normalized;
   },
-  add: (item: Omit<HoiStudent, 'id'>) => addItem<HoiStudent>('zaroda_hoi_students', item),
-  update: (id: string, updates: Partial<HoiStudent>) => updateItem<HoiStudent>('zaroda_hoi_students', id, updates),
-  remove: (id: string) => deleteItem<HoiStudent>('zaroda_hoi_students', id),
+  add: (item: Omit<HoiStudent, 'id'>) => addItem<HoiStudent>(HOI_STUDENTS_KEY, item),
+  update: (id: string, updates: Partial<HoiStudent>) => updateItem<HoiStudent>(HOI_STUDENTS_KEY, id, updates),
+  remove: (id: string) => deleteItem<HoiStudent>(HOI_STUDENTS_KEY, id),
 };
 
 export const hoiOfficialsStorage = {

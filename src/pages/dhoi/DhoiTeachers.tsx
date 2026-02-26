@@ -402,16 +402,31 @@ export default function DhoiTeachers() {
     await loadData();
   };
 
-  const saveAssignment = () => {
+  const getClassStreamCountFromDb = async (classId: string) => {
+    const { count, error } = await supabase
+      .from('hoi_streams')
+      .select('id', { count: 'exact', head: true })
+      .eq('class_id', classId);
+
+    if (error) {
+      return 0;
+    }
+
+    return count ?? 0;
+  };
+
+  const saveAssignment = async () => {
     if (!assignForm.teacher_id || !assignForm.subject_id || !assignForm.class_id) {
       toast({ title: 'Validation Error', description: 'Teacher, subject, and class are required.', variant: 'destructive' });
       return;
     }
 
+    const streamCountInDb = await getClassStreamCountFromDb(assignForm.class_id);
     const classStreams = streams.filter((s) => s.class_id === assignForm.class_id);
-    const resolvedStreamId = assignForm.stream_id || (classStreams.length === 1 ? classStreams[0].id : '');
+    const requiresStream = streamCountInDb > 1;
+    const resolvedStreamId = assignForm.stream_id || (streamCountInDb === 1 && classStreams.length === 1 ? classStreams[0].id : '');
 
-    if (!resolvedStreamId) {
+    if (requiresStream && !resolvedStreamId) {
       toast({ title: 'Validation Error', description: 'Stream is required when the selected class has multiple streams.', variant: 'destructive' });
       return;
     }
@@ -419,8 +434,13 @@ export default function DhoiTeachers() {
     const teacher = teachers.find((t) => t.id === assignForm.teacher_id);
     const subject = subjects.find((s) => s.id === assignForm.subject_id);
     const cls = classes.find((c) => c.id === assignForm.class_id);
-    const stream = streams.find((s) => s.id === resolvedStreamId);
-    if (!teacher || !subject || !cls || !stream) return;
+    const stream = resolvedStreamId ? streams.find((s) => s.id === resolvedStreamId) : null;
+    if (!teacher || !subject || !cls) return;
+    if (resolvedStreamId && !stream) {
+      toast({ title: 'Validation Error', description: 'Selected stream is invalid for this class.', variant: 'destructive' });
+      return;
+    }
+
     hoiSubjectAssignmentsStorage.add({
       teacher_id: teacher.id,
       teacher_name: teacher.full_name,
@@ -428,13 +448,13 @@ export default function DhoiTeachers() {
       subject_name: subject.name,
       class_id: cls.id,
       class_name: cls.name,
-      stream_id: stream.id,
-      stream_name: stream.name,
+      stream_id: stream?.id || '',
+      stream_name: stream?.name || '',
     });
-    toast({ title: 'Assignment Created', description: `${teacher.full_name} assigned to ${subject.name} - ${cls.name} ${stream.name}` });
+    toast({ title: 'Assignment Created', description: `${teacher.full_name} assigned to ${subject.name} - ${cls.name}${stream?.name ? ` ${stream.name}` : ''}` });
     setAssignDialogOpen(false);
     setAssignForm(emptyAssignmentForm);
-    loadData();
+    await loadData();
   };
 
   const deleteAssignment = () => {

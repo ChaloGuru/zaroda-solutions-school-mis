@@ -1,12 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-  hoiStudentsStorage,
-  hoiClassesStorage,
-  hoiStreamsStorage,
   HoiStudent,
   HoiClass,
   HoiStream,
 } from '@/lib/hoiStorage';
+import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -91,13 +89,65 @@ export default function HoiStudents() {
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [csvPreview, setCsvPreview] = useState<string[][]>([]);
 
-  const loadData = () => {
-    setStudents(hoiStudentsStorage.getAll());
-    setClasses(hoiClassesStorage.getAll());
-    setStreams(hoiStreamsStorage.getAll());
+  const loadData = async () => {
+    const [studentsRes, classesRes, streamsRes] = await Promise.all([
+      supabase.from('hoi_students').select('*').order('created_at', { ascending: false }),
+      supabase.from('hoi_classes').select('*').order('name', { ascending: true }),
+      supabase.from('hoi_streams').select('*').order('name', { ascending: true }),
+    ]);
+
+    if (studentsRes.error || classesRes.error || streamsRes.error) {
+      toast({
+        title: 'Load Error',
+        description: 'Failed to load student records from Supabase.',
+        variant: 'destructive',
+      });
+      setStudents([]);
+      setClasses([]);
+      setStreams([]);
+      return;
+    }
+
+    const mappedStudents: HoiStudent[] = (studentsRes.data || []).map((row: any) => ({
+      id: row.id,
+      full_name: row.full_name || '',
+      admission_no: row.admission_no || '',
+      upi: row.upi || '',
+      class_id: row.class_id || '',
+      class_name: row.class_name || '',
+      stream_id: row.stream_id || '',
+      stream_name: row.stream_name || '',
+      gender: row.gender === 'Female' ? 'Female' : 'Male',
+      date_of_birth: row.date_of_birth || '',
+      guardian_name: row.guardian_name || '',
+      guardian_phone: row.guardian_phone || '',
+      guardian_email: row.guardian_email || '',
+      status: row.status || 'active',
+      enrolled_at: row.enrolled_at || row.created_at || '',
+    }));
+
+    const mappedClasses: HoiClass[] = (classesRes.data || []).map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      level: row.level,
+      created_at: row.created_at || new Date().toISOString(),
+    }));
+
+    const mappedStreams: HoiStream[] = (streamsRes.data || []).map((row: any) => ({
+      id: row.id,
+      class_id: row.class_id,
+      name: row.name,
+      class_teacher_id: row.class_teacher_id || undefined,
+      class_teacher_name: row.class_teacher_name || undefined,
+      student_count: row.student_count || 0,
+    }));
+
+    setStudents(mappedStudents);
+    setClasses(mappedClasses);
+    setStreams(mappedStreams);
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { void loadData(); }, []);
 
   const filteredStudents = students.filter((s) => {
     const matchesSearch = s.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -142,34 +192,62 @@ export default function HoiStudents() {
     setStudentDialogOpen(true);
   };
 
-  const saveStudent = () => {
+  const saveStudent = async () => {
     if (!studentForm.full_name.trim() || !studentForm.admission_no.trim() || !studentForm.class_id || !studentForm.stream_id) {
       toast({ title: 'Validation Error', description: 'Full name, admission number, class, and stream are required.', variant: 'destructive' });
       return;
     }
+
     const cls = classes.find((c) => c.id === studentForm.class_id);
     const stream = streams.find((s) => s.id === studentForm.stream_id);
     if (!cls || !stream) return;
 
+    const payload = {
+      full_name: studentForm.full_name.trim(),
+      admission_no: studentForm.admission_no.trim(),
+      upi: studentForm.upi.trim(),
+      class_id: studentForm.class_id,
+      class_name: cls.name,
+      stream_id: studentForm.stream_id,
+      stream_name: stream.name,
+      gender: studentForm.gender,
+      date_of_birth: studentForm.date_of_birth,
+      guardian_name: studentForm.guardian_name,
+      guardian_phone: studentForm.guardian_phone,
+      guardian_email: studentForm.guardian_email,
+    };
+
     if (editingStudent) {
-      hoiStudentsStorage.update(editingStudent.id, {
-        ...studentForm,
-        class_name: cls.name,
-        stream_name: stream.name,
-      });
+      const { error } = await supabase
+        .from('hoi_students')
+        .update(payload)
+        .eq('id', editingStudent.id);
+
+      if (error) {
+        toast({ title: 'Save Failed', description: error.message, variant: 'destructive' });
+        return;
+      }
+
       toast({ title: 'Student Updated', description: `${studentForm.full_name} has been updated.` });
     } else {
-      hoiStudentsStorage.add({
-        ...studentForm,
-        class_name: cls.name,
-        stream_name: stream.name,
-        status: 'active',
-        enrolled_at: new Date().toISOString().split('T')[0],
-      });
+      const { error } = await supabase
+        .from('hoi_students')
+        .insert({
+          ...payload,
+          status: 'active',
+          enrolled_at: new Date().toISOString().split('T')[0],
+        });
+
+      if (error) {
+        toast({ title: 'Save Failed', description: error.message, variant: 'destructive' });
+        return;
+      }
+
       toast({ title: 'Student Added', description: `${studentForm.full_name} has been enrolled.` });
     }
+
     setStudentDialogOpen(false);
-    loadData();
+    await loadData();
   };
 
   const openTransfer = (s: HoiStudent) => {
@@ -179,21 +257,31 @@ export default function HoiStudents() {
     setTransferDialogOpen(true);
   };
 
-  const executeTransfer = () => {
+  const executeTransfer = async () => {
     if (!transferStudent || !transferClassId || !transferStreamId) return;
     const cls = classes.find((c) => c.id === transferClassId);
     const stream = streams.find((s) => s.id === transferStreamId);
     if (!cls || !stream) return;
-    hoiStudentsStorage.update(transferStudent.id, {
-      class_id: transferClassId,
-      class_name: cls.name,
-      stream_id: transferStreamId,
-      stream_name: stream.name,
-      status: 'transferred' as HoiStudent['status'],
-    });
+
+    const { error } = await supabase
+      .from('hoi_students')
+      .update({
+        class_id: transferClassId,
+        class_name: cls.name,
+        stream_id: transferStreamId,
+        stream_name: stream.name,
+        status: 'transferred',
+      })
+      .eq('id', transferStudent.id);
+
+    if (error) {
+      toast({ title: 'Transfer Failed', description: error.message, variant: 'destructive' });
+      return;
+    }
+
     toast({ title: 'Student Transferred', description: `${transferStudent.full_name} transferred to ${cls.name} - ${stream.name}` });
     setTransferDialogOpen(false);
-    loadData();
+    await loadData();
   };
 
   const openProfile = (s: HoiStudent) => {
