@@ -32,9 +32,7 @@ const SuperAdminLogin = () => {
     try {
       const result = await login(
         formData.email.trim().toLowerCase(),
-        formData.password,
-        '',
-        'superadmin'
+        formData.password
       );
 
       if (!result.success) {

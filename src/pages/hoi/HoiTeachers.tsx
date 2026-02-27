@@ -13,7 +13,7 @@ import {
   HoiStream,
   HoiTeacherDuty,
 } from '@/lib/hoiStorage';
-import { platformUsersStorage, schoolsStorage, type School } from '@/lib/storage';
+import { platformUsersStorage, schoolsStorage, type PlatformUser, type School } from '@/lib/storage';
 import { sendWelcomeEmail } from '@/lib/email';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
@@ -86,6 +86,10 @@ type DhoiAccount = {
   status?: 'active' | 'suspended' | 'inactive';
 };
 
+type StaffRow = HoiTeacher & {
+  staffRole: 'teacher' | 'dhoi';
+};
+
 const emptyTeacherForm = {
   full_name: '',
   email: '',
@@ -135,6 +139,7 @@ export default function HoiTeachers() {
   const [streams, setStreams] = useState<HoiStream[]>([]);
   const [duties, setDuties] = useState<HoiTeacherDuty[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
+  const [dhoiStaff, setDhoiStaff] = useState<PlatformUser[]>([]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -181,6 +186,7 @@ export default function HoiTeachers() {
     }
     try {
       const dhoiUsers = await platformUsersStorage.getByRole('dhoi');
+      setDhoiStaff(dhoiUsers);
       const first = dhoiUsers[0];
       setExistingDhoi(first ? {
         id: first.id,
@@ -193,6 +199,7 @@ export default function HoiTeachers() {
         status: first.status,
       } : null);
     } catch {
+      setDhoiStaff([]);
       setExistingDhoi(null);
     }
   };
@@ -269,7 +276,27 @@ export default function HoiTeachers() {
     await loadData();
   };
 
-  const filteredTeachers = teachers.filter((t) => {
+  const staffRows: StaffRow[] = [
+    ...teachers.map((teacher) => ({ ...teacher, staffRole: 'teacher' as const })),
+    ...dhoiStaff
+      .filter((user) => !teachers.some((teacher) => teacher.email.toLowerCase() === user.email.toLowerCase()))
+      .map((user) => ({
+        id: user.id,
+        full_name: user.fullName,
+        email: user.email,
+        phone: user.phone || '',
+        employee_id: '—',
+        subject_specialization: 'School Administration',
+        gender: 'Male' as HoiTeacher['gender'],
+        qualification: '—',
+        status: (user.status === 'active' ? 'active' : 'deactivated') as HoiTeacher['status'],
+        hired_at: user.createdAt ? user.createdAt.split('T')[0] : new Date().toISOString().split('T')[0],
+        is_class_teacher: false,
+        staffRole: 'dhoi' as const,
+      })),
+  ];
+
+  const filteredTeachers = staffRows.filter((t) => {
     const matchesSearch = t.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || t.status === statusFilter;
@@ -279,7 +306,8 @@ export default function HoiTeachers() {
   const totalTeacherPages = Math.max(1, Math.ceil(filteredTeachers.length / PAGE_SIZE));
   const pagedTeachers = filteredTeachers.slice((teacherPage - 1) * PAGE_SIZE, teacherPage * PAGE_SIZE);
 
-  const getTeacherRoleLabel = (teacher: HoiTeacher) => {
+  const getTeacherRoleLabel = (teacher: StaffRow) => {
+    if (teacher.staffRole === 'dhoi') return 'DHOI';
     if (teacher.is_class_teacher) return 'Class Teacher';
     return 'Subject Teacher';
   };
@@ -715,14 +743,20 @@ export default function HoiTeachers() {
                       <TableCell>{statusBadge(t.status)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => openEditTeacher(t)}><Pencil className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="sm" onClick={() => setDeactivateDialog({ open: true, teacher: t })}>
-                            {t.status === 'deactivated' ? <UserCheck className="w-4 h-4 text-green-600" /> : <UserX className="w-4 h-4 text-red-600" />}
-                          </Button>
-                          {isSystemCreatedTeacher(t) && (
-                            <Button variant="ghost" size="sm" onClick={() => setDeleteTeacherDialog({ open: true, teacher: t })}>
-                              <Trash2 className="w-4 h-4 text-red-600" />
-                            </Button>
+                          {t.staffRole === 'teacher' ? (
+                            <>
+                              <Button variant="ghost" size="sm" onClick={() => openEditTeacher(t)}><Pencil className="w-4 h-4" /></Button>
+                              <Button variant="ghost" size="sm" onClick={() => setDeactivateDialog({ open: true, teacher: t })}>
+                                {t.status === 'deactivated' ? <UserCheck className="w-4 h-4 text-green-600" /> : <UserX className="w-4 h-4 text-red-600" />}
+                              </Button>
+                              {isSystemCreatedTeacher(t) && (
+                                <Button variant="ghost" size="sm" onClick={() => setDeleteTeacherDialog({ open: true, teacher: t })}>
+                                  <Trash2 className="w-4 h-4 text-red-600" />
+                                </Button>
+                              )}
+                            </>
+                          ) : (
+                            <Badge variant="outline" className="bg-indigo-500/10 text-indigo-700 border-indigo-500/30">Managed in DHOI Account</Badge>
                           )}
                         </div>
                       </TableCell>

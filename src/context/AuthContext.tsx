@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { activityStorage } from '@/lib/storage';
 import { sendWelcomeEmail } from '@/lib/email';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseConfigError, supabase } from '@/lib/supabase';
 
 export type UserRole = 'superadmin' | 'teacher' | 'hoi' | 'dhoi' | 'student' | 'parent' | 'hod';
 
@@ -32,7 +32,7 @@ interface AuthContextType {
   currentUser: AuthUser | null;
   userRole: UserRole | null;
   loading: boolean;
-  login: (email: string, password: string, schoolCode: string, role?: UserRole) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signup: (data: TeacherSignupData) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
 }
@@ -140,9 +140,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  const login = async (email: string, password: string, schoolCode: string, role?: UserRole): Promise<{ success: boolean; error?: string }> => {
+  const getFriendlyLoginError = (error: unknown): string => {
+    const message = error instanceof Error ? error.message : String(error || 'Login failed');
+    const normalized = message.toLowerCase();
+
+    if (normalized.includes('failed to fetch') || normalized.includes('network') || normalized.includes('fetch')) {
+      return 'Cannot reach Supabase. Check your internet connection and verify VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY are set correctly.';
+    }
+
+    return message;
+  };
+
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    const configError = getSupabaseConfigError();
+    if (configError) {
+      return { success: false, error: configError };
+    }
+
     const normalizedEmail = email.trim().toLowerCase();
-    const trimmedCode = schoolCode.trim();
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email: normalizedEmail,
@@ -150,7 +165,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     if (error || !data.user) {
-      return { success: false, error: error?.message || 'Invalid credentials.' };
+      return { success: false, error: getFriendlyLoginError(error?.message || 'Invalid credentials.') };
     }
 
     try {
@@ -158,16 +173,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!profileUser) {
         await supabase.auth.signOut();
         return { success: false, error: 'No profile found for this account. Please contact administrator.' };
-      }
-
-      if (trimmedCode && profileUser.schoolCode && profileUser.schoolCode !== trimmedCode) {
-        await supabase.auth.signOut();
-        return { success: false, error: 'School code does not match your account.' };
-      }
-
-      if (role && profileUser.role !== role) {
-        await supabase.auth.signOut();
-        return { success: false, error: 'Selected role does not match your account role.' };
       }
 
       setCurrentUser(profileUser);
@@ -191,7 +196,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { success: true };
     } catch (profileError) {
       await supabase.auth.signOut();
-      return { success: false, error: profileError instanceof Error ? profileError.message : 'Failed to load profile.' };
+      return { success: false, error: getFriendlyLoginError(profileError instanceof Error ? profileError.message : 'Failed to load profile.') };
     }
   };
 
