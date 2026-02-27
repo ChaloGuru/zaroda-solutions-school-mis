@@ -50,6 +50,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { exportToPdf } from '@/lib/pdfExport';
+import { getCbcLevelForClassName } from '@/lib/cbcSubjects';
 
 const DAYS: HoiTimetableSlot['day'][] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 const DAY_LABELS: Record<HoiTimetableSlot['day'], string> = {
@@ -151,6 +152,10 @@ export default function HoiTimetable() {
 
   const selectedClass = classes.find((c) => c.id === selectedClassId);
   const selectedStream = streams.find((s) => s.id === selectedStreamId);
+  const selectedClassLevel = selectedClass ? getCbcLevelForClassName(selectedClass.name) : null;
+  const filteredSubjects = selectedClassLevel
+    ? subjects.filter((subject) => subject.category === selectedClassLevel)
+    : subjects;
   const schoolName = hoiSchoolProfileStorage.get().name || 'School';
 
   useEffect(() => {
@@ -203,6 +208,14 @@ export default function HoiTimetable() {
     const subject = subjects.find((s) => s.id === form.subject_id);
     const teacher = teachers.find((t) => t.id === form.teacher_id);
     if (!subject || !teacher || !selectedClass || !selectedStream) return;
+    if (selectedClassLevel && subject.category !== selectedClassLevel) {
+      toast({
+        title: 'Validation Error',
+        description: `Only ${selectedClassLevel} subjects can be scheduled for ${selectedClass.name}.`,
+        variant: 'destructive',
+      });
+      return;
+    }
 
     const periodInfo = PERIODS.find((p) => p.period === clickedPeriod);
     if (!periodInfo) return;
@@ -410,7 +423,7 @@ export default function HoiTimetable() {
                   <SelectValue placeholder="Select subject" />
                 </SelectTrigger>
                 <SelectContent>
-                  {subjects.map((s) => (
+                  {filteredSubjects.map((s) => (
                     <SelectItem key={s.id} value={s.id}>{s.name} ({s.code})</SelectItem>
                   ))}
                 </SelectContent>

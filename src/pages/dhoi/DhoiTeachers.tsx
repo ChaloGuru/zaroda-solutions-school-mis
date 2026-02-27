@@ -68,6 +68,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { CBC_SUBJECT_GROUPS, getCbcLevelForClassName } from '@/lib/cbcSubjects';
 
 const PAGE_SIZE = 10;
 const TEACHER_CODES_KEY = 'zaroda_teacher_codes';
@@ -196,6 +197,14 @@ export default function DhoiTeachers() {
 
   const totalAssignPages = Math.max(1, Math.ceil(assignments.length / PAGE_SIZE));
   const pagedAssignments = assignments.slice((assignPage - 1) * PAGE_SIZE, assignPage * PAGE_SIZE);
+  const selectedAssignClass = classes.find((classItem) => classItem.id === assignForm.class_id);
+  const selectedAssignClassLevel = selectedAssignClass ? getCbcLevelForClassName(selectedAssignClass.name) : null;
+  const selectedAssignGroup = selectedAssignClassLevel
+    ? CBC_SUBJECT_GROUPS.find((group) => group.value === selectedAssignClassLevel)
+    : null;
+  const filteredAssignSubjects = selectedAssignClassLevel
+    ? subjects.filter((subject) => subject.category === selectedAssignClassLevel)
+    : [];
 
   const rosterEntries = [...duties].sort((a, b) => a.from_date.localeCompare(b.from_date));
 
@@ -436,6 +445,15 @@ export default function DhoiTeachers() {
     const cls = classes.find((c) => c.id === assignForm.class_id);
     const stream = resolvedStreamId ? streams.find((s) => s.id === resolvedStreamId) : null;
     if (!teacher || !subject || !cls) return;
+    const classLevel = getCbcLevelForClassName(cls.name);
+    if (classLevel && subject.category !== classLevel) {
+      toast({
+        title: 'Validation Error',
+        description: `Only ${classLevel} subjects can be assigned to ${cls.name}.`,
+        variant: 'destructive',
+      });
+      return;
+    }
     if (resolvedStreamId && !stream) {
       toast({ title: 'Validation Error', description: 'Selected stream is invalid for this class.', variant: 'destructive' });
       return;
@@ -854,19 +872,8 @@ export default function DhoiTeachers() {
               </Select>
             </div>
             <div>
-              <Label>Subject *</Label>
-              <Select value={assignForm.subject_id} onValueChange={(v) => setAssignForm({ ...assignForm, subject_id: v })}>
-                <SelectTrigger><SelectValue placeholder="Select subject" /></SelectTrigger>
-                <SelectContent>
-                  {subjects.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
               <Label>Class *</Label>
-              <Select value={assignForm.class_id} onValueChange={(v) => setAssignForm({ ...assignForm, class_id: v, stream_id: '' })}>
+              <Select value={assignForm.class_id} onValueChange={(v) => setAssignForm({ ...assignForm, class_id: v, stream_id: '', subject_id: '' })}>
                 <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
                 <SelectContent>
                   {classes.map((c) => (
@@ -874,6 +881,26 @@ export default function DhoiTeachers() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label>Subject *</Label>
+              <select
+                value={assignForm.subject_id}
+                onChange={(event) => setAssignForm({ ...assignForm, subject_id: event.target.value })}
+                disabled={!assignForm.class_id}
+                className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 max-h-64 overflow-y-auto disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <option value="" disabled>
+                  {assignForm.class_id ? 'Select subject' : 'Select class first'}
+                </option>
+                {selectedAssignGroup && filteredAssignSubjects.length > 0 && (
+                  <optgroup label={selectedAssignGroup.label}>
+                    {filteredAssignSubjects.map((subject) => (
+                      <option key={subject.id} value={subject.id}>{subject.name}</option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
             </div>
             <div>
               <Label>Stream (optional for single-stream classes)</Label>

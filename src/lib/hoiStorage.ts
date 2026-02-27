@@ -1,4 +1,5 @@
 import { getJsonValue, removeJsonValue, setJsonValue } from '@/lib/appKv';
+import { CBC_HOI_SUBJECTS, CBC_SUBJECT_NAME_TO_LEVEL, type CbcSubjectLevel } from '@/lib/cbcSubjects';
 
 export interface HoiClass {
   id: string;
@@ -94,7 +95,7 @@ export interface HoiSubject {
   id: string;
   name: string;
   code: string;
-  category: 'STEM' | 'Arts and Sports' | 'Social Sciences';
+  category: CbcSubjectLevel;
   description?: string;
 }
 
@@ -370,70 +371,80 @@ const SEED_TEACHERS: HoiTeacher[] = [
   { id: 't1', full_name: 'Jane Muthoni', email: 'j.muthoni@school.ac.ke', phone: '+254 711 100 002', employee_id: 'EMP-001', subject_specialization: 'Mathematics', gender: 'Female', qualification: 'B.Ed Mathematics', status: 'active', hired_at: '2021-03-10' },
   { id: 't2', full_name: 'Robert Ouma', email: 'r.ouma@school.ac.ke', phone: '+254 711 200 001', employee_id: 'EMP-002', subject_specialization: 'English', gender: 'Male', qualification: 'M.Ed Administration', status: 'active', hired_at: '2019-06-15' },
   { id: 't3', full_name: 'Alice Njoroge', email: 'a.njoroge@school.ac.ke', phone: '+254 711 200 002', employee_id: 'EMP-003', subject_specialization: 'English', gender: 'Female', qualification: 'B.Ed English', status: 'active', hired_at: '2022-01-20' },
-  { id: 't4', full_name: 'Thomas Kimani', email: 't.kimani@school.ac.ke', phone: '+254 711 300 001', employee_id: 'EMP-004', subject_specialization: 'Chemistry', gender: 'Male', qualification: 'M.Sc Chemistry', status: 'active', hired_at: '2020-09-01' },
+  { id: 't4', full_name: 'Thomas Kimani', email: 't.kimani@school.ac.ke', phone: '+254 711 300 001', employee_id: 'EMP-004', subject_specialization: 'Integrated Science', gender: 'Male', qualification: 'M.Ed Science Education', status: 'active', hired_at: '2020-09-01' },
   { id: 't5', full_name: 'Caroline Achieng', email: 'c.achieng@school.ac.ke', phone: '+254 711 300 002', employee_id: 'EMP-005', subject_specialization: 'Kiswahili', gender: 'Female', qualification: 'B.Ed Kiswahili', status: 'on_leave', hired_at: '2021-05-15' },
   { id: 't6', full_name: 'Emmanuel Kipchoge', email: 'e.kipchoge@school.ac.ke', phone: '+254 711 400 001', employee_id: 'EMP-006', subject_specialization: 'Physical Education', gender: 'Male', qualification: 'B.Ed PE', status: 'active', hired_at: '2023-02-01' },
-  { id: 't7', full_name: 'Diana Wairimu', email: 'd.wairimu@school.ac.ke', phone: '+254 711 600 001', employee_id: 'EMP-007', subject_specialization: 'Biology', gender: 'Female', qualification: 'M.Ed Curriculum', status: 'active', hired_at: '2020-03-10' },
-  { id: 't8', full_name: 'Samuel Kariuki', email: 's.kariuki@school.ac.ke', phone: '+254 711 100 001', employee_id: 'EMP-008', subject_specialization: 'Physics', gender: 'Male', qualification: 'PhD Education', status: 'active', hired_at: '2020-01-05' },
+  { id: 't7', full_name: 'Diana Wairimu', email: 'd.wairimu@school.ac.ke', phone: '+254 711 600 001', employee_id: 'EMP-007', subject_specialization: 'Science & Technology', gender: 'Female', qualification: 'M.Ed Curriculum', status: 'active', hired_at: '2020-03-10' },
+  { id: 't8', full_name: 'Samuel Kariuki', email: 's.kariuki@school.ac.ke', phone: '+254 711 100 001', employee_id: 'EMP-008', subject_specialization: 'Pre-Technical Studies', gender: 'Male', qualification: 'PhD Education', status: 'active', hired_at: '2020-01-05' },
 ];
 
-const SEED_SUBJECTS: HoiSubject[] = [
-  { id: 'sub1', name: 'Mathematics', code: 'MATH', category: 'STEM' },
-  { id: 'sub2', name: 'English', code: 'ENG', category: 'Social Sciences' },
-  { id: 'sub3', name: 'Kiswahili', code: 'KIS', category: 'Social Sciences' },
-  { id: 'sub4', name: 'Chemistry', code: 'CHEM', category: 'STEM' },
-  { id: 'sub5', name: 'Biology', code: 'BIO', category: 'STEM' },
-  { id: 'sub6', name: 'Physics', code: 'PHY', category: 'STEM' },
-  { id: 'sub7', name: 'History', code: 'HIST', category: 'Social Sciences' },
-  { id: 'sub8', name: 'Geography', code: 'GEO', category: 'Social Sciences' },
-  { id: 'sub9', name: 'Computer Studies', code: 'COMP', category: 'STEM', description: 'Introduction to computing and programming' },
-  { id: 'sub10', name: 'Business Studies', code: 'BUS', category: 'Social Sciences' },
-];
+const SEED_SUBJECTS: HoiSubject[] = CBC_HOI_SUBJECTS;
+
+const LEGACY_844_SUBJECTS = new Set([
+  'chemistry',
+  'biology',
+  'physics',
+  'history',
+  'geography',
+  'computer studies',
+  'business studies',
+  'home science',
+  'art & craft',
+  'art and craft',
+]);
 
 function inferSubjectCategory(subjectName: string): HoiSubject['category'] {
   const name = (subjectName || '').trim().toLowerCase();
-
-  const artsAndSportsKeywords = ['music', 'art', 'arts', 'physical education', 'pe', 'sports', 'drama'];
-  if (artsAndSportsKeywords.some((keyword) => name.includes(keyword))) return 'Arts and Sports';
-
-  const socialSciencesKeywords = [
-    'history',
-    'geography',
-    'business',
-    'english',
-    'kiswahili',
-    'religious',
-    'cre',
-    'social',
-    'civic',
-  ];
-  if (socialSciencesKeywords.some((keyword) => name.includes(keyword))) return 'Social Sciences';
-
-  return 'STEM';
+  const mapped = CBC_SUBJECT_NAME_TO_LEVEL.get(name);
+  if (mapped) return mapped;
+  if (name.includes('activity')) return 'ECDE';
+  return 'Junior School';
 }
 
 function normalizeSubjectCategory(subject: HoiSubject | (HoiSubject & { category: string })): HoiSubject['category'] {
   const category = String(subject.category || '').trim().toLowerCase();
-  if (category === 'stem') return 'STEM';
-  if (category === 'arts and sports' || category === 'arts_and_sports') return 'Arts and Sports';
-  if (category === 'social sciences' || category === 'social_sciences') return 'Social Sciences';
-
-  if (category === 'core' || category === 'elective') {
-    return inferSubjectCategory(subject.name);
-  }
+  if (category === 'ecde') return 'ECDE';
+  if (category === 'lower primary' || category === 'lower_primary') return 'Lower Primary';
+  if (category === 'upper primary' || category === 'upper_primary') return 'Upper Primary';
+  if (category === 'junior school' || category === 'junior_school') return 'Junior School';
 
   return inferSubjectCategory(subject.name);
 }
 
+function normalizeText(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function migrateToCbcSubjects(subjects: HoiSubject[]) {
+  const byKey = new Map<string, HoiSubject>();
+
+  subjects.forEach((subject) => {
+    const normalizedName = normalizeText(subject.name);
+    if (!normalizedName || LEGACY_844_SUBJECTS.has(normalizedName)) return;
+
+    const normalizedSubject: HoiSubject = {
+      ...subject,
+      category: normalizeSubjectCategory(subject),
+    };
+    byKey.set(`${normalizeText(normalizedSubject.name)}|${normalizedSubject.category}`, normalizedSubject);
+  });
+
+  SEED_SUBJECTS.forEach((subject) => {
+    byKey.set(`${normalizeText(subject.name)}|${subject.category}`, subject);
+  });
+
+  return Array.from(byKey.values());
+}
+
 const SEED_SUBJECT_ASSIGNMENTS: HoiSubjectAssignment[] = [
-  { id: 'sa1', teacher_id: 't1', teacher_name: 'Jane Muthoni', subject_id: 'sub1', subject_name: 'Mathematics', class_id: 'c9', class_name: 'Grade 7', stream_id: 'str1', stream_name: 'East' },
-  { id: 'sa2', teacher_id: 't1', teacher_name: 'Jane Muthoni', subject_id: 'sub1', subject_name: 'Mathematics', class_id: 'c9', class_name: 'Grade 7', stream_id: 'str2', stream_name: 'West' },
-  { id: 'sa3', teacher_id: 't2', teacher_name: 'Robert Ouma', subject_id: 'sub2', subject_name: 'English', class_id: 'c9', class_name: 'Grade 7', stream_id: 'str1', stream_name: 'East' },
-  { id: 'sa4', teacher_id: 't3', teacher_name: 'Alice Njoroge', subject_id: 'sub2', subject_name: 'English', class_id: 'c10', class_name: 'Grade 8', stream_id: 'str3', stream_name: 'East' },
-  { id: 'sa5', teacher_id: 't4', teacher_name: 'Thomas Kimani', subject_id: 'sub4', subject_name: 'Chemistry', class_id: 'c11', class_name: 'Grade 9', stream_id: 'str5', stream_name: 'East' },
-  { id: 'sa6', teacher_id: 't5', teacher_name: 'Caroline Achieng', subject_id: 'sub3', subject_name: 'Kiswahili', class_id: 'c10', class_name: 'Grade 8', stream_id: 'str4', stream_name: 'West' },
-  { id: 'sa7', teacher_id: 't7', teacher_name: 'Diana Wairimu', subject_id: 'sub5', subject_name: 'Biology', class_id: 'c8', class_name: 'Grade 6', stream_id: 'str7', stream_name: 'A' },
-  { id: 'sa8', teacher_id: 't8', teacher_name: 'Samuel Kariuki', subject_id: 'sub6', subject_name: 'Physics', class_id: 'c11', class_name: 'Grade 9', stream_id: 'str6', stream_name: 'West' },
+  { id: 'sa1', teacher_id: 't1', teacher_name: 'Jane Muthoni', subject_id: 'js-mathematics', subject_name: 'Mathematics', class_id: 'c9', class_name: 'Grade 7', stream_id: 'str1', stream_name: 'East' },
+  { id: 'sa2', teacher_id: 't1', teacher_name: 'Jane Muthoni', subject_id: 'js-mathematics', subject_name: 'Mathematics', class_id: 'c9', class_name: 'Grade 7', stream_id: 'str2', stream_name: 'West' },
+  { id: 'sa3', teacher_id: 't2', teacher_name: 'Robert Ouma', subject_id: 'js-english', subject_name: 'English', class_id: 'c9', class_name: 'Grade 7', stream_id: 'str1', stream_name: 'East' },
+  { id: 'sa4', teacher_id: 't3', teacher_name: 'Alice Njoroge', subject_id: 'js-english', subject_name: 'English', class_id: 'c10', class_name: 'Grade 8', stream_id: 'str3', stream_name: 'East' },
+  { id: 'sa5', teacher_id: 't4', teacher_name: 'Thomas Kimani', subject_id: 'js-integrated-science', subject_name: 'Integrated Science', class_id: 'c11', class_name: 'Grade 9', stream_id: 'str5', stream_name: 'East' },
+  { id: 'sa6', teacher_id: 't5', teacher_name: 'Caroline Achieng', subject_id: 'js-kiswahili-ksl', subject_name: 'Kiswahili / KSL', class_id: 'c10', class_name: 'Grade 8', stream_id: 'str4', stream_name: 'West' },
+  { id: 'sa7', teacher_id: 't7', teacher_name: 'Diana Wairimu', subject_id: 'up-science-technology', subject_name: 'Science & Technology', class_id: 'c8', class_name: 'Grade 6', stream_id: 'str7', stream_name: 'A' },
+  { id: 'sa8', teacher_id: 't8', teacher_name: 'Samuel Kariuki', subject_id: 'js-pre-technical-studies', subject_name: 'Pre-Technical Studies', class_id: 'c11', class_name: 'Grade 9', stream_id: 'str6', stream_name: 'West' },
 ];
 
 const SEED_TEACHER_DUTIES: HoiTeacherDuty[] = [
@@ -452,14 +463,14 @@ const SEED_OFFICIALS: HoiOfficial[] = [
 ];
 
 const SEED_TIMETABLE: HoiTimetableSlot[] = [
-  { id: 'tt1', class_id: 'c9', class_name: 'Grade 7', stream_id: 'str1', stream_name: 'East', day: 'Monday', period: 1, time_start: '08:00', time_end: '08:40', subject_id: 'sub1', subject_name: 'Mathematics', teacher_id: 't1', teacher_name: 'Jane Muthoni', room: 'Room 7A' },
-  { id: 'tt2', class_id: 'c9', class_name: 'Grade 7', stream_id: 'str1', stream_name: 'East', day: 'Monday', period: 2, time_start: '08:40', time_end: '09:20', subject_id: 'sub2', subject_name: 'English', teacher_id: 't2', teacher_name: 'Robert Ouma', room: 'Room 7A' },
-  { id: 'tt3', class_id: 'c9', class_name: 'Grade 7', stream_id: 'str1', stream_name: 'East', day: 'Monday', period: 3, time_start: '09:20', time_end: '10:00', subject_id: 'sub3', subject_name: 'Kiswahili', teacher_id: 't5', teacher_name: 'Caroline Achieng', room: 'Room 7A' },
-  { id: 'tt4', class_id: 'c10', class_name: 'Grade 8', stream_id: 'str3', stream_name: 'East', day: 'Monday', period: 1, time_start: '08:00', time_end: '08:40', subject_id: 'sub2', subject_name: 'English', teacher_id: 't3', teacher_name: 'Alice Njoroge', room: 'Room 8A' },
-  { id: 'tt5', class_id: 'c10', class_name: 'Grade 8', stream_id: 'str3', stream_name: 'East', day: 'Monday', period: 2, time_start: '08:40', time_end: '09:20', subject_id: 'sub4', subject_name: 'Chemistry', teacher_id: 't4', teacher_name: 'Thomas Kimani', room: 'Lab 1' },
-  { id: 'tt6', class_id: 'c11', class_name: 'Grade 9', stream_id: 'str5', stream_name: 'East', day: 'Tuesday', period: 1, time_start: '08:00', time_end: '08:40', subject_id: 'sub6', subject_name: 'Physics', teacher_id: 't8', teacher_name: 'Samuel Kariuki', room: 'Lab 2' },
-  { id: 'tt7', class_id: 'c11', class_name: 'Grade 9', stream_id: 'str5', stream_name: 'East', day: 'Tuesday', period: 2, time_start: '08:40', time_end: '09:20', subject_id: 'sub5', subject_name: 'Biology', teacher_id: 't7', teacher_name: 'Diana Wairimu', room: 'Lab 3' },
-  { id: 'tt8', class_id: 'c8', class_name: 'Grade 6', stream_id: 'str7', stream_name: 'A', day: 'Wednesday', period: 1, time_start: '08:00', time_end: '08:40', subject_id: 'sub1', subject_name: 'Mathematics', teacher_id: 't1', teacher_name: 'Jane Muthoni', room: 'Room 6A' },
+  { id: 'tt1', class_id: 'c9', class_name: 'Grade 7', stream_id: 'str1', stream_name: 'East', day: 'Monday', period: 1, time_start: '08:00', time_end: '08:40', subject_id: 'js-mathematics', subject_name: 'Mathematics', teacher_id: 't1', teacher_name: 'Jane Muthoni', room: 'Room 7A' },
+  { id: 'tt2', class_id: 'c9', class_name: 'Grade 7', stream_id: 'str1', stream_name: 'East', day: 'Monday', period: 2, time_start: '08:40', time_end: '09:20', subject_id: 'js-english', subject_name: 'English', teacher_id: 't2', teacher_name: 'Robert Ouma', room: 'Room 7A' },
+  { id: 'tt3', class_id: 'c9', class_name: 'Grade 7', stream_id: 'str1', stream_name: 'East', day: 'Monday', period: 3, time_start: '09:20', time_end: '10:00', subject_id: 'js-kiswahili-ksl', subject_name: 'Kiswahili / KSL', teacher_id: 't5', teacher_name: 'Caroline Achieng', room: 'Room 7A' },
+  { id: 'tt4', class_id: 'c10', class_name: 'Grade 8', stream_id: 'str3', stream_name: 'East', day: 'Monday', period: 1, time_start: '08:00', time_end: '08:40', subject_id: 'js-english', subject_name: 'English', teacher_id: 't3', teacher_name: 'Alice Njoroge', room: 'Room 8A' },
+  { id: 'tt5', class_id: 'c10', class_name: 'Grade 8', stream_id: 'str3', stream_name: 'East', day: 'Monday', period: 2, time_start: '08:40', time_end: '09:20', subject_id: 'js-integrated-science', subject_name: 'Integrated Science', teacher_id: 't4', teacher_name: 'Thomas Kimani', room: 'Lab 1' },
+  { id: 'tt6', class_id: 'c11', class_name: 'Grade 9', stream_id: 'str5', stream_name: 'East', day: 'Tuesday', period: 1, time_start: '08:00', time_end: '08:40', subject_id: 'js-pre-technical-studies', subject_name: 'Pre-Technical Studies', teacher_id: 't8', teacher_name: 'Samuel Kariuki', room: 'Lab 2' },
+  { id: 'tt7', class_id: 'c11', class_name: 'Grade 9', stream_id: 'str5', stream_name: 'East', day: 'Tuesday', period: 2, time_start: '08:40', time_end: '09:20', subject_id: 'js-integrated-science', subject_name: 'Integrated Science', teacher_id: 't7', teacher_name: 'Diana Wairimu', room: 'Lab 3' },
+  { id: 'tt8', class_id: 'c8', class_name: 'Grade 6', stream_id: 'str7', stream_name: 'A', day: 'Wednesday', period: 1, time_start: '08:00', time_end: '08:40', subject_id: 'up-mathematics', subject_name: 'Mathematics', teacher_id: 't1', teacher_name: 'Jane Muthoni', room: 'Room 6A' },
 ];
 
 const SEED_ATTENDANCE: HoiAttendance[] = [];
@@ -468,7 +479,7 @@ const SEED_FEES: HoiFeePayment[] = [];
 
 const SEED_EXPENSES: HoiExpense[] = [
   { id: 'exp1', item: 'Electricity Bill - September', amount: 45000, category: 'utilities', date: '2025-09-05', approved_by: 'Principal' },
-  { id: 'exp2', item: 'Laboratory Equipment', amount: 120000, category: 'supplies', date: '2025-08-20', approved_by: 'Principal', notes: 'Chemistry lab restocking' },
+  { id: 'exp2', item: 'Science Laboratory Equipment', amount: 120000, category: 'supplies', date: '2025-08-20', approved_by: 'Principal', notes: 'Integrated Science lab restocking' },
   { id: 'exp3', item: 'Staff Salaries - September', amount: 850000, category: 'salaries', date: '2025-09-01', approved_by: 'Board Chair' },
   { id: 'exp4', item: 'School Bus Maintenance', amount: 75000, category: 'transport', date: '2025-08-15', approved_by: 'Principal' },
   { id: 'exp5', item: 'Classroom Repairs', amount: 60000, category: 'maintenance', date: '2025-07-10', approved_by: 'Deputy Head', notes: 'Grade 9 classrooms roof repair' },
@@ -482,7 +493,7 @@ const SEED_BOOKS: HoiBook[] = [
   { id: 'bk3', title: 'A Doll\'s House', author: 'Henrik Ibsen', isbn: '978-0-486-27062', copies_available: 18, total_copies: 20, category: 'fiction' },
   { id: 'bk4', title: 'The River and the Source', author: 'Margaret Ogola', isbn: '978-9966-46-001', copies_available: 22, total_copies: 25, category: 'fiction' },
   { id: 'bk5', title: 'Encyclopaedia Britannica Vol. 1', author: 'Britannica', isbn: '978-1-59339-292', copies_available: 3, total_copies: 3, category: 'reference' },
-  { id: 'bk6', title: 'KLB Chemistry Grade 9', author: 'Kenya Literature Bureau', isbn: '978-9966-10-003', copies_available: 30, total_copies: 38, category: 'textbook' },
+  { id: 'bk6', title: 'KLB Integrated Science Grade 9', author: 'Kenya Literature Bureau', isbn: '978-9966-10-003', copies_available: 30, total_copies: 38, category: 'textbook' },
   { id: 'bk7', title: 'Daily Nation Education Digest', author: 'Nation Media Group', isbn: '978-9966-20-001', copies_available: 10, total_copies: 10, category: 'periodical' },
 ];
 
@@ -588,10 +599,7 @@ export const hoiTeachersStorage = {
 export const hoiSubjectsStorage = {
   getAll: (): HoiSubject[] => {
     const subjects = getSeeded<HoiSubject>('zaroda_hoi_subjects', SEED_SUBJECTS);
-    const normalized = subjects.map((subject) => ({
-      ...subject,
-      category: normalizeSubjectCategory(subject),
-    }));
+    const normalized = migrateToCbcSubjects(subjects);
     if (JSON.stringify(normalized) !== JSON.stringify(subjects)) {
       setData('zaroda_hoi_subjects', normalized);
     }
@@ -603,7 +611,33 @@ export const hoiSubjectsStorage = {
 };
 
 export const hoiSubjectAssignmentsStorage = {
-  getAll: (): HoiSubjectAssignment[] => getSeeded<HoiSubjectAssignment>('zaroda_hoi_subject_assignments', SEED_SUBJECT_ASSIGNMENTS),
+  getAll: (): HoiSubjectAssignment[] => {
+    const assignments = getSeeded<HoiSubjectAssignment>('zaroda_hoi_subject_assignments', SEED_SUBJECT_ASSIGNMENTS);
+    const subjects = hoiSubjectsStorage.getAll();
+    const subjectById = new Map(subjects.map((subject) => [subject.id, subject]));
+    const subjectByName = new Map(subjects.map((subject) => [normalizeText(subject.name), subject]));
+
+    const normalized = assignments
+      .map((assignment) => {
+        const byId = subjectById.get(assignment.subject_id);
+        const byName = subjectByName.get(normalizeText(assignment.subject_name));
+        const subject = byId || byName;
+        if (!subject) return null;
+
+        return {
+          ...assignment,
+          subject_id: subject.id,
+          subject_name: subject.name,
+        };
+      })
+      .filter((assignment): assignment is HoiSubjectAssignment => Boolean(assignment));
+
+    if (JSON.stringify(normalized) !== JSON.stringify(assignments)) {
+      setData('zaroda_hoi_subject_assignments', normalized);
+    }
+
+    return normalized;
+  },
   add: (item: Omit<HoiSubjectAssignment, 'id'>) => addItem<HoiSubjectAssignment>('zaroda_hoi_subject_assignments', item),
   update: (id: string, updates: Partial<HoiSubjectAssignment>) => updateItem<HoiSubjectAssignment>('zaroda_hoi_subject_assignments', id, updates),
   remove: (id: string) => deleteItem<HoiSubjectAssignment>('zaroda_hoi_subject_assignments', id),
@@ -663,7 +697,33 @@ export const hoiOfficialsStorage = {
 };
 
 export const hoiTimetableStorage = {
-  getAll: (): HoiTimetableSlot[] => getSeeded<HoiTimetableSlot>('zaroda_hoi_timetable', SEED_TIMETABLE),
+  getAll: (): HoiTimetableSlot[] => {
+    const slots = getSeeded<HoiTimetableSlot>('zaroda_hoi_timetable', SEED_TIMETABLE);
+    const subjects = hoiSubjectsStorage.getAll();
+    const subjectById = new Map(subjects.map((subject) => [subject.id, subject]));
+    const subjectByName = new Map(subjects.map((subject) => [normalizeText(subject.name), subject]));
+
+    const normalized = slots
+      .map((slot) => {
+        const byId = subjectById.get(slot.subject_id);
+        const byName = subjectByName.get(normalizeText(slot.subject_name));
+        const subject = byId || byName;
+        if (!subject) return null;
+
+        return {
+          ...slot,
+          subject_id: subject.id,
+          subject_name: subject.name,
+        };
+      })
+      .filter((slot): slot is HoiTimetableSlot => Boolean(slot));
+
+    if (JSON.stringify(normalized) !== JSON.stringify(slots)) {
+      setData('zaroda_hoi_timetable', normalized);
+    }
+
+    return normalized;
+  },
   add: (item: Omit<HoiTimetableSlot, 'id'>) => addItem<HoiTimetableSlot>('zaroda_hoi_timetable', item),
   update: (id: string, updates: Partial<HoiTimetableSlot>) => updateItem<HoiTimetableSlot>('zaroda_hoi_timetable', id, updates),
   remove: (id: string) => deleteItem<HoiTimetableSlot>('zaroda_hoi_timetable', id),

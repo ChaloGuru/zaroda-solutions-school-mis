@@ -69,7 +69,7 @@ const PAGE_SIZE = 10;
 const emptyForm = {
   name: '',
   code: '',
-  category: 'STEM' as HoiSubject['category'],
+  category: 'Junior School' as HoiSubject['category'],
   description: '',
 };
 
@@ -100,8 +100,9 @@ export default function DhoiSubjects() {
   const [viewPage, setViewPage] = useState(1);
 
   const categoryBadgeClass = (category: HoiSubject['category']) => {
-    if (category === 'STEM') return 'bg-blue-500/10 text-blue-700 border-blue-500/30';
-    if (category === 'Arts and Sports') return 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30';
+    if (category === 'ECDE') return 'bg-amber-500/10 text-amber-700 border-amber-500/30';
+    if (category === 'Lower Primary') return 'bg-blue-500/10 text-blue-700 border-blue-500/30';
+    if (category === 'Upper Primary') return 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30';
     return 'bg-purple-500/10 text-purple-700 border-purple-500/30';
   };
 
@@ -373,9 +374,10 @@ export default function DhoiSubjects() {
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="STEM">STEM</SelectItem>
-                  <SelectItem value="Arts and Sports">Arts and Sports</SelectItem>
-                  <SelectItem value="Social Sciences">Social Sciences</SelectItem>
+                  <SelectItem value="ECDE">ECDE</SelectItem>
+                  <SelectItem value="Lower Primary">Lower Primary</SelectItem>
+                  <SelectItem value="Upper Primary">Upper Primary</SelectItem>
+                  <SelectItem value="Junior School">Junior School</SelectItem>
                 </SelectContent>
               </Select>
               {errors.category && <p className="text-xs text-destructive">{errors.category}</p>}

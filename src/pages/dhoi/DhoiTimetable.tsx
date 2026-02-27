@@ -52,6 +52,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { exportToPdf } from '@/lib/pdfExport';
 import { getJsonValue, setJsonValue } from '@/lib/appKv';
+import { getCbcLevelForClassName } from '@/lib/cbcSubjects';
 
 const STORAGE_KEY = 'zaroda_master_timetable';
 const TEACHER_CODES_KEY = 'zaroda_teacher_codes';
@@ -161,6 +162,11 @@ export default function DhoiTimetable() {
 
   const config = CONFIG_MAP[timetableType];
   const filteredStreams = streams.filter((s) => s.class_id === selectedClassId);
+  const selectedClass = classes.find((c) => c.id === selectedClassId);
+  const selectedClassLevel = selectedClass ? getCbcLevelForClassName(selectedClass.name) : null;
+  const filteredSubjects = selectedClassLevel
+    ? subjects.filter((subject) => subject.category === selectedClassLevel)
+    : subjects;
 
   const filteredSlots = allSlots.filter(
     (s) =>
@@ -259,6 +265,14 @@ export default function DhoiTimetable() {
     const cls = classes.find((c) => c.id === selectedClassId);
     const stream = streams.find((s) => s.id === selectedStreamId);
     if (!subject || !teacher || !cls || !stream) return;
+    if (selectedClassLevel && subject.category !== selectedClassLevel) {
+      toast({
+        title: 'Validation Error',
+        description: `Only ${selectedClassLevel} subjects can be scheduled for ${cls.name}.`,
+        variant: 'destructive',
+      });
+      return;
+    }
 
     const period = config.periods[editPeriodIdx];
     const slotId = `manual-${timetableType}-${selectedClassId}-${selectedStreamId}-${editDay}-${editPeriodIdx}`;
@@ -563,7 +577,7 @@ export default function DhoiTimetable() {
                   <SelectValue placeholder="Select subject" />
                 </SelectTrigger>
                 <SelectContent>
-                  {subjects.map((s) => (
+                  {filteredSubjects.map((s) => (
                     <SelectItem key={s.id} value={s.id}>{s.name} ({s.code})</SelectItem>
                   ))}
                 </SelectContent>
