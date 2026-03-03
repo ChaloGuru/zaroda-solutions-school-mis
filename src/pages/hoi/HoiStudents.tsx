@@ -513,6 +513,23 @@ export default function HoiStudents() {
     await loadData();
   };
 
+  const downloadStudentTemplate = () => {
+    const csvContent = [
+      'full_name,admission_no,upi,class_name,stream_name,gender,date_of_birth,guardian_name,guardian_phone,guardian_email',
+      'John Doe,ADM001,1234567890,Grade 7,East,Male,2012-01-15,Jane Doe,0712345678,jane@email.com',
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'students_template.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const filteredStreams = streamFilter !== 'all'
     ? allStreams
     : classFilter !== 'all'
@@ -554,6 +571,7 @@ export default function HoiStudents() {
                   ))}
                 </SelectContent>
               </Select>
+              <Button variant="outline" onClick={downloadStudentTemplate} className="gap-2">Download Template</Button>
               <Button variant="outline" onClick={() => setBulkImportOpen(true)} className="gap-2"><Upload className="w-4 h-4" />Import CSV</Button>
               <Button onClick={openAddStudent} className="gap-2"><Plus className="w-4 h-4" />Add Student</Button>
             </div>

@@ -991,6 +991,23 @@ export default function HoiTeachers() {
     reader.readAsText(file);
   };
 
+  const downloadTeacherTemplate = () => {
+    const csvContent = [
+      'full_name,email,phone,employee_id,teacher_code,subject_specialization,gender,qualification',
+      'Mary Wanjiku,m.wanjiku@school.com,0712345678,EMP001,TCH001,Mathematics,Female,BEd',
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'teachers_template.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const Pagination = ({ page, total, setPage }: { page: number; total: number; setPage: (p: number) => void }) => (
     <div className="flex items-center justify-between mt-4">
       <p className="text-sm text-muted-foreground">Page {page} of {total}</p>
@@ -1051,6 +1068,9 @@ export default function HoiTeachers() {
                     onChange={handleTeacherCsvUpload}
                     className="hidden"
                   />
+                  <Button variant="outline" onClick={downloadTeacherTemplate} className="gap-2">
+                    Download Template
+                  </Button>
                   <Button variant="outline" onClick={() => teacherCsvInputRef.current?.click()} className="gap-2">
                     <Upload className="w-4 h-4" />Import CSV
                   </Button>
