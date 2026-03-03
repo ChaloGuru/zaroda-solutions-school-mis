@@ -280,7 +280,7 @@ export default function UsersSection() {
       const authUser = authData.user;
       if (!authUser) throw new Error('Auth user was not created.');
 
-      const { error: profileUpsertError } = await supabase.from('profiles').upsert({
+      const { error: profileInsertError } = await supabase.from('profiles').insert({
         id: authUser.id,
         email,
         full_name: fullName,
@@ -293,8 +293,8 @@ export default function UsersSection() {
         subject: formData.subject.trim() || null,
         grade: formData.grade.trim() || null,
         created_by: 'SuperAdmin',
-      }, { onConflict: 'id' });
-      if (profileUpsertError) throw profileUpsertError;
+      });
+      if (profileInsertError) throw profileInsertError;
 
       if (isTeacherLike) {
         const teacherCode = formData.teacherCode.trim().toUpperCase();
