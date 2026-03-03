@@ -54,6 +54,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabase';
 
 const schoolTypeOptions: School['school_type'][number][] = ['ECDE', 'Primary', 'Junior Secondary'];
 
@@ -167,10 +168,39 @@ export default function SchoolsSection() {
       toast({ title: 'Validation Error', description: 'School name, code, contact name, contact email, and at least one school type are required.', variant: 'destructive' });
       return;
     }
+
+    const schoolCode = form.school_code.trim();
+
+    if (!editingSchool) {
+      const { data: existing, error: existingError } = await supabase
+        .from('schools')
+        .select('id')
+        .eq('school_code', schoolCode)
+        .maybeSingle();
+
+      if (existingError) {
+        toast({
+          title: 'Validation Error',
+          description: formatErrorMessage(existingError),
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (existing) {
+        toast({
+          title: 'Duplicate School Code',
+          description: 'A school with this code already exists. School codes must be unique.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
     const cats = categoriesInput.split(',').map(c => c.trim()).filter(Boolean);
     const payload = {
       name: form.name,
-      school_code: form.school_code,
+      school_code: schoolCode,
       school_type: form.school_type,
       county: form.county,
       sub_county: form.sub_county,

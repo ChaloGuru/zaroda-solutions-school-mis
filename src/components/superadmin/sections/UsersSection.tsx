@@ -172,7 +172,6 @@ export default function UsersSection() {
       const fullName = formData.fullName.trim();
       const role = formData.role as PlatformUser['role'];
       const schoolCode = formData.schoolCode.trim();
-      const schoolName = formData.schoolName.trim() || schoolCode;
       const phone = formData.phone.trim();
       const status: PlatformUser['status'] = 'active';
 
@@ -181,6 +180,46 @@ export default function UsersSection() {
         toast({ title: 'Email exists', description: 'A user with this email already exists.', variant: 'destructive' });
         return;
       }
+
+      const { data: schoolRow, error: schoolLookupError } = await supabase
+        .from('schools')
+        .select('id, name, school_code')
+        .eq('school_code', schoolCode)
+        .maybeSingle();
+
+      if (schoolLookupError) throw schoolLookupError;
+
+      if (!schoolRow) {
+        toast({
+          title: 'Invalid School',
+          description: 'Selected school code was not found. Please select a valid school.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (role === 'hoi' || role === 'dhoi') {
+        const { data: existingLeadership, error: existingLeadershipError } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .eq('school_code', schoolCode)
+          .eq('role', role)
+          .eq('status', 'active')
+          .maybeSingle();
+
+        if (existingLeadershipError) throw existingLeadershipError;
+
+        if (existingLeadership) {
+          toast({
+            title: 'Role already assigned',
+            description: `This school already has an active ${role.toUpperCase()}. Deactivate the current one first.`,
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+
+      const schoolName = schoolRow.name || schoolCode;
 
       const { data: authData, error: createAuthError } = await supabase.auth.signUp({
         email,
@@ -202,8 +241,8 @@ export default function UsersSection() {
         email,
         full_name: fullName,
         role,
-        school_id: null,
-        school_code: schoolCode,
+        school_id: schoolRow.id,
+        school_code: schoolRow.school_code,
         school_name: schoolName,
         phone,
         status,
