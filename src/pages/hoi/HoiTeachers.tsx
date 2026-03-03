@@ -180,7 +180,6 @@ export default function HoiTeachers() {
 
   const loadData = async () => {
     setTeachers(hoiTeachersStorage.getAll());
-    setAssignments(hoiSubjectAssignmentsStorage.getAll());
     setSubjects(hoiSubjectsStorage.getAll());
     setClasses(hoiClassesStorage.getAll());
     setStreams(hoiStreamsStorage.getAll());
@@ -215,6 +214,34 @@ export default function HoiTeachers() {
     }
 
     if (currentUser?.schoolId) {
+      const { data: assignmentRows, error: assignmentError } = await supabase
+        .from('hoi_subject_assignments')
+        .select('*')
+        .eq('school_id', currentUser.schoolId)
+        .order('teacher_name', { ascending: true });
+
+      if (assignmentError) {
+        toast({
+          title: 'Assignments Load Error',
+          description: assignmentError.message,
+          variant: 'destructive',
+        });
+        setAssignments([]);
+      } else {
+        const mappedAssignments: HoiSubjectAssignment[] = (assignmentRows || []).map((row: any) => ({
+          id: row.id,
+          teacher_id: row.teacher_id || '',
+          teacher_name: row.teacher_name || '',
+          subject_id: row.subject_id || '',
+          subject_name: row.subject_name || '',
+          class_id: row.class_id || '',
+          class_name: row.class_name || '',
+          stream_id: row.stream_id || '',
+          stream_name: row.stream_name || '',
+        }));
+        setAssignments(mappedAssignments);
+      }
+
       const { data: leadershipRows } = await supabase
         .from('profiles')
         .select('id, full_name, role, school_id, status')
@@ -624,17 +651,29 @@ export default function HoiTeachers() {
       return;
     }
 
-    hoiSubjectAssignmentsStorage.add({
+    const { error } = await supabase.from('hoi_subject_assignments').insert({
+      school_id: currentUser?.schoolId || null,
       teacher_id: teacher.id,
       teacher_name: teacher.full_name,
       subject_id: subject.id,
       subject_name: subject.name,
       class_id: cls.id,
       class_name: cls.name,
-      stream_id: stream?.id || '',
-      stream_name: stream?.name || '',
+      stream_id: stream?.id || null,
+      stream_name: stream?.name || null,
+      created_at: new Date().toISOString(),
     });
-    toast({ title: 'Assignment Created', description: `${teacher.full_name} assigned to ${subject.name} - ${cls.name}${stream?.name ? ` ${stream.name}` : ''}` });
+
+    if (error) {
+      toast({
+        title: 'Assignment Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    toast({ title: 'Success', description: 'Learning Area assigned successfully' });
     setAssignDialogOpen(false);
     setAssignForm(emptyAssignmentForm);
     await loadData();
@@ -642,10 +681,25 @@ export default function HoiTeachers() {
 
   const deleteAssignment = () => {
     if (deleteAssignDialog.id) {
-      hoiSubjectAssignmentsStorage.remove(deleteAssignDialog.id);
-      toast({ title: 'Assignment Removed' });
-      setDeleteAssignDialog({ open: false, id: null });
-      loadData();
+      void (async () => {
+        const { error } = await supabase
+          .from('hoi_subject_assignments')
+          .delete()
+          .eq('id', deleteAssignDialog.id);
+
+        if (error) {
+          toast({
+            title: 'Delete Error',
+            description: error.message,
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        toast({ title: 'Success', description: 'Learning Area assignment removed successfully' });
+        setDeleteAssignDialog({ open: false, id: null });
+        await loadData();
+      })();
     }
   };
 
