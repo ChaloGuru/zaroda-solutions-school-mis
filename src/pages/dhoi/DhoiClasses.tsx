@@ -58,6 +58,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/lib/supabase';
 
 const LEVEL_LABELS: Record<HoiClass['level'], string> = {
   ecde: 'ECDE',
@@ -103,13 +104,77 @@ export default function DhoiClasses() {
   const [deleteClassDialog, setDeleteClassDialog] = useState<{ open: boolean; cls: HoiClass | null }>({ open: false, cls: null });
   const [deleteStreamDialog, setDeleteStreamDialog] = useState<{ open: boolean; stream: HoiStream | null }>({ open: false, stream: null });
 
-  const loadData = () => {
-    setClasses(hoiClassesStorage.getAll());
-    setStreams(hoiStreamsStorage.getAll());
-    setTeachers(hoiTeachersStorage.getAll());
+  const loadData = async () => {
+    try {
+      const [{ data: classRows }, { data: streamRows }, { data: teacherRows }] = await Promise.all([
+        supabase.from('hoi_classes').select('*').order('name', { ascending: true }),
+        supabase.from('hoi_streams').select('*').order('name', { ascending: true }),
+        supabase.from('hoi_teachers').select('*').order('full_name', { ascending: true }),
+      ]);
+
+      const loadedClasses: HoiClass[] = (classRows || []).map((row: any) => ({
+        id: row.id,
+        name: row.name || '',
+        level: row.level || 'primary',
+        created_at: row.created_at || '',
+      }));
+
+      const loadedTeachers: HoiTeacher[] = (teacherRows || []).map((row: any) => ({
+        id: row.id,
+        full_name: row.full_name || '',
+        email: row.email || '',
+        phone: row.phone || '',
+        employee_id: row.employee_id || '',
+        subject_specialization: row.subject_specialization || '',
+        gender: row.gender === 'Female' ? 'Female' : 'Male',
+        qualification: row.qualification || '',
+        status: row.status || 'active',
+        hired_at: row.hired_at || '',
+        is_class_teacher: Boolean(row.is_class_teacher),
+        class_teacher_class_id: row.class_teacher_class_id || undefined,
+        class_teacher_class_name: row.class_teacher_class_name || undefined,
+        class_teacher_stream_id: row.class_teacher_stream_id || undefined,
+        class_teacher_stream_name: row.class_teacher_stream_name || undefined,
+      }));
+
+      const teachersById = new Map(loadedTeachers.map((teacher) => [teacher.id, teacher]));
+      const teacherByClassStream = new Map(
+        loadedTeachers
+          .filter((teacher) => teacher.is_class_teacher && teacher.class_teacher_class_id && teacher.class_teacher_stream_id)
+          .map((teacher) => [`${teacher.class_teacher_class_id}::${teacher.class_teacher_stream_id}`, teacher])
+      );
+
+      const loadedStreams: HoiStream[] = (streamRows || []).map((row: any) => {
+        const streamId = row.id;
+        const classId = row.class_id || '';
+        const explicitTeacherId = row.class_teacher_id || '';
+        const explicitTeacher = explicitTeacherId ? teachersById.get(explicitTeacherId) : undefined;
+        const fallbackTeacher = teacherByClassStream.get(`${classId}::${streamId}`);
+        const resolvedTeacher = explicitTeacher || fallbackTeacher;
+
+        return {
+          id: streamId,
+          class_id: classId,
+          name: row.name || '',
+          class_teacher_id: explicitTeacherId || resolvedTeacher?.id || '',
+          class_teacher_name: row.class_teacher_name || resolvedTeacher?.full_name || '',
+          student_count: Number(row.student_count || 0),
+        };
+      });
+
+      setClasses(loadedClasses);
+      setTeachers(loadedTeachers);
+      setStreams(loadedStreams);
+    } catch {
+      setClasses(hoiClassesStorage.getAll());
+      setStreams(hoiStreamsStorage.getAll());
+      setTeachers(hoiTeachersStorage.getAll());
+    }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    void loadData();
+  }, []);
 
   const toggleExpand = (id: string) => {
     setExpandedClasses((prev) => {
@@ -192,27 +257,78 @@ export default function DhoiClasses() {
     setStreamDialogOpen(true);
   };
 
-  const handleSaveStream = () => {
+  const handleSaveStream = async () => {
     if (!streamForm.name) {
       toast({ title: 'Validation Error', description: 'Stream name is required.', variant: 'destructive' });
       return;
     }
+
+    const parentClass = classes.find((cls) => cls.id === streamParentClassId);
+    if (!parentClass) {
+      toast({ title: 'Validation Error', description: 'Parent class not found.', variant: 'destructive' });
+      return;
+    }
+
     const payload = {
       name: streamForm.name,
       class_id: streamParentClassId,
-      class_teacher_id: streamForm.class_teacher_id || undefined,
-      class_teacher_name: streamForm.class_teacher_name || undefined,
+      class_teacher_id: streamForm.class_teacher_id || null,
+      class_teacher_name: streamForm.class_teacher_name || null,
       student_count: streamForm.student_count,
     };
+
+    let savedStreamId = editingStream?.id || '';
+
     if (editingStream) {
-      hoiStreamsStorage.update(editingStream.id, payload);
+      const { error } = await supabase.from('hoi_streams').update(payload).eq('id', editingStream.id);
+      if (error) {
+        toast({ title: 'Stream Save Error', description: error.message, variant: 'destructive' });
+        return;
+      }
+      savedStreamId = editingStream.id;
       toast({ title: 'Stream Updated', description: `${streamForm.name} has been updated.` });
     } else {
-      hoiStreamsStorage.add(payload);
+      const { data, error } = await supabase
+        .from('hoi_streams')
+        .insert(payload)
+        .select('id')
+        .single();
+      if (error) {
+        toast({ title: 'Stream Save Error', description: error.message, variant: 'destructive' });
+        return;
+      }
+      savedStreamId = data?.id || '';
       toast({ title: 'Stream Added', description: `${streamForm.name} has been created.` });
     }
+
+    if (savedStreamId) {
+      await supabase
+        .from('hoi_teachers')
+        .update({
+          is_class_teacher: false,
+          class_teacher_class_id: null,
+          class_teacher_class_name: null,
+          class_teacher_stream_id: null,
+          class_teacher_stream_name: null,
+        })
+        .eq('class_teacher_stream_id', savedStreamId);
+
+      if (streamForm.class_teacher_id) {
+        await supabase
+          .from('hoi_teachers')
+          .update({
+            is_class_teacher: true,
+            class_teacher_class_id: parentClass.id,
+            class_teacher_class_name: parentClass.name,
+            class_teacher_stream_id: savedStreamId,
+            class_teacher_stream_name: streamForm.name,
+          })
+          .eq('id', streamForm.class_teacher_id);
+      }
+    }
+
     setStreamDialogOpen(false);
-    loadData();
+    await loadData();
   };
 
   const handleDeleteStream = () => {

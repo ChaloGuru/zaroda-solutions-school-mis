@@ -317,6 +317,30 @@ export default function DhoiTeachers() {
     setTeacherDialogOpen(true);
   };
 
+  const syncClassTeacherStreamLink = async (
+    teacherId: string,
+    teacherName: string,
+    assignment: {
+      is_class_teacher: boolean;
+      class_teacher_stream_id?: string;
+    }
+  ) => {
+    await supabase
+      .from('hoi_streams')
+      .update({ class_teacher_id: null, class_teacher_name: null })
+      .eq('class_teacher_id', teacherId);
+
+    if (assignment.is_class_teacher && assignment.class_teacher_stream_id) {
+      await supabase
+        .from('hoi_streams')
+        .update({
+          class_teacher_id: teacherId,
+          class_teacher_name: teacherName,
+        })
+        .eq('id', assignment.class_teacher_stream_id);
+    }
+  };
+
   const saveTeacher = async () => {
     if (!teacherForm.full_name.trim() || !teacherForm.email.trim() || !teacherForm.employee_id.trim() || !teacherForm.teacher_code.trim()) {
       toast({ title: 'Validation Error', description: 'Full name, email, employee ID, and teacher code are required.', variant: 'destructive' });
@@ -353,6 +377,14 @@ export default function DhoiTeachers() {
 
     if (editingTeacher) {
       hoiTeachersStorage.update(editingTeacher.id, { ...teacherData, ...classTeacherFields });
+      await syncClassTeacherStreamLink(
+        editingTeacher.id,
+        teacherForm.full_name.trim(),
+        {
+          is_class_teacher: classTeacherFields.is_class_teacher,
+          class_teacher_stream_id: classTeacherFields.class_teacher_stream_id,
+        }
+      );
       await saveTeacherCode(editingTeacher.id, codeVal);
       if (password.trim()) {
         toast({
@@ -373,6 +405,33 @@ export default function DhoiTeachers() {
       toast({ title: 'Teacher Updated', description: `${teacherForm.full_name} has been updated.` });
     } else {
       const newTeacher = hoiTeachersStorage.add({ ...teacherData, ...classTeacherFields, hired_at: new Date().toISOString().split('T')[0] });
+      const { data: savedTeacher } = await supabase
+        .from('hoi_teachers')
+        .select('id,full_name')
+        .eq('email', teacherForm.email.trim().toLowerCase())
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (savedTeacher?.id) {
+        await syncClassTeacherStreamLink(
+          savedTeacher.id,
+          savedTeacher.full_name || teacherForm.full_name.trim(),
+          {
+            is_class_teacher: classTeacherFields.is_class_teacher,
+            class_teacher_stream_id: classTeacherFields.class_teacher_stream_id,
+          }
+        );
+      } else {
+        await syncClassTeacherStreamLink(
+          newTeacher.id,
+          teacherForm.full_name.trim(),
+          {
+            is_class_teacher: classTeacherFields.is_class_teacher,
+            class_teacher_stream_id: classTeacherFields.class_teacher_stream_id,
+          }
+        );
+      }
       await saveTeacherCode(newTeacher.id, codeVal);
       if (password.trim()) {
         toast({
