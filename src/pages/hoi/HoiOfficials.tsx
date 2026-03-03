@@ -3,6 +3,8 @@ import {
   hoiOfficialsStorage,
   HoiOfficial,
 } from '../../lib/hoiStorage';
+import { useAuthContext } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -89,6 +91,7 @@ const emptyOfficialForm = {
 
 export default function HoiOfficials() {
   const { toast } = useToast();
+  const { currentUser } = useAuthContext();
 
   const [officials, setOfficials] = useState<HoiOfficial[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -101,11 +104,44 @@ export default function HoiOfficials() {
 
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; official: HoiOfficial | null }>({ open: false, official: null });
 
-  const loadData = () => {
-    setOfficials(hoiOfficialsStorage.getAll());
+  const loadData = async () => {
+    if (!currentUser?.schoolId) {
+      setOfficials([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('school_id', currentUser.schoolId)
+      .in('role', ['hoi', 'dhoi', 'hod'])
+      .eq('status', 'active')
+      .order('full_name', { ascending: true });
+
+    if (error) {
+      toast({
+        title: 'Load Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+      setOfficials([]);
+      return;
+    }
+
+    const mappedOfficials: HoiOfficial[] = (data || []).map((row: any) => ({
+      id: row.id,
+      full_name: row.full_name || '',
+      role: row.role === 'hod' ? 'HOD' : 'Deputy Head',
+      department: row.department || undefined,
+      email: row.email || undefined,
+      phone: row.phone || undefined,
+      status: 'active',
+    }));
+
+    setOfficials(mappedOfficials);
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { void loadData(); }, [currentUser?.schoolId]);
 
   const filteredOfficials = officials.filter((o) =>
     o.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
