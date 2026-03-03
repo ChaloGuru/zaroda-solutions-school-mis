@@ -32,7 +32,7 @@ interface AuthContextType {
   currentUser: AuthUser | null;
   userRole: UserRole | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string; redirectTo?: string }>;
   signup: (data: TeacherSignupData) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
 }
@@ -86,6 +86,17 @@ const fetchAuthUserProfile = async (authUserId: string): Promise<AuthUser | null
 
 export const getDashboardForRole = (role: UserRole): string => {
   return ROLE_DASHBOARD_MAP[role] || '/login';
+};
+
+const getLoginRedirectForRole = (role: UserRole): string => {
+  if (role === 'superadmin') return '/superadmin-dashboard';
+  if (role === 'hoi') return '/hoi-dashboard';
+  if (role === 'dhoi') return '/dhoi-dashboard';
+  if (role === 'hod') return '/hod-dashboard';
+  if (role === 'teacher') return '/teacher-dashboard';
+  if (role === 'student') return '/student-dashboard';
+  if (role === 'parent') return '/parent-dashboard';
+  return '/login';
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -151,7 +162,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return message;
   };
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string; redirectTo?: string }> => {
     const configError = getSupabaseConfigError();
     if (configError) {
       return { success: false, error: configError };
@@ -169,13 +180,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     try {
-      const profileUser = await fetchAuthUserProfile(data.user.id);
+      console.log('Logged in user id:', data.user.id);
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        throw profileError;
+      }
+
+      console.log('Profile found:', profile);
+      console.log('Role detected:', profile?.role);
+
+      if (data.user.email) {
+        const { data: duplicateEmailProfiles, error: duplicateCheckError } = await supabase
+          .from('profiles')
+          .select('id, email, role')
+          .eq('email', data.user.email.toLowerCase());
+
+        if (!duplicateCheckError && (duplicateEmailProfiles || []).length > 1) {
+          console.warn('Duplicate profiles found for email:', data.user.email.toLowerCase(), duplicateEmailProfiles);
+        }
+      }
+
+      const profileUser = profile ? mapProfileToAuthUser(profile) : null;
       if (!profileUser) {
         await supabase.auth.signOut();
         return { success: false, error: 'No profile found for this account. Please contact administrator.' };
       }
 
       setCurrentUser(profileUser);
+
+      const redirectTo = getLoginRedirectForRole(profileUser.role);
 
       await supabase
         .from('profiles')
@@ -193,7 +232,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         action: 'login',
       });
 
-      return { success: true };
+      return { success: true, redirectTo };
     } catch (profileError) {
       await supabase.auth.signOut();
       return { success: false, error: getFriendlyLoginError(profileError instanceof Error ? profileError.message : 'Failed to load profile.') };

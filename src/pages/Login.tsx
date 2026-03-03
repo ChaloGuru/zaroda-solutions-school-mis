@@ -46,6 +46,9 @@ const Login = () => {
       const result = await login(formData.email, formData.password);
       if (result.success) {
         toast({ title: 'Login successful!', description: 'Welcome back to Zaroda Solutions.' });
+        if (result.redirectTo) {
+          navigate(result.redirectTo, { replace: true });
+        }
       } else {
         toast({ title: 'Login failed', description: result.error, variant: 'destructive' });
       }
