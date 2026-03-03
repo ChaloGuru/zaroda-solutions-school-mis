@@ -288,6 +288,7 @@ export default function DhoiTeachers() {
     }
 
     const { teacher_code, account_role, password, is_class_teacher, class_teacher_class_id, class_teacher_stream_id, ...teacherData } = teacherForm;
+    const profileRole: 'teacher' | 'hod' = account_role === 'hod' ? 'hod' : 'teacher';
     const selectedClass = classes.find(c => c.id === class_teacher_class_id);
     const selectedStream = streams.find(s => s.id === class_teacher_stream_id);
     const classTeacherFields = is_class_teacher && selectedClass && selectedStream ? {
@@ -333,7 +334,7 @@ export default function DhoiTeachers() {
         options: {
           data: {
             full_name: teacherForm.full_name.trim(),
-            role: account_role,
+            role: profileRole,
             school_code: currentUser.schoolCode,
           },
         },
@@ -353,7 +354,7 @@ export default function DhoiTeachers() {
         id: authUser.id,
         email: signupEmail,
         full_name: teacherForm.full_name.trim(),
-        role: account_role,
+        role: profileRole,
         school_id: currentUser.schoolId,
         school_code: currentUser.schoolCode,
         school_name: currentUser.schoolName,
@@ -411,7 +412,7 @@ export default function DhoiTeachers() {
         await platformUsersStorage.add({
           email: signupEmail,
           fullName: teacherForm.full_name.trim(),
-          role: account_role,
+          role: profileRole,
           schoolCode: currentUser.schoolCode,
           schoolName: currentUser.schoolName,
           phone: teacherForm.phone.trim(),
@@ -436,15 +437,22 @@ export default function DhoiTeachers() {
       void sendWelcomeEmail({
         email: signupEmail,
         fullName: teacherForm.full_name.trim(),
-        role: account_role,
+        role: profileRole,
         schoolCode: currentUser.schoolCode,
         createdBy: 'DHOI',
       });
 
-      toast({
-        title: 'Success',
-        description: `${account_role === 'hod' ? 'HOD' : 'Teacher'} ${teacherForm.full_name} created successfully. They can now login with school code ${currentUser.schoolCode} and their email/password.`,
-      });
+      if (profileRole === 'teacher') {
+        toast({
+          title: 'Success',
+          description: `Teacher created! They can login with school code ${currentUser.schoolCode} and their email`,
+        });
+      } else {
+        toast({
+          title: 'Success',
+          description: `HOD created successfully. They can login with school code ${currentUser.schoolCode} and their email`,
+        });
+      }
     }
     setTeacherDialogOpen(false);
     await loadData();

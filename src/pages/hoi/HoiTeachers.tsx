@@ -538,6 +538,7 @@ export default function HoiTeachers() {
       }
 
       const { teacher_code, account_role, password, is_class_teacher, class_teacher_class_id, class_teacher_stream_id, ...teacherData } = teacherForm;
+      const profileRole: 'teacher' | 'hod' = account_role === 'hod' ? 'hod' : 'teacher';
       const selectedClass = classes.find(c => c.id === class_teacher_class_id);
       const selectedStream = streams.find(s => s.id === class_teacher_stream_id);
       const classTeacherFields = is_class_teacher && selectedClass && selectedStream ? {
@@ -593,7 +594,7 @@ export default function HoiTeachers() {
           options: {
             data: {
               full_name: teacherForm.full_name.trim(),
-              role: account_role,
+              role: profileRole,
               school_code: tenantSchoolCode,
             },
           },
@@ -607,7 +608,7 @@ export default function HoiTeachers() {
           id: authUser.id,
           email: signupEmail,
           full_name: teacherForm.full_name.trim(),
-          role: account_role,
+          role: profileRole,
           school_id: tenantSchoolId,
           school_code: tenantSchoolCode,
           school_name: tenantSchoolName,
@@ -662,7 +663,7 @@ export default function HoiTeachers() {
           await platformUsersStorage.add({
             email: teacherForm.email.trim().toLowerCase(),
             fullName: teacherForm.full_name.trim(),
-            role: account_role,
+            role: profileRole,
             schoolCode: tenantSchoolCode || selectedSchool?.school_code || '',
             schoolName: tenantSchoolName || selectedSchool?.name || '',
             phone: teacherForm.phone.trim(),
@@ -689,15 +690,22 @@ export default function HoiTeachers() {
         void sendWelcomeEmail({
           email: signupEmail,
           fullName: teacherForm.full_name.trim(),
-            role: account_role,
+          role: profileRole,
           schoolCode: tenantSchoolCode,
           createdBy: 'HOI',
         });
 
+        if (profileRole === 'teacher') {
           toast({
             title: 'Success',
-            description: `${account_role === 'hod' ? 'HOD' : 'Teacher'} ${teacherForm.full_name} created successfully. They can now login with school code ${tenantSchoolCode} and their email/password.`,
+            description: `Teacher created! They can login with school code ${tenantSchoolCode} and their email`,
           });
+        } else {
+          toast({
+            title: 'Success',
+            description: `HOD created successfully. They can login with school code ${tenantSchoolCode} and their email`,
+          });
+        }
       }
       setTeacherDialogOpen(false);
       await loadData();

@@ -207,6 +207,7 @@ export default function UsersSection() {
       const phone = formData.phone.trim();
       const status: PlatformUser['status'] = 'active';
       const isTeacherLike = role === 'teacher' || role === 'hod';
+      const profileRole: PlatformUser['role'] = role === 'hod' ? 'hod' : role;
 
       if (isTeacherLike && (!formData.employeeId.trim() || !formData.teacherCode.trim())) {
         toast({ title: 'Missing fields', description: 'Employee ID and Teacher Code are required for Teacher/HOD.', variant: 'destructive' });
@@ -270,7 +271,7 @@ export default function UsersSection() {
         options: {
           data: {
             full_name: fullName,
-            role,
+            role: profileRole,
             school_code: schoolCode,
           },
         },
@@ -284,7 +285,7 @@ export default function UsersSection() {
         id: authUser.id,
         email,
         full_name: fullName,
-        role,
+        role: profileRole,
         school_id: schoolRow.id,
         school_code: schoolRow.school_code,
         school_name: schoolName,
@@ -338,7 +339,7 @@ export default function UsersSection() {
         id: authUser.id,
         email,
         fullName,
-        role,
+        role: profileRole,
         schoolCode,
         schoolName,
         phone,
