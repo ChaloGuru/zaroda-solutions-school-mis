@@ -91,6 +91,7 @@ export default function HoiStudents() {
 
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [csvPreview, setCsvPreview] = useState<string[][]>([]);
+  const [studentCsvRows, setStudentCsvRows] = useState<Array<Record<string, string>>>([]);
 
   const loadClasses = async () => {
     if (!currentUser?.schoolId) {
@@ -384,15 +385,132 @@ export default function HoiStudents() {
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
       const rows = text.split('\n').filter((r) => r.trim()).map((r) => r.split(',').map((c) => c.trim()));
+      if (rows.length < 2) {
+        setCsvPreview([]);
+        setStudentCsvRows([]);
+        return;
+      }
+
+      const headers = rows[0].map((header) => header.toLowerCase());
+      const parsedRows = rows.slice(1).map((row) => {
+        const mapped: Record<string, string> = {};
+        headers.forEach((header, idx) => {
+          mapped[header] = row[idx] || '';
+        });
+        return mapped;
+      });
+
+      setStudentCsvRows(parsedRows);
       setCsvPreview(rows.slice(0, 11));
     };
     reader.readAsText(file);
   };
 
-  const handleBulkImport = () => {
-    toast({ title: 'Coming Soon', description: 'Bulk import functionality will be available in a future update.' });
+  const handleBulkImport = async () => {
+    if (!currentUser?.schoolId) {
+      toast({ title: 'Import Failed', description: 'Missing school context.', variant: 'destructive' });
+      return;
+    }
+
+    if (studentCsvRows.length === 0) {
+      toast({ title: 'Import Failed', description: 'No CSV rows found to import.', variant: 'destructive' });
+      return;
+    }
+
+    const failures: string[] = [];
+    const payload: any[] = [];
+
+    studentCsvRows.forEach((row, idx) => {
+      const rowNumber = idx + 2;
+      const fullName = (row.full_name || '').trim();
+      const admissionNo = (row.admission_no || '').trim();
+      const upi = (row.upi || '').trim();
+      const className = (row.class_name || '').trim();
+      const streamName = (row.stream_name || '').trim();
+      const genderRaw = (row.gender || '').trim();
+      const dateOfBirth = (row.date_of_birth || '').trim();
+      const guardianName = (row.guardian_name || '').trim();
+      const guardianPhone = (row.guardian_phone || '').trim();
+      const guardianEmail = (row.guardian_email || '').trim();
+
+      if (!fullName || !admissionNo || !className || !streamName) {
+        failures.push(`Row ${rowNumber}: Missing required fields.`);
+        return;
+      }
+
+      const cls = classes.find((c) => c.name.toLowerCase() === className.toLowerCase());
+      if (!cls) {
+        failures.push(`Row ${rowNumber}: Class "${className}" not found.`);
+        return;
+      }
+
+      const stream = allStreams.find(
+        (s) => s.class_id === cls.id && s.name.toLowerCase() === streamName.toLowerCase()
+      );
+      if (!stream) {
+        failures.push(`Row ${rowNumber}: Stream "${streamName}" not found for class "${className}".`);
+        return;
+      }
+
+      let gender: 'Male' | 'Female' = 'Male';
+      if (genderRaw) {
+        if (genderRaw.toLowerCase() === 'male') gender = 'Male';
+        else if (genderRaw.toLowerCase() === 'female') gender = 'Female';
+        else {
+          failures.push(`Row ${rowNumber}: Invalid gender "${genderRaw}".`);
+          return;
+        }
+      }
+
+      payload.push({
+        full_name: fullName,
+        admission_no: admissionNo,
+        upi,
+        class_id: cls.id,
+        class_name: cls.name,
+        stream_id: stream.id,
+        stream_name: stream.name,
+        gender,
+        date_of_birth: dateOfBirth,
+        guardian_name: guardianName,
+        guardian_phone: guardianPhone,
+        guardian_email: guardianEmail,
+        status: 'active',
+        enrolled_at: new Date().toISOString().split('T')[0],
+        school_id: currentUser.schoolId,
+        school_code: currentUser.schoolCode || null,
+      });
+    });
+
+    let importedCount = 0;
+
+    if (payload.length > 0) {
+      const { error } = await supabase.from('hoi_students').insert(payload);
+      if (error) {
+        failures.push(`Database insert failed: ${error.message}`);
+      } else {
+        importedCount = payload.length;
+      }
+    }
+
+    if (importedCount > 0) {
+      toast({ title: 'Import Successful', description: `Imported ${importedCount} student record(s).` });
+    }
+
+    if (failures.length > 0) {
+      toast({
+        title: 'Import Errors',
+        description: failures.slice(0, 5).join(' | '),
+        variant: 'destructive',
+      });
+    }
+
     setBulkImportOpen(false);
     setCsvPreview([]);
+    setStudentCsvRows([]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+
+    await loadData();
   };
 
   const filteredStreams = streamFilter !== 'all'
@@ -436,7 +554,7 @@ export default function HoiStudents() {
                   ))}
                 </SelectContent>
               </Select>
-              <Button variant="outline" onClick={() => setBulkImportOpen(true)} className="gap-2"><Upload className="w-4 h-4" />Import</Button>
+              <Button variant="outline" onClick={() => setBulkImportOpen(true)} className="gap-2"><Upload className="w-4 h-4" />Import CSV</Button>
               <Button onClick={openAddStudent} className="gap-2"><Plus className="w-4 h-4" />Add Student</Button>
             </div>
           </div>
@@ -677,7 +795,7 @@ export default function HoiStudents() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={bulkImportOpen} onOpenChange={(open) => { setBulkImportOpen(open); if (!open) setCsvPreview([]); }}>
+      <Dialog open={bulkImportOpen} onOpenChange={(open) => { setBulkImportOpen(open); if (!open) { setCsvPreview([]); setStudentCsvRows([]); } }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><FileSpreadsheet className="w-5 h-5" /> Bulk Import Students</DialogTitle>

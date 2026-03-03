@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   hoiTeachersStorage,
   hoiSubjectAssignmentsStorage,
@@ -67,6 +67,7 @@ import {
   ClipboardList,
   Trash2,
   Shield,
+  Upload,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { CBC_SUBJECT_GROUPS, getCbcLevelForClassName } from '@/lib/cbcSubjects';
@@ -177,6 +178,7 @@ export default function HoiTeachers() {
   const [dhoiDialogOpen, setDhoiDialogOpen] = useState(false);
   const [dhoiForm, setDhoiForm] = useState({ fullName: '', email: '', password: '', phone: '', employeeId: '' });
   const [existingDhoi, setExistingDhoi] = useState<DhoiAccount | null>(null);
+  const teacherCsvInputRef = useRef<HTMLInputElement>(null);
 
   const loadData = async () => {
     setTeachers(hoiTeachersStorage.getAll());
@@ -853,6 +855,142 @@ export default function HoiTeachers() {
 
   const rosterEntries = [...duties].sort((a, b) => a.from_date.localeCompare(b.from_date));
 
+  const handleTeacherCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      if (!currentUser?.schoolId) {
+        toast({ title: 'Import Failed', description: 'Missing school context.', variant: 'destructive' });
+        return;
+      }
+
+      const text = String(ev.target?.result || '');
+      const rows = text
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => line.split(',').map((cell) => cell.trim()));
+
+      if (rows.length < 2) {
+        toast({ title: 'Import Failed', description: 'CSV file has no data rows.', variant: 'destructive' });
+        return;
+      }
+
+      const headers = rows[0].map((header) => header.toLowerCase());
+      const failures: string[] = [];
+      const teacherPayload: any[] = [];
+      const teacherCodesByEmail = new Map<string, string>();
+
+      rows.slice(1).forEach((row, idx) => {
+        const rowNumber = idx + 2;
+        const mapped: Record<string, string> = {};
+        headers.forEach((header, headerIndex) => {
+          mapped[header] = row[headerIndex] || '';
+        });
+
+        const fullName = (mapped.full_name || '').trim();
+        const email = (mapped.email || '').trim().toLowerCase();
+        const phone = (mapped.phone || '').trim();
+        const employeeId = (mapped.employee_id || '').trim();
+        const teacherCode = (mapped.teacher_code || '').trim().toUpperCase();
+        const specialization = (mapped.subject_specialization || '').trim();
+        const genderRaw = (mapped.gender || '').trim();
+        const qualification = (mapped.qualification || '').trim();
+
+        if (!fullName || !email || !employeeId || !teacherCode) {
+          failures.push(`Row ${rowNumber}: Missing required fields.`);
+          return;
+        }
+
+        if (!email.includes('@')) {
+          failures.push(`Row ${rowNumber}: Invalid email "${email}".`);
+          return;
+        }
+
+        let gender: 'Male' | 'Female' = 'Male';
+        if (genderRaw) {
+          if (genderRaw.toLowerCase() === 'male') gender = 'Male';
+          else if (genderRaw.toLowerCase() === 'female') gender = 'Female';
+          else {
+            failures.push(`Row ${rowNumber}: Invalid gender "${genderRaw}".`);
+            return;
+          }
+        }
+
+        teacherPayload.push({
+          full_name: fullName,
+          email,
+          phone,
+          employee_id: employeeId,
+          subject_specialization: specialization,
+          gender,
+          qualification,
+          status: 'active',
+          hired_at: new Date().toISOString().split('T')[0],
+          school_id: currentUser.schoolId,
+          school_code: currentUser.schoolCode || null,
+        });
+        teacherCodesByEmail.set(email, teacherCode);
+      });
+
+      let importedCount = 0;
+
+      if (teacherPayload.length > 0) {
+        const { data: insertedTeachers, error: insertError } = await supabase
+          .from('hoi_teachers')
+          .insert(teacherPayload)
+          .select('id,email');
+
+        if (insertError) {
+          failures.push(`Database insert failed: ${insertError.message}`);
+        } else {
+          importedCount = teacherPayload.length;
+
+          const teacherCodeRows = (insertedTeachers || [])
+            .map((teacher: any) => {
+              const code = teacherCodesByEmail.get(String(teacher.email || '').toLowerCase());
+              if (!teacher.id || !code) return null;
+              return {
+                teacher_id: teacher.id,
+                code,
+                school_id: currentUser.schoolId,
+                school_code: currentUser.schoolCode || null,
+              };
+            })
+            .filter(Boolean);
+
+          if (teacherCodeRows.length > 0) {
+            const { error: codeError } = await supabase
+              .from('teacher_codes')
+              .upsert(teacherCodeRows as any[], { onConflict: 'teacher_id' });
+            if (codeError) {
+              failures.push(`Teacher code save failed: ${codeError.message}`);
+            }
+          }
+        }
+      }
+
+      if (importedCount > 0) {
+        toast({ title: 'Import Successful', description: `Imported ${importedCount} teacher record(s).` });
+      }
+
+      if (failures.length > 0) {
+        toast({
+          title: 'Import Errors',
+          description: failures.slice(0, 5).join(' | '),
+          variant: 'destructive',
+        });
+      }
+
+      if (teacherCsvInputRef.current) teacherCsvInputRef.current.value = '';
+      await loadData();
+    };
+
+    reader.readAsText(file);
+  };
+
   const Pagination = ({ page, total, setPage }: { page: number; total: number; setPage: (p: number) => void }) => (
     <div className="flex items-center justify-between mt-4">
       <p className="text-sm text-muted-foreground">Page {page} of {total}</p>
@@ -906,6 +1044,16 @@ export default function HoiTeachers() {
                       <SelectItem value="deactivated">Deactivated</SelectItem>
                     </SelectContent>
                   </Select>
+                  <input
+                    ref={teacherCsvInputRef}
+                    type="file"
+                    accept=".csv"
+                    onChange={handleTeacherCsvUpload}
+                    className="hidden"
+                  />
+                  <Button variant="outline" onClick={() => teacherCsvInputRef.current?.click()} className="gap-2">
+                    <Upload className="w-4 h-4" />Import CSV
+                  </Button>
                   <Button onClick={openAddTeacher} className="gap-2"><Plus className="w-4 h-4" />Add Teacher</Button>
                 </div>
               </div>
