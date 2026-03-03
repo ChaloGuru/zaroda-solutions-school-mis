@@ -77,6 +77,32 @@ import { useAuthContext } from '@/context/AuthContext';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 const PAGE_SIZE = 10;
+type TeacherAccountRole = 'teacher' | 'hod';
+
+async function getTeacherCodes(schoolId: string): Promise<Record<string, string>> {
+  const { data, error } = await supabase
+    .from('teacher_codes')
+    .select('teacher_id,code')
+    .eq('school_id', schoolId);
+  if (error) return {};
+  return (data || []).reduce((acc: Record<string, string>, row: any) => {
+    if (row.teacher_id && row.code) {
+      acc[row.teacher_id] = String(row.code);
+    }
+    return acc;
+  }, {});
+}
+
+async function saveTeacherCode(teacherId: string, code: string, schoolId: string, schoolCode: string): Promise<void> {
+  await supabase
+    .from('teacher_codes')
+    .upsert({
+      teacher_id: teacherId,
+      code,
+      school_id: schoolId,
+      school_code: schoolCode,
+    }, { onConflict: 'teacher_id' });
+}
 
 const SYSTEM_CREATED_BY = new Set(['superadmin', 'system', 'hoi', 'dhoi']);
 
@@ -108,6 +134,8 @@ const emptyTeacherForm = {
   email: '',
   phone: '',
   employee_id: '',
+  teacher_code: '',
+  account_role: 'teacher' as TeacherAccountRole,
   subject_specialization: '',
   gender: 'Male' as HoiTeacher['gender'],
   qualification: '',
@@ -152,6 +180,7 @@ export default function HoiTeachers() {
   const [classes, setClasses] = useState<HoiClass[]>([]);
   const [streams, setStreams] = useState<HoiStream[]>([]);
   const [duties, setDuties] = useState<HoiTeacherDuty[]>([]);
+  const [teacherCodes, setTeacherCodesState] = useState<Record<string, string>>({});
   const [schools, setSchools] = useState<School[]>([]);
   const [dhoiStaff, setDhoiStaff] = useState<PlatformUser[]>([]);
   const [leadershipAssignableStaff, setLeadershipAssignableStaff] = useState<AssignableStaff[]>([]);
@@ -196,6 +225,11 @@ export default function HoiTeachers() {
     setClasses(hoiClassesStorage.getAll());
     setStreams(hoiStreamsStorage.getAll());
     setDuties(hoiTeacherDutiesStorage.getAll());
+    if (currentUser?.schoolId) {
+      setTeacherCodesState(await getTeacherCodes(currentUser.schoolId));
+    } else {
+      setTeacherCodesState({});
+    }
     try {
       const schoolRows = await schoolsStorage.getAll();
       console.log('HOI teacher form schools loaded:', schoolRows);
@@ -436,6 +470,8 @@ export default function HoiTeachers() {
       email: t.email,
       phone: t.phone,
       employee_id: t.employee_id,
+      teacher_code: teacherCodes[t.id] || '',
+      account_role: 'teacher',
       subject_specialization: t.subject_specialization,
       gender: t.gender,
       qualification: t.qualification,
@@ -476,12 +512,8 @@ export default function HoiTeachers() {
   };
 
   const saveTeacher = async () => {
-    if (!teacherForm.full_name.trim() || !teacherForm.email.trim() || !teacherForm.employee_id.trim()) {
-      toast({ title: 'Validation Error', description: 'Full name, email, and employee ID are required.', variant: 'destructive' });
-      return;
-    }
-    if (!teacherSchoolId) {
-      toast({ title: 'Validation Error', description: 'Please select a school.', variant: 'destructive' });
+    if (!teacherForm.full_name.trim() || !teacherForm.email.trim() || !teacherForm.employee_id.trim() || !teacherForm.teacher_code.trim()) {
+      toast({ title: 'Validation Error', description: 'Full name, email, employee ID, and teacher code are required.', variant: 'destructive' });
       return;
     }
     if (!currentUser?.schoolId || !currentUser.schoolCode || !currentUser.schoolName) {
@@ -497,7 +529,15 @@ export default function HoiTeachers() {
       const tenantSchoolId = currentUser.schoolId;
       const tenantSchoolCode = currentUser.schoolCode;
       const tenantSchoolName = currentUser.schoolName;
-      const { password, is_class_teacher, class_teacher_class_id, class_teacher_stream_id, ...teacherData } = teacherForm;
+      const codeVal = teacherForm.teacher_code.trim().toUpperCase();
+      const existingCodes = await getTeacherCodes(tenantSchoolId);
+      const codeConflict = Object.entries(existingCodes).find(([tid, c]) => c === codeVal && tid !== (editingTeacher?.id || ''));
+      if (codeConflict) {
+        toast({ title: 'Duplicate Code', description: `Teacher code "${codeVal}" is already assigned to another teacher.`, variant: 'destructive' });
+        return;
+      }
+
+      const { teacher_code, account_role, password, is_class_teacher, class_teacher_class_id, class_teacher_stream_id, ...teacherData } = teacherForm;
       const selectedClass = classes.find(c => c.id === class_teacher_class_id);
       const selectedStream = streams.find(s => s.id === class_teacher_stream_id);
       const classTeacherFields = is_class_teacher && selectedClass && selectedStream ? {
@@ -516,6 +556,7 @@ export default function HoiTeachers() {
 
       if (editingTeacher) {
         hoiTeachersStorage.update(editingTeacher.id, { ...teacherData, ...classTeacherFields });
+        await saveTeacherCode(editingTeacher.id, codeVal, tenantSchoolId, tenantSchoolCode);
         await syncClassTeacherStreamLink(
           editingTeacher.id,
           teacherForm.full_name.trim(),
@@ -533,6 +574,7 @@ export default function HoiTeachers() {
         const existingPU = await platformUsersStorage.findByEmail(teacherForm.email.trim().toLowerCase());
         if (existingPU) {
           await platformUsersStorage.update(existingPU.id, {
+            role: account_role,
             schoolCode: selectedSchool?.school_code || existingPU.schoolCode,
             schoolName: selectedSchool?.name || existingPU.schoolName,
             isClassTeacher: classTeacherFields.is_class_teacher,
@@ -544,29 +586,22 @@ export default function HoiTeachers() {
         }
         toast({ title: 'Teacher Updated', description: `${teacherForm.full_name} has been updated.` });
       } else {
-        const newTeacher = hoiTeachersStorage.add({ ...teacherData, ...classTeacherFields, hired_at: new Date().toISOString().split('T')[0] });
-
         const signupEmail = teacherForm.email.trim().toLowerCase();
-        const { data: authData, error: createAuthError } = await supabase.auth.signUp({
+        const { data: authData, error: createAuthError } = await supabase.auth.admin.createUser({
           email: signupEmail,
           password: password.trim(),
-          options: {
-            data: {
-              full_name: teacherForm.full_name.trim(),
-              role: 'teacher',
-            },
-          },
+          email_confirm: true,
         });
         if (createAuthError) throw createAuthError;
 
         const authUser = authData.user;
         if (!authUser) throw new Error('Auth user was not created.');
 
-        const { error: profileUpsertError } = await supabase.from('profiles').upsert({
+        const { error: profileInsertError } = await supabase.from('profiles').insert({
           id: authUser.id,
           email: signupEmail,
           full_name: teacherForm.full_name.trim(),
-          role: 'teacher',
+          role: account_role,
           school_id: tenantSchoolId,
           school_code: tenantSchoolCode,
           school_name: tenantSchoolName,
@@ -574,44 +609,54 @@ export default function HoiTeachers() {
           status: 'active',
           subject: teacherForm.subject_specialization.trim() || null,
           created_by: 'HOI',
-        }, { onConflict: 'id' });
-        if (profileUpsertError) throw profileUpsertError;
+        });
+        if (profileInsertError) throw profileInsertError;
 
-        const { data: savedTeacher } = await supabase
+        const { data: insertedTeacher, error: insertTeacherError } = await supabase
           .from('hoi_teachers')
+          .insert({
+            full_name: teacherForm.full_name.trim(),
+            email: signupEmail,
+            phone: teacherForm.phone.trim() || null,
+            employee_id: teacherForm.employee_id.trim(),
+            subject_specialization: teacherForm.subject_specialization.trim() || null,
+            gender: teacherForm.gender,
+            qualification: teacherForm.qualification.trim() || null,
+            status: teacherForm.status,
+            hired_at: new Date().toISOString().split('T')[0],
+            is_class_teacher: classTeacherFields.is_class_teacher,
+            class_teacher_class_id: classTeacherFields.class_teacher_class_id || null,
+            class_teacher_class_name: classTeacherFields.class_teacher_class_name || null,
+            class_teacher_stream_id: classTeacherFields.class_teacher_stream_id || null,
+            class_teacher_stream_name: classTeacherFields.class_teacher_stream_name || null,
+            school_id: tenantSchoolId,
+            school_code: tenantSchoolCode,
+            school_name: tenantSchoolName,
+            profile_id: authUser.id,
+          })
           .select('id,full_name')
-          .eq('school_id', tenantSchoolId)
-          .eq('email', teacherForm.email.trim().toLowerCase())
-          .order('created_at', { ascending: false })
-          .limit(1)
           .maybeSingle();
+        if (insertTeacherError) throw insertTeacherError;
+        if (!insertedTeacher?.id) throw new Error('Teacher record was not created.');
 
-        if (savedTeacher?.id) {
-          await syncClassTeacherStreamLink(
-            savedTeacher.id,
-            savedTeacher.full_name || teacherForm.full_name.trim(),
-            {
-              is_class_teacher: classTeacherFields.is_class_teacher,
-              class_teacher_stream_id: classTeacherFields.class_teacher_stream_id,
-            }
-          );
-        } else {
-          await syncClassTeacherStreamLink(
-            newTeacher.id,
-            teacherForm.full_name.trim(),
-            {
-              is_class_teacher: classTeacherFields.is_class_teacher,
-              class_teacher_stream_id: classTeacherFields.class_teacher_stream_id,
-            }
-          );
-        }
+        await saveTeacherCode(insertedTeacher.id, codeVal, tenantSchoolId, tenantSchoolCode);
+
+        await syncClassTeacherStreamLink(
+          insertedTeacher.id,
+          insertedTeacher.full_name || teacherForm.full_name.trim(),
+          {
+            is_class_teacher: classTeacherFields.is_class_teacher,
+            class_teacher_stream_id: classTeacherFields.class_teacher_stream_id,
+          }
+        );
+
         const allUsers = await platformUsersStorage.getAll();
         const existing = allUsers.find(u => u.email.toLowerCase() === teacherForm.email.trim().toLowerCase());
         if (!existing) {
           await platformUsersStorage.add({
             email: teacherForm.email.trim().toLowerCase(),
             fullName: teacherForm.full_name.trim(),
-            role: 'teacher',
+            role: account_role,
             schoolCode: tenantSchoolCode || selectedSchool?.school_code || '',
             schoolName: tenantSchoolName || selectedSchool?.name || '',
             phone: teacherForm.phone.trim(),
@@ -638,12 +683,15 @@ export default function HoiTeachers() {
         void sendWelcomeEmail({
           email: signupEmail,
           fullName: teacherForm.full_name.trim(),
-          role: 'teacher',
+            role: account_role,
           schoolCode: tenantSchoolCode,
           createdBy: 'HOI',
         });
 
-        toast({ title: 'Teacher Added', description: `${teacherForm.full_name} has been added. They can now log in with their email and password.` });
+          toast({
+            title: 'Success',
+            description: `${account_role === 'hod' ? 'HOD' : 'Teacher'} ${teacherForm.full_name} created successfully. They can now login with school code ${tenantSchoolCode} and their email/password.`,
+          });
       }
       setTeacherDialogOpen(false);
       await loadData();
@@ -1330,19 +1378,22 @@ export default function HoiTeachers() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>School *</Label>
-                <Select value={teacherSchoolId} onValueChange={setTeacherSchoolId}>
-                  <SelectTrigger><SelectValue placeholder="Select school" /></SelectTrigger>
+                <Label>Role *</Label>
+                <Select value={teacherForm.account_role} onValueChange={(v) => setTeacherForm({ ...teacherForm, account_role: v as TeacherAccountRole })} disabled={!!editingTeacher}>
+                  <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
                   <SelectContent>
-                    {schools.map((school) => (
-                      <SelectItem key={school.id} value={school.id}>{school.name}</SelectItem>
-                    ))}
+                    <SelectItem value="teacher">Teacher</SelectItem>
+                    <SelectItem value="hod">HOD</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label>Employee ID *</Label>
                 <Input value={teacherForm.employee_id} onChange={(e) => setTeacherForm({ ...teacherForm, employee_id: e.target.value })} />
+              </div>
+              <div>
+                <Label>Teacher Code *</Label>
+                <Input placeholder="e.g. TCH001" value={teacherForm.teacher_code} onChange={(e) => setTeacherForm({ ...teacherForm, teacher_code: e.target.value })} />
               </div>
               <div>
                 <Label>Gender</Label>
@@ -1358,6 +1409,10 @@ export default function HoiTeachers() {
             <div>
               <Label>Learning Area Specialization</Label>
               <Input value={teacherForm.subject_specialization} onChange={(e) => setTeacherForm({ ...teacherForm, subject_specialization: e.target.value })} />
+            </div>
+            <div>
+              <Label>Qualification</Label>
+              <Input value={teacherForm.qualification} onChange={(e) => setTeacherForm({ ...teacherForm, qualification: e.target.value })} />
             </div>
             <div>
               <Label>Status</Label>

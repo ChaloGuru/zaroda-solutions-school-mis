@@ -100,7 +100,11 @@ export default function UsersSection() {
     schoolCode: '',
     schoolName: '',
     phone: '',
+    employeeId: '',
+    teacherCode: '',
     subject: '',
+    gender: 'Male',
+    qualification: '',
     grade: '',
   });
 
@@ -180,7 +184,7 @@ export default function UsersSection() {
   const teacherCount = users.filter(u => u.role === 'teacher').length;
 
   const resetForm = () => {
-    setFormData({ fullName: '', email: '', password: '', role: 'hoi', schoolCode: '', schoolName: '', phone: '', subject: '', grade: '' });
+    setFormData({ fullName: '', email: '', password: '', role: 'hoi', schoolCode: '', schoolName: '', phone: '', employeeId: '', teacherCode: '', subject: '', gender: 'Male', qualification: '', grade: '' });
   };
 
   const handleSchoolSelect = (schoolCode: string) => {
@@ -202,6 +206,12 @@ export default function UsersSection() {
       const schoolCode = formData.schoolCode.trim();
       const phone = formData.phone.trim();
       const status: PlatformUser['status'] = 'active';
+      const isTeacherLike = role === 'teacher' || role === 'hod';
+
+      if (isTeacherLike && (!formData.employeeId.trim() || !formData.teacherCode.trim())) {
+        toast({ title: 'Missing fields', description: 'Employee ID and Teacher Code are required for Teacher/HOD.', variant: 'destructive' });
+        return;
+      }
 
       if (!['hoi', 'dhoi', 'hod', 'teacher'].includes(role)) {
         toast({ title: 'Invalid role', description: 'Only HOI, DHOI, HOD, or Teacher can be created here.', variant: 'destructive' });
@@ -254,15 +264,10 @@ export default function UsersSection() {
 
       const schoolName = schoolRow.name || schoolCode;
 
-      const { data: authData, error: createAuthError } = await supabase.auth.signUp({
+      const { data: authData, error: createAuthError } = await supabase.auth.admin.createUser({
         email,
         password: formData.password,
-        options: {
-          data: {
-            full_name: fullName,
-            role,
-          },
-        },
+        email_confirm: true,
       });
       if (createAuthError) throw createAuthError;
 
@@ -284,6 +289,44 @@ export default function UsersSection() {
         created_by: 'SuperAdmin',
       }, { onConflict: 'id' });
       if (profileUpsertError) throw profileUpsertError;
+
+      if (isTeacherLike) {
+        const teacherCode = formData.teacherCode.trim().toUpperCase();
+        const { data: teacherRow, error: teacherInsertError } = await supabase
+          .from('hoi_teachers')
+          .insert({
+            full_name: fullName,
+            email,
+            phone: phone || null,
+            employee_id: formData.employeeId.trim(),
+            subject_specialization: formData.subject.trim() || null,
+            gender: formData.gender === 'Female' ? 'Female' : 'Male',
+            qualification: formData.qualification.trim() || null,
+            status: 'active',
+            hired_at: new Date().toISOString().split('T')[0],
+            school_id: schoolRow.id,
+            school_code: schoolRow.school_code,
+            school_name: schoolName,
+            profile_id: authUser.id,
+          })
+          .select('id')
+          .maybeSingle();
+
+        if (teacherInsertError || !teacherRow?.id) {
+          throw new Error(teacherInsertError?.message || 'Teacher record could not be created.');
+        }
+
+        const { error: teacherCodeError } = await supabase
+          .from('teacher_codes')
+          .upsert({
+            teacher_id: teacherRow.id,
+            code: teacherCode,
+            school_id: schoolRow.id,
+            school_code: schoolRow.school_code,
+          }, { onConflict: 'teacher_id' });
+
+        if (teacherCodeError) throw teacherCodeError;
+      }
 
       const newUser: PlatformUser = {
         id: authUser.id,
@@ -483,7 +526,11 @@ export default function UsersSection() {
       schoolCode: user.schoolCode,
       schoolName: user.schoolName,
       phone: user.phone,
+      employeeId: '',
+      teacherCode: '',
       subject: user.subject || '',
+      gender: 'Male',
+      qualification: '',
       grade: user.grade || '',
     });
     setShowEditModal(true);
@@ -815,6 +862,18 @@ export default function UsersSection() {
                   <Input value={formData.phone} onChange={e => setFormData(prev => ({ ...prev, phone: e.target.value }))} placeholder="+254 7XX XXX XXX" className="mt-1" />
                 </div>
               </div>
+              {(formData.role === 'teacher' || formData.role === 'hod') && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Employee ID *</Label>
+                    <Input value={formData.employeeId} onChange={e => setFormData(prev => ({ ...prev, employeeId: e.target.value }))} placeholder="e.g. EMP001" className="mt-1" />
+                  </div>
+                  <div>
+                    <Label>Teacher Code *</Label>
+                    <Input value={formData.teacherCode} onChange={e => setFormData(prev => ({ ...prev, teacherCode: e.target.value }))} placeholder="e.g. TCH001" className="mt-1" />
+                  </div>
+                </div>
+              )}
               <div>
                 <Label>School KNEC Code *</Label>
                 <Select value={formData.schoolCode} onValueChange={handleSchoolSelect}>
@@ -830,15 +889,25 @@ export default function UsersSection() {
                 <Label>School Name</Label>
                 <Input value={formData.schoolName} readOnly className="mt-1 bg-muted/40" placeholder="Auto-filled from KNEC code" />
               </div>
-              {(formData.role === 'teacher') && (
+              {(formData.role === 'teacher' || formData.role === 'hod') && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label>Learning Area</Label>
                     <Input value={formData.subject} onChange={e => setFormData(prev => ({ ...prev, subject: e.target.value }))} placeholder="e.g., Mathematics" className="mt-1" />
                   </div>
                   <div>
-                    <Label>Grade</Label>
-                    <Input value={formData.grade} onChange={e => setFormData(prev => ({ ...prev, grade: e.target.value }))} placeholder="e.g., Grade 5" className="mt-1" />
+                    <Label>Gender</Label>
+                    <Select value={formData.gender} onValueChange={v => setFormData(prev => ({ ...prev, gender: v }))}>
+                      <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Male">Male</SelectItem>
+                        <SelectItem value="Female">Female</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label>Qualification</Label>
+                    <Input value={formData.qualification} onChange={e => setFormData(prev => ({ ...prev, qualification: e.target.value }))} placeholder="e.g., B.Ed" className="mt-1" />
                   </div>
                 </div>
               )}
@@ -952,6 +1021,18 @@ export default function UsersSection() {
               <Label>Phone</Label>
               <Input value={formData.phone} onChange={e => setFormData(prev => ({ ...prev, phone: e.target.value }))} placeholder="+254 7XX XXX XXX" className="mt-1" />
             </div>
+            {(formData.role === 'teacher' || formData.role === 'hod') && (
+              <>
+                <div>
+                  <Label>Employee ID *</Label>
+                  <Input value={formData.employeeId} onChange={e => setFormData(prev => ({ ...prev, employeeId: e.target.value }))} placeholder="e.g. EMP001" className="mt-1" />
+                </div>
+                <div>
+                  <Label>Teacher Code *</Label>
+                  <Input value={formData.teacherCode} onChange={e => setFormData(prev => ({ ...prev, teacherCode: e.target.value }))} placeholder="e.g. TCH001" className="mt-1" />
+                </div>
+              </>
+            )}
             <div>
               <Label>School KNEC Code *</Label>
               <Select value={formData.schoolCode} onValueChange={handleSchoolSelect}>
@@ -965,6 +1046,28 @@ export default function UsersSection() {
               <Label>School Name</Label>
               <Input value={formData.schoolName} readOnly className="mt-1 bg-muted/40" placeholder="Auto-filled from KNEC code" />
             </div>
+            {(formData.role === 'teacher' || formData.role === 'hod') && (
+              <>
+                <div>
+                  <Label>Learning Area</Label>
+                  <Input value={formData.subject} onChange={e => setFormData(prev => ({ ...prev, subject: e.target.value }))} placeholder="e.g., Mathematics" className="mt-1" />
+                </div>
+                <div>
+                  <Label>Gender</Label>
+                  <Select value={formData.gender} onValueChange={v => setFormData(prev => ({ ...prev, gender: v }))}>
+                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Male">Male</SelectItem>
+                      <SelectItem value="Female">Female</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Qualification</Label>
+                  <Input value={formData.qualification} onChange={e => setFormData(prev => ({ ...prev, qualification: e.target.value }))} placeholder="e.g., B.Ed" className="mt-1" />
+                </div>
+              </>
+            )}
             <div className="flex gap-3 pt-2">
               <Button onClick={() => { void handleCreateUser(); }} className="flex-1" disabled={isSubmitting}>Create User</Button>
               <Button variant="outline" onClick={() => setShowCreateModal(false)}>Cancel</Button>

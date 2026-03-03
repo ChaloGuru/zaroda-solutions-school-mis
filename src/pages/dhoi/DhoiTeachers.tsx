@@ -73,6 +73,7 @@ import { useAuthContext } from '@/context/AuthContext';
 
 const PAGE_SIZE = 10;
 const TEACHER_CODES_KEY = 'zaroda_teacher_codes';
+type TeacherAccountRole = 'teacher' | 'hod';
 
 const SYSTEM_CREATED_BY = new Set(['superadmin', 'system', 'hoi', 'dhoi']);
 
@@ -81,6 +82,7 @@ const emptyTeacherForm = {
   email: '',
   phone: '',
   employee_id: '',
+  account_role: 'teacher' as TeacherAccountRole,
   subject_specialization: '',
   gender: 'Male' as HoiTeacher['gender'],
   qualification: '',
@@ -250,6 +252,7 @@ export default function DhoiTeachers() {
       email: t.email,
       phone: t.phone,
       employee_id: t.employee_id,
+      account_role: 'teacher',
       subject_specialization: t.subject_specialization,
       gender: t.gender,
       qualification: t.qualification,
@@ -284,7 +287,7 @@ export default function DhoiTeachers() {
       return;
     }
 
-    const { teacher_code, password, is_class_teacher, class_teacher_class_id, class_teacher_stream_id, ...teacherData } = teacherForm;
+    const { teacher_code, account_role, password, is_class_teacher, class_teacher_class_id, class_teacher_stream_id, ...teacherData } = teacherForm;
     const selectedClass = classes.find(c => c.id === class_teacher_class_id);
     const selectedStream = streams.find(s => s.id === class_teacher_stream_id);
     const classTeacherFields = is_class_teacher && selectedClass && selectedStream ? {
@@ -313,6 +316,7 @@ export default function DhoiTeachers() {
       const existingPU = await platformUsersStorage.findByEmail(teacherForm.email.trim().toLowerCase());
       if (existingPU) {
         await platformUsersStorage.update(existingPU.id, {
+          role: account_role,
           isClassTeacher: classTeacherFields.is_class_teacher,
           classTeacherClassId: classTeacherFields.class_teacher_class_id,
           classTeacherClassName: classTeacherFields.class_teacher_class_name,
@@ -322,19 +326,11 @@ export default function DhoiTeachers() {
       }
       toast({ title: 'Teacher Updated', description: `${teacherForm.full_name} has been updated.` });
     } else {
-      const newTeacher = hoiTeachersStorage.add({ ...teacherData, ...classTeacherFields, hired_at: new Date().toISOString().split('T')[0] });
-      await saveTeacherCode(newTeacher.id, codeVal, currentUser.schoolId, currentUser.schoolCode);
-
       const signupEmail = teacherForm.email.trim().toLowerCase();
-      const { data: authData, error: createAuthError } = await supabase.auth.signUp({
+      const { data: authData, error: createAuthError } = await supabase.auth.admin.createUser({
         email: signupEmail,
         password: password.trim(),
-        options: {
-          data: {
-            full_name: teacherForm.full_name.trim(),
-            role: 'teacher',
-          },
-        },
+        email_confirm: true,
       });
       if (createAuthError) {
         toast({ title: 'Teacher Save Error', description: createAuthError.message, variant: 'destructive' });
@@ -347,11 +343,11 @@ export default function DhoiTeachers() {
         return;
       }
 
-      const { error: profileUpsertError } = await supabase.from('profiles').upsert({
+      const { error: profileUpsertError } = await supabase.from('profiles').insert({
         id: authUser.id,
         email: signupEmail,
         full_name: teacherForm.full_name.trim(),
-        role: 'teacher',
+        role: account_role,
         school_id: currentUser.schoolId,
         school_code: currentUser.schoolCode,
         school_name: currentUser.schoolName,
@@ -359,11 +355,43 @@ export default function DhoiTeachers() {
         status: 'active',
         subject: teacherForm.subject_specialization.trim() || null,
         created_by: 'DHOI',
-      }, { onConflict: 'id' });
+      });
       if (profileUpsertError) {
         toast({ title: 'Teacher Save Error', description: profileUpsertError.message, variant: 'destructive' });
         return;
       }
+
+      const { data: insertedTeacher, error: teacherInsertError } = await supabase
+        .from('hoi_teachers')
+        .insert({
+          full_name: teacherForm.full_name.trim(),
+          email: signupEmail,
+          phone: teacherForm.phone.trim() || null,
+          employee_id: teacherForm.employee_id.trim(),
+          subject_specialization: teacherForm.subject_specialization.trim() || null,
+          gender: teacherForm.gender,
+          qualification: teacherForm.qualification.trim() || null,
+          status: teacherForm.status,
+          hired_at: new Date().toISOString().split('T')[0],
+          is_class_teacher: classTeacherFields.is_class_teacher,
+          class_teacher_class_id: classTeacherFields.class_teacher_class_id || null,
+          class_teacher_class_name: classTeacherFields.class_teacher_class_name || null,
+          class_teacher_stream_id: classTeacherFields.class_teacher_stream_id || null,
+          class_teacher_stream_name: classTeacherFields.class_teacher_stream_name || null,
+          school_id: currentUser.schoolId,
+          school_code: currentUser.schoolCode,
+          school_name: currentUser.schoolName,
+          profile_id: authUser.id,
+        })
+        .select('id')
+        .maybeSingle();
+
+      if (teacherInsertError || !insertedTeacher?.id) {
+        toast({ title: 'Teacher Save Error', description: teacherInsertError?.message || 'Teacher record was not created.', variant: 'destructive' });
+        return;
+      }
+
+      await saveTeacherCode(insertedTeacher.id, codeVal, currentUser.schoolId, currentUser.schoolCode);
 
       if (password.trim()) {
         toast({
@@ -377,7 +405,7 @@ export default function DhoiTeachers() {
         await platformUsersStorage.add({
           email: signupEmail,
           fullName: teacherForm.full_name.trim(),
-          role: 'teacher',
+          role: account_role,
           schoolCode: currentUser.schoolCode,
           schoolName: currentUser.schoolName,
           phone: teacherForm.phone.trim(),
@@ -402,12 +430,15 @@ export default function DhoiTeachers() {
       void sendWelcomeEmail({
         email: signupEmail,
         fullName: teacherForm.full_name.trim(),
-        role: 'teacher',
+        role: account_role,
         schoolCode: currentUser.schoolCode,
         createdBy: 'DHOI',
       });
 
-      toast({ title: 'Teacher Added', description: `${teacherForm.full_name} has been added with code ${codeVal}. They can now log in with their email and password.` });
+      toast({
+        title: 'Success',
+        description: `${account_role === 'hod' ? 'HOD' : 'Teacher'} ${teacherForm.full_name} created successfully. They can now login with school code ${currentUser.schoolCode} and their email/password.`,
+      });
     }
     setTeacherDialogOpen(false);
     await loadData();
@@ -815,6 +846,16 @@ export default function DhoiTeachers() {
                 <Input value={teacherForm.employee_id} onChange={(e) => setTeacherForm({ ...teacherForm, employee_id: e.target.value })} />
               </div>
               <div>
+                <Label>Role *</Label>
+                <Select value={teacherForm.account_role} onValueChange={(v) => setTeacherForm({ ...teacherForm, account_role: v as TeacherAccountRole })} disabled={!!editingTeacher}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="teacher">Teacher</SelectItem>
+                    <SelectItem value="hod">HOD</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
                 <Label>Teacher Code *</Label>
                 <Input placeholder="e.g. TCH001" value={teacherForm.teacher_code} onChange={(e) => setTeacherForm({ ...teacherForm, teacher_code: e.target.value })} />
               </div>
@@ -822,6 +863,10 @@ export default function DhoiTeachers() {
             <div>
               <Label>Subject Specialization</Label>
               <Input value={teacherForm.subject_specialization} onChange={(e) => setTeacherForm({ ...teacherForm, subject_specialization: e.target.value })} />
+            </div>
+            <div>
+              <Label>Qualification</Label>
+              <Input value={teacherForm.qualification} onChange={(e) => setTeacherForm({ ...teacherForm, qualification: e.target.value })} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>

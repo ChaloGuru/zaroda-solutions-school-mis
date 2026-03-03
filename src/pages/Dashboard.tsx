@@ -95,7 +95,8 @@ const Dashboard = () => {
           supabase
             .from('hoi_subject_assignments')
             .select('teacher_id,subject_name,class_name,stream_name')
-            .eq('teacher_id', currentUser.id),
+            .eq('school_id', currentUser.schoolId || '')
+            .eq('teacher_name', currentUser.fullName),
           supabase
             .from('teacher_codes')
             .select('code')
@@ -223,6 +224,23 @@ const Dashboard = () => {
 
   const isClassTeacher = currentUser?.isClassTeacher && currentUser?.classTeacherClassId && currentUser?.classTeacherStreamId;
 
+  const teacherAssignmentSummary = useMemo(() => {
+    const rows = teacherAssignments
+      .filter((assignment) => assignment.subject_name && assignment.class_name)
+      .map((assignment) => ({
+        subject: String(assignment.subject_name),
+        className: String(assignment.class_name),
+        streamName: assignment.stream_name ? String(assignment.stream_name) : '',
+      }));
+
+    const unique = new Map<string, { subject: string; className: string; streamName: string }>();
+    rows.forEach((row) => {
+      const key = `${row.subject}::${row.className}::${row.streamName}`;
+      if (!unique.has(key)) unique.set(key, row);
+    });
+    return Array.from(unique.values());
+  }, [teacherAssignments]);
+
   const menuGroups: MenuGroup[] = useMemo(() => {
     const groups: MenuGroup[] = [
       {
@@ -310,6 +328,29 @@ const Dashboard = () => {
                 </Select>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === 'assessment' && (
+        <Card className="mb-4 bg-white shadow-sm border-gray-200">
+          <CardHeader>
+            <CardTitle className="text-lg">Welcome, {currentUser.fullName}</CardTitle>
+            <CardDescription>{currentUser.schoolName || 'School'} • Assigned learning areas and classes</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {teacherAssignmentSummary.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No assignments yet. Ask HOI/DHOI to assign your learning areas and classes.</p>
+            ) : (
+              <div className="space-y-2">
+                {teacherAssignmentSummary.map((item, index) => (
+                  <div key={`${item.subject}-${item.className}-${item.streamName}-${index}`} className="flex flex-wrap items-center gap-2 text-sm">
+                    <Badge variant="outline">{item.subject}</Badge>
+                    <span className="text-muted-foreground">{item.className}{item.streamName ? ` • ${item.streamName}` : ''}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
