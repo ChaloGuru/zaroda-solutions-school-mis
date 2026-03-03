@@ -26,6 +26,8 @@ const ROLE_OPTIONS = [
   { value: 'parent', label: 'Parent', loginEnabled: false },
 ];
 
+const CREATE_ROLE_OPTIONS = ROLE_OPTIONS.filter((role) => ['hoi', 'dhoi', 'hod', 'teacher'].includes(role.value));
+
 const STATUS_COLORS: Record<string, string> = {
   active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
   suspended: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
@@ -187,7 +189,7 @@ export default function UsersSection() {
   };
 
   const handleCreateUser = async () => {
-    if (!formData.fullName.trim() || !formData.email.trim() || !formData.password.trim() || !formData.schoolCode.trim() || !formData.phone.trim()) {
+    if (!formData.fullName.trim() || !formData.email.trim() || !formData.password.trim() || !formData.schoolCode.trim()) {
       toast({ title: 'Missing fields', description: 'Please fill in all required fields.', variant: 'destructive' });
       return;
     }
@@ -200,6 +202,11 @@ export default function UsersSection() {
       const schoolCode = formData.schoolCode.trim();
       const phone = formData.phone.trim();
       const status: PlatformUser['status'] = 'active';
+
+      if (!['hoi', 'dhoi', 'hod', 'teacher'].includes(role)) {
+        toast({ title: 'Invalid role', description: 'Only HOI, DHOI, HOD, or Teacher can be created here.', variant: 'destructive' });
+        return;
+      }
 
       const existing = await platformUsersStorage.findByEmail(email);
       if (existing) {
@@ -270,7 +277,7 @@ export default function UsersSection() {
         school_id: schoolRow.id,
         school_code: schoolRow.school_code,
         school_name: schoolName,
-        phone,
+        phone: phone || null,
         status,
         subject: formData.subject.trim() || null,
         grade: formData.grade.trim() || null,
@@ -783,7 +790,7 @@ export default function UsersSection() {
                 <Select value={formData.role} onValueChange={v => setFormData(prev => ({ ...prev, role: v }))}>
                   <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {ROLE_OPTIONS.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                    {CREATE_ROLE_OPTIONS.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -804,12 +811,12 @@ export default function UsersSection() {
                   <p className="text-xs text-muted-foreground mt-1">The user will use this password to log in</p>
                 </div>
                 <div>
-                  <Label>Phone Number *</Label>
+                  <Label>Phone Number</Label>
                   <Input value={formData.phone} onChange={e => setFormData(prev => ({ ...prev, phone: e.target.value }))} placeholder="+254 7XX XXX XXX" className="mt-1" />
                 </div>
               </div>
               <div>
-                <Label>Assign to School *</Label>
+                <Label>School KNEC Code *</Label>
                 <Select value={formData.schoolCode} onValueChange={handleSchoolSelect}>
                   <SelectTrigger className="mt-1"><SelectValue placeholder="Select a school..." /></SelectTrigger>
                   <SelectContent>
@@ -818,6 +825,10 @@ export default function UsersSection() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div>
+                <Label>School Name</Label>
+                <Input value={formData.schoolName} readOnly className="mt-1 bg-muted/40" placeholder="Auto-filled from KNEC code" />
               </div>
               {(formData.role === 'teacher') && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -921,7 +932,7 @@ export default function UsersSection() {
               <Select value={formData.role} onValueChange={v => setFormData(prev => ({ ...prev, role: v }))}>
                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {ROLE_OPTIONS.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                  {CREATE_ROLE_OPTIONS.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -938,17 +949,21 @@ export default function UsersSection() {
               <Input type="text" value={formData.password} onChange={e => setFormData(prev => ({ ...prev, password: e.target.value }))} placeholder="Assign password" className="mt-1" />
             </div>
             <div>
-              <Label>Phone *</Label>
+              <Label>Phone</Label>
               <Input value={formData.phone} onChange={e => setFormData(prev => ({ ...prev, phone: e.target.value }))} placeholder="+254 7XX XXX XXX" className="mt-1" />
             </div>
             <div>
-              <Label>School *</Label>
+              <Label>School KNEC Code *</Label>
               <Select value={formData.schoolCode} onValueChange={handleSchoolSelect}>
                 <SelectTrigger className="mt-1"><SelectValue placeholder="Select school..." /></SelectTrigger>
                 <SelectContent>
                   {schools.map(s => <SelectItem key={s.school_code} value={s.school_code}>{s.name} ({s.school_code})</SelectItem>)}
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label>School Name</Label>
+              <Input value={formData.schoolName} readOnly className="mt-1 bg-muted/40" placeholder="Auto-filled from KNEC code" />
             </div>
             <div className="flex gap-3 pt-2">
               <Button onClick={() => { void handleCreateUser(); }} className="flex-1" disabled={isSubmitting}>Create User</Button>

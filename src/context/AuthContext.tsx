@@ -32,7 +32,7 @@ interface AuthContextType {
   currentUser: AuthUser | null;
   userRole: UserRole | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string; redirectTo?: string }>;
+  login: (schoolCode: string, email: string, password: string) => Promise<{ success: boolean; error?: string; redirectTo?: string }>;
   signup: (data: TeacherSignupData) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
 }
@@ -48,11 +48,11 @@ export interface TeacherSignupData {
 }
 
 const ROLE_DASHBOARD_MAP: Record<UserRole, string> = {
-  superadmin: '/superadmin-dashboard',
-  teacher: '/teacher-dashboard',
-  hoi: '/hoi-dashboard',
-  dhoi: '/dhoi-dashboard',
-  hod: '/hod-dashboard',
+  superadmin: '/superadmin',
+  teacher: '/dashboard',
+  hoi: '/hoi',
+  dhoi: '/dhoi',
+  hod: '/hod',
   student: '/student-dashboard',
   parent: '/parent-dashboard',
 };
@@ -89,11 +89,11 @@ export const getDashboardForRole = (role: UserRole): string => {
 };
 
 const getLoginRedirectForRole = (role: UserRole): string => {
-  if (role === 'superadmin') return '/superadmin-dashboard';
-  if (role === 'hoi') return '/hoi-dashboard';
-  if (role === 'dhoi') return '/dhoi-dashboard';
-  if (role === 'hod') return '/hod-dashboard';
-  if (role === 'teacher') return '/teacher-dashboard';
+  if (role === 'superadmin') return '/superadmin';
+  if (role === 'hoi') return '/hoi';
+  if (role === 'dhoi') return '/dhoi';
+  if (role === 'hod') return '/hod';
+  if (role === 'teacher') return '/dashboard';
   if (role === 'student') return '/student-dashboard';
   if (role === 'parent') return '/parent-dashboard';
   return '/login';
@@ -162,12 +162,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return message;
   };
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string; redirectTo?: string }> => {
+  const login = async (schoolCode: string, email: string, password: string): Promise<{ success: boolean; error?: string; redirectTo?: string }> => {
     const configError = getSupabaseConfigError();
     if (configError) {
       return { success: false, error: configError };
     }
 
+    const normalizedSchoolCode = schoolCode.trim().toUpperCase();
     const normalizedEmail = email.trim().toLowerCase();
 
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -210,6 +211,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!profileUser) {
         await supabase.auth.signOut();
         return { success: false, error: 'No profile found for this account. Please contact administrator.' };
+      }
+
+      if (profileUser.role !== 'superadmin') {
+        const accountSchoolCode = (profileUser.schoolCode || '').trim().toUpperCase();
+        if (!normalizedSchoolCode || accountSchoolCode !== normalizedSchoolCode) {
+          await supabase.auth.signOut();
+          return {
+            success: false,
+            error: 'School KNEC code does not match your account. Please check and try again.',
+          };
+        }
+      } else if (normalizedSchoolCode && normalizedSchoolCode !== 'ADMIN') {
+        await supabase.auth.signOut();
+        return {
+          success: false,
+          error: 'Superadmin? Leave KNEC code blank or use ADMIN.',
+        };
       }
 
       setCurrentUser(profileUser);

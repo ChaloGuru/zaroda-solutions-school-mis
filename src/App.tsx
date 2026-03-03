@@ -71,10 +71,26 @@ const App = () => (
             <Route path="/elections" element={<Elections />} />
             <Route path="/sports" element={<Sports />} />
             <Route
+              path="/superadmin"
+              element={
+                <ProtectedRoute allowedRole="superadmin">
+                  <SuperAdmin />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/superadmin-dashboard"
               element={
                 <ProtectedRoute allowedRole="superadmin">
                   <SuperAdmin />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute allowedRole={['teacher', 'hoi', 'dhoi']}>
+                  <Dashboard />
                 </ProtectedRoute>
               }
             />
@@ -87,6 +103,14 @@ const App = () => (
               }
             />
             <Route
+              path="/hoi"
+              element={
+                <ProtectedRoute allowedRole="hoi">
+                  <HoiDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/hoi-dashboard"
               element={
                 <ProtectedRoute allowedRole="hoi">
@@ -95,10 +119,26 @@ const App = () => (
               }
             />
             <Route
+              path="/dhoi"
+              element={
+                <ProtectedRoute allowedRole="dhoi">
+                  <DhoiDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/dhoi-dashboard"
               element={
                 <ProtectedRoute allowedRole="dhoi">
                   <DhoiDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/hod"
+              element={
+                <ProtectedRoute allowedRole="hod">
+                  <HodDashboard />
                 </ProtectedRoute>
               }
             />
@@ -126,7 +166,6 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            <Route path="/dashboard" element={<Navigate to="/login" replace />} />
             <Route path="/signup" element={<Navigate to="/login" replace />} />
             <Route path="/admin-login" element={<Navigate to="/login" replace />} />
             <Route path="/super-admin" element={<Navigate to="/login" replace />} />

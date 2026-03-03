@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Mail, Lock } from 'lucide-react';
+import { ArrowLeft, Mail, Lock, School } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthContext, getDashboardForRole } from '@/context/AuthContext';
 import zarodaLogo from '@/assets/zaroda-logo.png';
@@ -11,6 +11,7 @@ import zarodaLogo from '@/assets/zaroda-logo.png';
 const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
+    schoolCode: '',
     email: '',
     password: '',
   });
@@ -43,7 +44,7 @@ const Login = () => {
     setIsSubmitting(true);
 
     try {
-      const result = await login(formData.email, formData.password);
+      const result = await login(formData.schoolCode, formData.email, formData.password);
       if (result.success) {
         toast({ title: 'Login successful!', description: 'Welcome back to Zaroda Solutions.' });
         if (result.redirectTo) {
@@ -85,6 +86,23 @@ const Login = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="schoolCode">School KNEC Code</Label>
+              <div className="relative">
+                <School className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
+                <Input
+                  id="schoolCode"
+                  name="schoolCode"
+                  type="text"
+                  placeholder="e.g. 12345678"
+                  value={formData.schoolCode}
+                  onChange={handleChange}
+                  className="pl-10"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Superadmin? Leave KNEC code blank</p>
+            </div>
+
             <div>
               <Label htmlFor="email">Email Address</Label>
               <div className="relative">
