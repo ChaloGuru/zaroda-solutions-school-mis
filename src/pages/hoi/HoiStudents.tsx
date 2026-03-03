@@ -45,6 +45,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuthContext } from '@/context/AuthContext';
 
 const PAGE_SIZE = 10;
 
@@ -63,11 +64,13 @@ const emptyStudentForm = {
 
 export default function HoiStudents() {
   const { toast } = useToast();
+  const { currentUser } = useAuthContext();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [students, setStudents] = useState<HoiStudent[]>([]);
   const [classes, setClasses] = useState<HoiClass[]>([]);
   const [streams, setStreams] = useState<HoiStream[]>([]);
+  const [allStreams, setAllStreams] = useState<HoiStream[]>([]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [classFilter, setClassFilter] = useState('all');
@@ -89,14 +92,95 @@ export default function HoiStudents() {
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [csvPreview, setCsvPreview] = useState<string[][]>([]);
 
+  const loadClasses = async () => {
+    if (!currentUser?.schoolId) {
+      setClasses([]);
+      return;
+    }
+
+    const { data: classRows, error } = await supabase
+      .from('hoi_classes')
+      .select('*')
+      .eq('school_id', currentUser.schoolId)
+      .order('name', { ascending: true });
+
+    if (error) {
+      toast({
+        title: 'Load Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+      setClasses([]);
+      return;
+    }
+
+    const mappedClasses: HoiClass[] = (classRows || []).map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      level: row.level,
+      created_at: row.created_at || new Date().toISOString(),
+    }));
+
+    setClasses(mappedClasses);
+  };
+
+  const loadStreamsForClass = async (selectedClassId: string) => {
+    if (!selectedClassId) {
+      setStreams([]);
+      return;
+    }
+
+    const { data: streamRows, error } = await supabase
+      .from('hoi_streams')
+      .select('*')
+      .eq('class_id', selectedClassId)
+      .order('name', { ascending: true });
+
+    if (error) {
+      toast({
+        title: 'Load Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+      setStreams([]);
+      return;
+    }
+
+    const mappedStreams: HoiStream[] = (streamRows || []).map((row: any) => ({
+      id: row.id,
+      class_id: row.class_id,
+      name: row.name,
+      class_teacher_id: row.class_teacher_id || undefined,
+      class_teacher_name: row.class_teacher_name || undefined,
+      student_count: row.student_count || 0,
+    }));
+
+    setStreams(mappedStreams);
+  };
+
   const loadData = async () => {
-    const [studentsRes, classesRes, streamsRes] = await Promise.all([
-      supabase.from('hoi_students').select('*').order('created_at', { ascending: false }),
-      supabase.from('hoi_classes').select('*').order('name', { ascending: true }),
-      supabase.from('hoi_streams').select('*').order('name', { ascending: true }),
+    if (!currentUser?.schoolId) {
+      setStudents([]);
+      setClasses([]);
+      setStreams([]);
+      setAllStreams([]);
+      return;
+    }
+
+    const [studentsRes, streamsRes] = await Promise.all([
+      supabase
+        .from('hoi_students')
+        .select('*')
+        .eq('school_id', currentUser.schoolId)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('hoi_streams')
+        .select('*')
+        .eq('school_id', currentUser.schoolId)
+        .order('name', { ascending: true }),
     ]);
 
-    if (studentsRes.error || classesRes.error || streamsRes.error) {
+    if (studentsRes.error || streamsRes.error) {
       toast({
         title: 'Load Error',
         description: 'Failed to load student records from Supabase.',
@@ -105,6 +189,7 @@ export default function HoiStudents() {
       setStudents([]);
       setClasses([]);
       setStreams([]);
+      setAllStreams([]);
       return;
     }
 
@@ -126,13 +211,6 @@ export default function HoiStudents() {
       enrolled_at: row.enrolled_at || row.created_at || '',
     }));
 
-    const mappedClasses: HoiClass[] = (classesRes.data || []).map((row: any) => ({
-      id: row.id,
-      name: row.name,
-      level: row.level,
-      created_at: row.created_at || new Date().toISOString(),
-    }));
-
     const mappedStreams: HoiStream[] = (streamsRes.data || []).map((row: any) => ({
       id: row.id,
       class_id: row.class_id,
@@ -143,11 +221,12 @@ export default function HoiStudents() {
     }));
 
     setStudents(mappedStudents);
-    setClasses(mappedClasses);
-    setStreams(mappedStreams);
+    setAllStreams(mappedStreams);
+
+    await loadClasses();
   };
 
-  useEffect(() => { void loadData(); }, []);
+  useEffect(() => { void loadData(); }, [currentUser?.schoolId]);
 
   const filteredStudents = students.filter((s) => {
     const matchesSearch = s.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -172,6 +251,8 @@ export default function HoiStudents() {
   const openAddStudent = () => {
     setEditingStudent(null);
     setStudentForm(emptyStudentForm);
+    setStreams([]);
+    void loadClasses();
     setStudentDialogOpen(true);
   };
 
@@ -189,6 +270,8 @@ export default function HoiStudents() {
       guardian_phone: s.guardian_phone,
       guardian_email: s.guardian_email,
     });
+    void loadClasses();
+    void loadStreamsForClass(s.class_id);
     setStudentDialogOpen(true);
   };
 
@@ -234,6 +317,7 @@ export default function HoiStudents() {
         .from('hoi_students')
         .insert({
           ...payload,
+          school_id: currentUser?.schoolId || null,
           status: 'active',
           enrolled_at: new Date().toISOString().split('T')[0],
         });
@@ -307,7 +391,11 @@ export default function HoiStudents() {
     setCsvPreview([]);
   };
 
-  const filteredStreams = streamFilter !== 'all' ? streams : classFilter !== 'all' ? streams.filter((s) => s.class_id === classFilter) : streams;
+  const filteredStreams = streamFilter !== 'all'
+    ? allStreams
+    : classFilter !== 'all'
+      ? allStreams.filter((s) => s.class_id === classFilter)
+      : allStreams;
 
   return (
     <div>
@@ -339,7 +427,7 @@ export default function HoiStudents() {
                 <SelectTrigger className="w-36"><SelectValue placeholder="Stream" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Streams</SelectItem>
-                  {(classFilter !== 'all' ? streams.filter((s) => s.class_id === classFilter) : streams).map((s) => (
+                  {(classFilter !== 'all' ? allStreams.filter((s) => s.class_id === classFilter) : allStreams).map((s) => (
                     <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -421,7 +509,13 @@ export default function HoiStudents() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Class *</Label>
-                <Select value={studentForm.class_id} onValueChange={(v) => setStudentForm({ ...studentForm, class_id: v, stream_id: '' })}>
+                <Select
+                  value={studentForm.class_id}
+                  onValueChange={(v) => {
+                    setStudentForm({ ...studentForm, class_id: v, stream_id: '' });
+                    void loadStreamsForClass(v);
+                  }}
+                >
                   <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
                   <SelectContent>
                     {classes.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
@@ -433,7 +527,7 @@ export default function HoiStudents() {
                 <Select value={studentForm.stream_id} onValueChange={(v) => setStudentForm({ ...studentForm, stream_id: v })}>
                   <SelectTrigger><SelectValue placeholder="Select stream" /></SelectTrigger>
                   <SelectContent>
-                    {streams.filter((s) => s.class_id === studentForm.class_id).map((s) => (
+                    {streams.map((s) => (
                       <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -501,7 +595,7 @@ export default function HoiStudents() {
               <Select value={transferStreamId} onValueChange={setTransferStreamId}>
                 <SelectTrigger><SelectValue placeholder="Select stream" /></SelectTrigger>
                 <SelectContent>
-                  {streams.filter((s) => s.class_id === transferClassId).map((s) => (
+                  {allStreams.filter((s) => s.class_id === transferClassId).map((s) => (
                     <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                   ))}
                 </SelectContent>
