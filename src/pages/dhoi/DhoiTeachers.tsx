@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import {
   hoiTeachersStorage,
   hoiSubjectAssignmentsStorage,
@@ -68,7 +68,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { CBC_SUBJECT_GROUPS, getCbcLevelForClassName } from '@/lib/cbcSubjects';
+import { getCbcLevelForClassName } from '@/lib/cbcSubjects';
 import { useAuthContext } from '@/context/AuthContext';
 
 const PAGE_SIZE = 10;
@@ -82,6 +82,29 @@ const CBC_LEVEL_DIALOG_LABELS: Record<string, string> = {
   'Lower Primary': 'Lower Primary Learning Areas',
   'Upper Primary': 'Upper Primary Learning Areas',
   'Junior School': 'Junior Secondary Learning Areas',
+};
+
+const CBC_LEVEL_TO_CODE_PREFIX: Record<string, 'EC-' | 'LP-' | 'UP-' | 'JS-'> = {
+  ECDE: 'EC-',
+  'Lower Primary': 'LP-',
+  'Upper Primary': 'UP-',
+  'Junior School': 'JS-',
+};
+
+const CODE_PREFIX_TO_LABEL: Record<'EC-' | 'LP-' | 'UP-' | 'JS-', string> = {
+  'EC-': 'ECDE Learning Areas',
+  'LP-': 'Lower Primary Learning Areas',
+  'UP-': 'Upper Primary Learning Areas',
+  'JS-': 'Junior Secondary Learning Areas',
+};
+
+const getSubjectCodePrefix = (code: string): 'EC-' | 'LP-' | 'UP-' | 'JS-' | null => {
+  const normalized = (code || '').trim().toUpperCase();
+  if (normalized.startsWith('EC-')) return 'EC-';
+  if (normalized.startsWith('LP-')) return 'LP-';
+  if (normalized.startsWith('UP-')) return 'UP-';
+  if (normalized.startsWith('JS-')) return 'JS-';
+  return null;
 };
 
 const emptyTeacherForm = {
@@ -342,16 +365,15 @@ export default function DhoiTeachers() {
   const pagedAssignments = assignments.slice((assignPage - 1) * PAGE_SIZE, assignPage * PAGE_SIZE);
   const selectedAssignClass = classes.find((classItem) => classItem.id === assignForm.class_id);
   const selectedAssignClassLevel = selectedAssignClass ? getCbcLevelForClassName(selectedAssignClass.name) : null;
-  const selectedAssignGroupLabel = selectedAssignClassLevel
-    ? CBC_LEVEL_DIALOG_LABELS[selectedAssignClassLevel] || selectedAssignClassLevel
+  const selectedAssignCodePrefix = selectedAssignClassLevel
+    ? CBC_LEVEL_TO_CODE_PREFIX[selectedAssignClassLevel] || null
+    : null;
+  const selectedAssignGroupLabel = selectedAssignCodePrefix
+    ? CODE_PREFIX_TO_LABEL[selectedAssignCodePrefix]
     : null;
   const selectedAssignClassStreams = streams.filter((stream) => stream.class_id === assignForm.class_id);
-  const subjectLevelByName = useMemo(
-    () => new Map(CBC_SUBJECT_GROUPS.flatMap((group) => group.subjects.map((subject) => [subject.name.trim().toLowerCase(), group.value] as const))),
-    []
-  );
-  const filteredAssignSubjects = selectedAssignClassLevel
-    ? subjects.filter((subject) => subjectLevelByName.get(subject.name.trim().toLowerCase()) === selectedAssignClassLevel)
+  const filteredAssignSubjects = selectedAssignCodePrefix
+    ? subjects.filter((subject) => getSubjectCodePrefix(subject.code) === selectedAssignCodePrefix)
     : [];
 
   const rosterEntries = [...duties].sort((a, b) => a.from_date.localeCompare(b.from_date));
@@ -672,11 +694,12 @@ export default function DhoiTeachers() {
     if (!teacher || !subject || !cls) return null;
 
     const classLevel = getCbcLevelForClassName(cls.name);
-    const subjectLevel = subjectLevelByName.get(subject.name.trim().toLowerCase()) || subject.category;
-    if (classLevel && subjectLevel !== classLevel) {
+    const expectedPrefix = classLevel ? CBC_LEVEL_TO_CODE_PREFIX[classLevel] : null;
+    const subjectPrefix = getSubjectCodePrefix(subject.code);
+    if (expectedPrefix && subjectPrefix !== expectedPrefix) {
       toast({
         title: 'Validation Error',
-        description: `Only ${classLevel} learning areas can be assigned to ${cls.name}.`,
+        description: `Only ${CODE_PREFIX_TO_LABEL[expectedPrefix]} can be assigned to ${cls.name}.`,
         variant: 'destructive',
       });
       return null;
