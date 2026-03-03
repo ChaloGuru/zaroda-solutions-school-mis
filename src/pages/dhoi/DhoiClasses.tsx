@@ -1,8 +1,5 @@
 import { useState, useEffect } from 'react';
 import {
-  hoiClassesStorage,
-  hoiStreamsStorage,
-  hoiTeachersStorage,
   HoiClass,
   HoiStream,
   HoiTeacher,
@@ -126,8 +123,8 @@ export default function DhoiClasses() {
       }
 
       const [{ data: classRows }, { data: streamRows }, { data: teacherRows }] = await Promise.all([
-        supabase.from('hoi_classes').select('*').eq('school_id', currentUser.schoolId).order('name', { ascending: true }),
-        supabase.from('hoi_streams').select('*').eq('school_id', currentUser.schoolId).order('name', { ascending: true }),
+        supabase.from('hoi_classes').select('*').eq('school_id', currentUser.schoolId).order('created_at', { ascending: true }),
+        supabase.from('hoi_streams').select('*').eq('school_id', currentUser.schoolId),
         supabase.from('hoi_teachers').select('*').eq('school_id', currentUser.schoolId).order('full_name', { ascending: true }),
       ]);
 
@@ -185,9 +182,14 @@ export default function DhoiClasses() {
       setTeachers(loadedTeachers);
       setStreams(loadedStreams);
     } catch {
-      setClasses(hoiClassesStorage.getAll());
-      setStreams(hoiStreamsStorage.getAll());
-      setTeachers(hoiTeachersStorage.getAll());
+      setClasses([]);
+      setStreams([]);
+      setTeachers([]);
+      toast({
+        title: 'Load Error',
+        description: 'Could not load classes and streams from Supabase.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -354,14 +356,40 @@ export default function DhoiClasses() {
     await loadData();
   };
 
-  const handleDeleteClass = () => {
+  const handleDeleteClass = async () => {
     if (!deleteClassDialog.cls) return;
-    const classStreams = getStreamsForClass(deleteClassDialog.cls.id);
-    classStreams.forEach((s) => hoiStreamsStorage.remove(s.id));
-    hoiClassesStorage.remove(deleteClassDialog.cls.id);
+    if (!currentUser?.schoolId) {
+      toast({ title: 'Delete Error', description: 'Missing school context.', variant: 'destructive' });
+      return;
+    }
+
+    const classId = deleteClassDialog.cls.id;
+
+    const { error: deleteStreamsError } = await supabase
+      .from('hoi_streams')
+      .delete()
+      .eq('school_id', currentUser.schoolId)
+      .eq('class_id', classId);
+
+    if (deleteStreamsError) {
+      toast({ title: 'Delete Error', description: deleteStreamsError.message, variant: 'destructive' });
+      return;
+    }
+
+    const { error: deleteClassError } = await supabase
+      .from('hoi_classes')
+      .delete()
+      .eq('school_id', currentUser.schoolId)
+      .eq('id', classId);
+
+    if (deleteClassError) {
+      toast({ title: 'Delete Error', description: deleteClassError.message, variant: 'destructive' });
+      return;
+    }
+
     toast({ title: 'Class Deleted', description: `${deleteClassDialog.cls.name} and its streams have been removed.` });
     setDeleteClassDialog({ open: false, cls: null });
-    loadData();
+    await loadData();
   };
 
   const openAddStream = (classId: string) => {
@@ -468,12 +496,23 @@ export default function DhoiClasses() {
     await loadData();
   };
 
-  const handleDeleteStream = () => {
+  const handleDeleteStream = async () => {
     if (!deleteStreamDialog.stream) return;
-    hoiStreamsStorage.remove(deleteStreamDialog.stream.id);
+
+    const { error } = await supabase
+      .from('hoi_streams')
+      .delete()
+      .eq('school_id', currentUser?.schoolId || '')
+      .eq('id', deleteStreamDialog.stream.id);
+
+    if (error) {
+      toast({ title: 'Delete Error', description: error.message, variant: 'destructive' });
+      return;
+    }
+
     toast({ title: 'Stream Deleted', description: `${deleteStreamDialog.stream.name} has been removed.` });
     setDeleteStreamDialog({ open: false, stream: null });
-    loadData();
+    await loadData();
   };
 
   const handleTeacherChange = (teacherId: string) => {
