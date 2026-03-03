@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   hoiTeachersStorage,
   hoiSubjectAssignmentsStorage,
@@ -70,6 +70,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { CBC_SUBJECT_GROUPS, getCbcLevelForClassName } from '@/lib/cbcSubjects';
+import { useAuthContext } from '@/context/AuthContext';
 
 const PAGE_SIZE = 10;
 
@@ -88,6 +89,14 @@ type DhoiAccount = {
 
 type StaffRow = HoiTeacher & {
   staffRole: 'teacher' | 'dhoi';
+};
+
+type AssignableStaffRole = 'teacher' | 'hoi' | 'dhoi';
+
+type AssignableStaff = {
+  id: string;
+  full_name: string;
+  role: AssignableStaffRole;
 };
 
 const emptyTeacherForm = {
@@ -131,6 +140,7 @@ const formatErrorMessage = (error: unknown) => {
 
 export default function HoiTeachers() {
   const { toast } = useToast();
+  const { currentUser } = useAuthContext();
 
   const [teachers, setTeachers] = useState<HoiTeacher[]>([]);
   const [assignments, setAssignments] = useState<HoiSubjectAssignment[]>([]);
@@ -140,6 +150,7 @@ export default function HoiTeachers() {
   const [duties, setDuties] = useState<HoiTeacherDuty[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
   const [dhoiStaff, setDhoiStaff] = useState<PlatformUser[]>([]);
+  const [leadershipAssignableStaff, setLeadershipAssignableStaff] = useState<AssignableStaff[]>([]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -202,9 +213,46 @@ export default function HoiTeachers() {
       setDhoiStaff([]);
       setExistingDhoi(null);
     }
+
+    if (currentUser?.schoolId) {
+      const { data: leadershipRows } = await supabase
+        .from('profiles')
+        .select('id, full_name, role, school_id, status')
+        .eq('school_id', currentUser.schoolId)
+        .in('role', ['hoi', 'dhoi']);
+
+      if (leadershipRows && Array.isArray(leadershipRows)) {
+        const mapped = leadershipRows
+          .filter((row) => row.id && row.full_name && (row.status === 'active' || !row.status))
+          .map((row) => ({
+            id: String(row.id),
+            full_name: String(row.full_name),
+            role: row.role === 'hoi' ? 'hoi' : 'dhoi',
+          } as AssignableStaff));
+        setLeadershipAssignableStaff(mapped);
+      } else {
+        setLeadershipAssignableStaff([]);
+      }
+    } else {
+      setLeadershipAssignableStaff([]);
+    }
   };
 
-  useEffect(() => { void loadData(); }, []);
+  useEffect(() => { void loadData(); }, [currentUser?.schoolId]);
+
+  const assignableStaff = useMemo(() => {
+    const activeTeachers: AssignableStaff[] = teachers
+      .filter((teacher) => teacher.status === 'active')
+      .map((teacher) => ({ id: teacher.id, full_name: teacher.full_name, role: 'teacher' }));
+
+    const merged = new Map<string, AssignableStaff>();
+    activeTeachers.forEach((staff) => merged.set(staff.id, staff));
+    leadershipAssignableStaff.forEach((staff) => {
+      if (!merged.has(staff.id)) merged.set(staff.id, staff);
+    });
+
+    return Array.from(merged.values()).sort((a, b) => a.full_name.localeCompare(b.full_name));
+  }, [teachers, leadershipAssignableStaff]);
 
   const openDhoiDialog = () => {
     if (existingDhoi) {
@@ -557,7 +605,7 @@ export default function HoiTeachers() {
       return;
     }
 
-    const teacher = teachers.find((t) => t.id === assignForm.teacher_id);
+    const teacher = assignableStaff.find((t) => t.id === assignForm.teacher_id);
     const subject = subjects.find((s) => s.id === assignForm.subject_id);
     const cls = classes.find((c) => c.id === assignForm.class_id);
     const stream = resolvedStreamId ? streams.find((s) => s.id === resolvedStreamId) : null;
@@ -1003,8 +1051,15 @@ export default function HoiTeachers() {
               <Select value={assignForm.teacher_id} onValueChange={(v) => setAssignForm({ ...assignForm, teacher_id: v })}>
                 <SelectTrigger><SelectValue placeholder="Select teacher" /></SelectTrigger>
                 <SelectContent>
-                  {teachers.filter((t) => t.status === 'active').map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.full_name}</SelectItem>
+                  {assignableStaff.map((staff) => (
+                    <SelectItem key={staff.id} value={staff.id}>
+                      <div className="flex items-center justify-between gap-2 w-full">
+                        <span>{staff.full_name}</span>
+                        <Badge variant="outline" className="text-[10px] capitalize">
+                          {staff.role === 'teacher' ? 'Teacher' : staff.role.toUpperCase()}
+                        </Badge>
+                      </div>
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
