@@ -11,7 +11,7 @@ import {
   HoiSubject,
   HoiTeacher,
   HoiSubjectAssignment,
-} from '@/lib/hoiStorage';
+} from '../../lib/hoiStorage';
 import {
   MasterTimetableSlot,
   TimetableConfig,

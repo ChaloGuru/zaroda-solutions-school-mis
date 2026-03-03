@@ -3,7 +3,7 @@ import {
   HoiStudent,
   HoiClass,
   HoiStream,
-} from '@/lib/hoiStorage';
+} from '../../lib/hoiStorage';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

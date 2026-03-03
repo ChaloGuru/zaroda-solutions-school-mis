@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import {
   hoiTeachersStorage,
   hoiSubjectAssignmentsStorage,
@@ -12,7 +12,7 @@ import {
   HoiClass,
   HoiStream,
   HoiTeacherDuty,
-} from '@/lib/hoiStorage';
+} from '../../lib/hoiStorage';
 import { platformUsersStorage } from '@/lib/storage';
 import { sendWelcomeEmail } from '@/lib/email';
 import { supabase } from '@/lib/supabase';
@@ -69,19 +69,11 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { CBC_SUBJECT_GROUPS, getCbcLevelForClassName } from '@/lib/cbcSubjects';
-import { useAuthContext } from '@/context/AuthContext';
 
 const PAGE_SIZE = 10;
+const TEACHER_CODES_KEY = 'zaroda_teacher_codes';
 
 const SYSTEM_CREATED_BY = new Set(['superadmin', 'system', 'hoi', 'dhoi']);
-
-type AssignableStaffRole = 'teacher' | 'hoi' | 'dhoi';
-
-type AssignableStaff = {
-  id: string;
-  full_name: string;
-  role: AssignableStaffRole;
-};
 
 const emptyTeacherForm = {
   full_name: '',
@@ -135,7 +127,6 @@ async function removeTeacherCode(teacherId: string): Promise<void> {
 
 export default function DhoiTeachers() {
   const { toast } = useToast();
-  const { currentUser } = useAuthContext();
 
   const [teachers, setTeachers] = useState<HoiTeacher[]>([]);
   const [assignments, setAssignments] = useState<HoiSubjectAssignment[]>([]);
@@ -144,7 +135,6 @@ export default function DhoiTeachers() {
   const [streams, setStreams] = useState<HoiStream[]>([]);
   const [duties, setDuties] = useState<HoiTeacherDuty[]>([]);
   const [teacherCodes, setTeacherCodesState] = useState<Record<string, string>>({});
-  const [leadershipAssignableStaff, setLeadershipAssignableStaff] = useState<AssignableStaff[]>([]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -169,79 +159,15 @@ export default function DhoiTeachers() {
 
   const loadData = async () => {
     setTeachers(hoiTeachersStorage.getAll());
+    setAssignments(hoiSubjectAssignmentsStorage.getAll());
     setSubjects(hoiSubjectsStorage.getAll());
     setClasses(hoiClassesStorage.getAll());
     setStreams(hoiStreamsStorage.getAll());
     setDuties(hoiTeacherDutiesStorage.getAll());
     setTeacherCodesState(await getTeacherCodes());
-
-    if (currentUser?.schoolId) {
-      const { data: assignmentRows, error: assignmentError } = await supabase
-        .from('hoi_subject_assignments')
-        .select('*')
-        .eq('school_id', currentUser.schoolId)
-        .order('teacher_name', { ascending: true });
-
-      if (assignmentError) {
-        toast({
-          title: 'Assignments Load Error',
-          description: assignmentError.message,
-          variant: 'destructive',
-        });
-        setAssignments([]);
-      } else {
-        const mappedAssignments: HoiSubjectAssignment[] = (assignmentRows || []).map((row: any) => ({
-          id: row.id,
-          teacher_id: row.teacher_id || '',
-          teacher_name: row.teacher_name || '',
-          subject_id: row.subject_id || '',
-          subject_name: row.subject_name || '',
-          class_id: row.class_id || '',
-          class_name: row.class_name || '',
-          stream_id: row.stream_id || '',
-          stream_name: row.stream_name || '',
-        }));
-        setAssignments(mappedAssignments);
-      }
-
-      const { data: leadershipRows } = await supabase
-        .from('profiles')
-        .select('id, full_name, role, school_id, status')
-        .eq('school_id', currentUser.schoolId)
-        .in('role', ['hoi', 'dhoi']);
-
-      if (leadershipRows && Array.isArray(leadershipRows)) {
-        const mapped = leadershipRows
-          .filter((row) => row.id && row.full_name && (row.status === 'active' || !row.status))
-          .map((row) => ({
-            id: String(row.id),
-            full_name: String(row.full_name),
-            role: row.role === 'hoi' ? 'hoi' : 'dhoi',
-          } as AssignableStaff));
-        setLeadershipAssignableStaff(mapped);
-      } else {
-        setLeadershipAssignableStaff([]);
-      }
-    } else {
-      setLeadershipAssignableStaff([]);
-    }
   };
 
-  useEffect(() => { void loadData(); }, [currentUser?.schoolId]);
-
-  const assignableStaff = useMemo(() => {
-    const activeTeachers: AssignableStaff[] = teachers
-      .filter((teacher) => teacher.status === 'active')
-      .map((teacher) => ({ id: teacher.id, full_name: teacher.full_name, role: 'teacher' }));
-
-    const merged = new Map<string, AssignableStaff>();
-    activeTeachers.forEach((staff) => merged.set(staff.id, staff));
-    leadershipAssignableStaff.forEach((staff) => {
-      if (!merged.has(staff.id)) merged.set(staff.id, staff);
-    });
-
-    return Array.from(merged.values()).sort((a, b) => a.full_name.localeCompare(b.full_name));
-  }, [teachers, leadershipAssignableStaff]);
+  useEffect(() => { void loadData(); }, []);
 
   const getCode = (teacherId: string) => teacherCodes[teacherId] || '—';
 
@@ -317,30 +243,6 @@ export default function DhoiTeachers() {
     setTeacherDialogOpen(true);
   };
 
-  const syncClassTeacherStreamLink = async (
-    teacherId: string,
-    teacherName: string,
-    assignment: {
-      is_class_teacher: boolean;
-      class_teacher_stream_id?: string;
-    }
-  ) => {
-    await supabase
-      .from('hoi_streams')
-      .update({ class_teacher_id: null, class_teacher_name: null })
-      .eq('class_teacher_id', teacherId);
-
-    if (assignment.is_class_teacher && assignment.class_teacher_stream_id) {
-      await supabase
-        .from('hoi_streams')
-        .update({
-          class_teacher_id: teacherId,
-          class_teacher_name: teacherName,
-        })
-        .eq('id', assignment.class_teacher_stream_id);
-    }
-  };
-
   const saveTeacher = async () => {
     if (!teacherForm.full_name.trim() || !teacherForm.email.trim() || !teacherForm.employee_id.trim() || !teacherForm.teacher_code.trim()) {
       toast({ title: 'Validation Error', description: 'Full name, email, employee ID, and teacher code are required.', variant: 'destructive' });
@@ -377,14 +279,6 @@ export default function DhoiTeachers() {
 
     if (editingTeacher) {
       hoiTeachersStorage.update(editingTeacher.id, { ...teacherData, ...classTeacherFields });
-      await syncClassTeacherStreamLink(
-        editingTeacher.id,
-        teacherForm.full_name.trim(),
-        {
-          is_class_teacher: classTeacherFields.is_class_teacher,
-          class_teacher_stream_id: classTeacherFields.class_teacher_stream_id,
-        }
-      );
       await saveTeacherCode(editingTeacher.id, codeVal);
       if (password.trim()) {
         toast({
@@ -405,33 +299,6 @@ export default function DhoiTeachers() {
       toast({ title: 'Teacher Updated', description: `${teacherForm.full_name} has been updated.` });
     } else {
       const newTeacher = hoiTeachersStorage.add({ ...teacherData, ...classTeacherFields, hired_at: new Date().toISOString().split('T')[0] });
-      const { data: savedTeacher } = await supabase
-        .from('hoi_teachers')
-        .select('id,full_name')
-        .eq('email', teacherForm.email.trim().toLowerCase())
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (savedTeacher?.id) {
-        await syncClassTeacherStreamLink(
-          savedTeacher.id,
-          savedTeacher.full_name || teacherForm.full_name.trim(),
-          {
-            is_class_teacher: classTeacherFields.is_class_teacher,
-            class_teacher_stream_id: classTeacherFields.class_teacher_stream_id,
-          }
-        );
-      } else {
-        await syncClassTeacherStreamLink(
-          newTeacher.id,
-          teacherForm.full_name.trim(),
-          {
-            is_class_teacher: classTeacherFields.is_class_teacher,
-            class_teacher_stream_id: classTeacherFields.class_teacher_stream_id,
-          }
-        );
-      }
       await saveTeacherCode(newTeacher.id, codeVal);
       if (password.trim()) {
         toast({
@@ -559,7 +426,7 @@ export default function DhoiTeachers() {
 
   const saveAssignment = async () => {
     if (!assignForm.teacher_id || !assignForm.subject_id || !assignForm.class_id) {
-      toast({ title: 'Validation Error', description: 'Teacher, learning area, and class are required.', variant: 'destructive' });
+      toast({ title: 'Validation Error', description: 'Teacher, subject, and class are required.', variant: 'destructive' });
       return;
     }
 
@@ -573,7 +440,7 @@ export default function DhoiTeachers() {
       return;
     }
 
-    const teacher = assignableStaff.find((t) => t.id === assignForm.teacher_id);
+    const teacher = teachers.find((t) => t.id === assignForm.teacher_id);
     const subject = subjects.find((s) => s.id === assignForm.subject_id);
     const cls = classes.find((c) => c.id === assignForm.class_id);
     const stream = resolvedStreamId ? streams.find((s) => s.id === resolvedStreamId) : null;
@@ -582,7 +449,7 @@ export default function DhoiTeachers() {
     if (classLevel && subject.category !== classLevel) {
       toast({
         title: 'Validation Error',
-        description: `Only ${classLevel} learning areas can be assigned to ${cls.name}.`,
+        description: `Only ${classLevel} subjects can be assigned to ${cls.name}.`,
         variant: 'destructive',
       });
       return;
@@ -592,29 +459,17 @@ export default function DhoiTeachers() {
       return;
     }
 
-    const { error } = await supabase.from('hoi_subject_assignments').insert({
-      school_id: currentUser?.schoolId || null,
+    hoiSubjectAssignmentsStorage.add({
       teacher_id: teacher.id,
       teacher_name: teacher.full_name,
       subject_id: subject.id,
       subject_name: subject.name,
       class_id: cls.id,
       class_name: cls.name,
-      stream_id: stream?.id || null,
-      stream_name: stream?.name || null,
-      created_at: new Date().toISOString(),
+      stream_id: stream?.id || '',
+      stream_name: stream?.name || '',
     });
-
-    if (error) {
-      toast({
-        title: 'Assignment Error',
-        description: error.message,
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    toast({ title: 'Success', description: 'Learning Area assigned successfully' });
+    toast({ title: 'Assignment Created', description: `${teacher.full_name} assigned to ${subject.name} - ${cls.name}${stream?.name ? ` ${stream.name}` : ''}` });
     setAssignDialogOpen(false);
     setAssignForm(emptyAssignmentForm);
     await loadData();
@@ -622,25 +477,10 @@ export default function DhoiTeachers() {
 
   const deleteAssignment = () => {
     if (deleteAssignDialog.id) {
-      void (async () => {
-        const { error } = await supabase
-          .from('hoi_subject_assignments')
-          .delete()
-          .eq('id', deleteAssignDialog.id);
-
-        if (error) {
-          toast({
-            title: 'Delete Error',
-            description: error.message,
-            variant: 'destructive',
-          });
-          return;
-        }
-
-        toast({ title: 'Success', description: 'Learning Area assignment removed successfully' });
-        setDeleteAssignDialog({ open: false, id: null });
-        await loadData();
-      })();
+      hoiSubjectAssignmentsStorage.remove(deleteAssignDialog.id);
+      toast({ title: 'Assignment Removed' });
+      setDeleteAssignDialog({ open: false, id: null });
+      loadData();
     }
   };
 
@@ -703,13 +543,13 @@ export default function DhoiTeachers() {
     <div>
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-foreground mb-1">Teacher Management</h1>
-        <p className="text-muted-foreground">Manage teachers, learning area assignments, and weekly duty roster</p>
+        <p className="text-muted-foreground">Manage teachers, subject assignments, and weekly duty roster</p>
       </div>
 
       <Tabs defaultValue="teachers">
         <TabsList className="mb-6">
           <TabsTrigger value="teachers" className="gap-2"><Users className="w-4 h-4" />All Teachers</TabsTrigger>
-          <TabsTrigger value="assignments" className="gap-2"><BookOpen className="w-4 h-4" />Learning Area Assignments</TabsTrigger>
+          <TabsTrigger value="assignments" className="gap-2"><BookOpen className="w-4 h-4" />Subject Assignments</TabsTrigger>
           <TabsTrigger value="roster" className="gap-2"><ClipboardList className="w-4 h-4" />Weekly Duty Roster</TabsTrigger>
         </TabsList>
 
@@ -744,7 +584,7 @@ export default function DhoiTeachers() {
                       <TableHead>Code</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Email</TableHead>
-                      <TableHead>Learning Areas Assigned</TableHead>
+                      <TableHead>Subjects Assigned</TableHead>
                       <TableHead>Classes Assigned</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -796,8 +636,8 @@ export default function DhoiTeachers() {
           <Card>
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Learning Area Assignments ({assignments.length})</CardTitle>
-                <Button onClick={() => { setAssignForm(emptyAssignmentForm); setAssignDialogOpen(true); }} className="gap-2"><Plus className="w-4 h-4" />Assign Learning Area</Button>
+                <CardTitle className="text-lg">Subject Assignments ({assignments.length})</CardTitle>
+                <Button onClick={() => { setAssignForm(emptyAssignmentForm); setAssignDialogOpen(true); }} className="gap-2"><Plus className="w-4 h-4" />Assign Subject</Button>
               </div>
             </CardHeader>
             <CardContent>
@@ -805,7 +645,7 @@ export default function DhoiTeachers() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Learning Area</TableHead>
+                      <TableHead>Subject</TableHead>
                       <TableHead>Class</TableHead>
                       <TableHead>Stream</TableHead>
                       <TableHead>Teacher Name</TableHead>
@@ -911,7 +751,7 @@ export default function DhoiTeachers() {
               </div>
             </div>
             <div>
-              <Label>Learning Area Specialization</Label>
+              <Label>Subject Specialization</Label>
               <Input value={teacherForm.subject_specialization} onChange={(e) => setTeacherForm({ ...teacherForm, subject_specialization: e.target.value })} />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -1004,7 +844,7 @@ export default function DhoiTeachers() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Teacher?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete {deleteTeacherDialog.teacher?.full_name}, including their learning area assignments and duty records. This action cannot be undone.
+              This will permanently delete {deleteTeacherDialog.teacher?.full_name}, including their subject assignments and duty records. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1017,7 +857,7 @@ export default function DhoiTeachers() {
       <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Assign Learning Area to Teacher</DialogTitle>
+            <DialogTitle>Assign Subject to Teacher</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -1025,15 +865,8 @@ export default function DhoiTeachers() {
               <Select value={assignForm.teacher_id} onValueChange={(v) => setAssignForm({ ...assignForm, teacher_id: v })}>
                 <SelectTrigger><SelectValue placeholder="Select teacher" /></SelectTrigger>
                 <SelectContent>
-                  {assignableStaff.map((staff) => (
-                    <SelectItem key={staff.id} value={staff.id}>
-                      <div className="flex items-center justify-between gap-2 w-full">
-                        <span>{staff.full_name}</span>
-                        <Badge variant="outline" className="text-[10px] capitalize">
-                          {staff.role === 'teacher' ? 'Teacher' : staff.role.toUpperCase()}
-                        </Badge>
-                      </div>
-                    </SelectItem>
+                  {teachers.filter((t) => t.status === 'active').map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.full_name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1050,7 +883,7 @@ export default function DhoiTeachers() {
               </Select>
             </div>
             <div>
-              <Label>Learning Area *</Label>
+              <Label>Subject *</Label>
               <select
                 value={assignForm.subject_id}
                 onChange={(event) => setAssignForm({ ...assignForm, subject_id: event.target.value })}
@@ -1058,7 +891,7 @@ export default function DhoiTeachers() {
                 className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 max-h-64 overflow-y-auto disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <option value="" disabled>
-                  {assignForm.class_id ? 'Select learning area' : 'Select class first'}
+                  {assignForm.class_id ? 'Select subject' : 'Select class first'}
                 </option>
                 {selectedAssignGroup && filteredAssignSubjects.length > 0 && (
                   <optgroup label={selectedAssignGroup.label}>
@@ -1092,7 +925,7 @@ export default function DhoiTeachers() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Assignment?</AlertDialogTitle>
-            <AlertDialogDescription>This will remove the learning area assignment. This action cannot be undone.</AlertDialogDescription>
+            <AlertDialogDescription>This will remove the subject assignment. This action cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>

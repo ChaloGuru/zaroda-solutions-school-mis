@@ -12,7 +12,7 @@ import {
   HoiClass,
   HoiStream,
   HoiTeacherDuty,
-} from '@/lib/hoiStorage';
+} from '../../lib/hoiStorage';
 import { platformUsersStorage, schoolsStorage, type PlatformUser, type School } from '@/lib/storage';
 import { sendWelcomeEmail } from '@/lib/email';
 import { supabase } from '@/lib/supabase';

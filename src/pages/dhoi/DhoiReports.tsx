@@ -16,7 +16,7 @@ import {
   HoiClass,
   HoiStream,
   HoiSubjectAssignment,
-} from '@/lib/hoiStorage';
+} from '../../lib/hoiStorage';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {

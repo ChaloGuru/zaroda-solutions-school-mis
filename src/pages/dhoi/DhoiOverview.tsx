@@ -7,7 +7,7 @@ import {
   hoiSubjectsStorage,
   hoiTimetableStorage,
   HoiTeacher,
-} from '@/lib/hoiStorage';
+} from '../../lib/hoiStorage';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

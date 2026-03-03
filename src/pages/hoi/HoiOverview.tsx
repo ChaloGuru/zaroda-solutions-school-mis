@@ -9,7 +9,7 @@ import {
   hoiAttendanceStorage,
   hoiAnnouncementsStorage,
   HoiAnnouncement,
-} from '@/lib/hoiStorage';
+} from '../../lib/hoiStorage';
 import { adminAnnouncementsStorage, adminAnnouncementReadStorage, type AdminAnnouncement } from '@/lib/storage';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
