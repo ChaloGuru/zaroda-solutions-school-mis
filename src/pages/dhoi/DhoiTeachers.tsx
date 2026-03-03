@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   hoiTeachersStorage,
   hoiSubjectAssignmentsStorage,
@@ -77,6 +77,13 @@ type TeacherAccountRole = 'teacher' | 'hod';
 
 const SYSTEM_CREATED_BY = new Set(['superadmin', 'system', 'hoi', 'dhoi']);
 
+const CBC_LEVEL_DIALOG_LABELS: Record<string, string> = {
+  ECDE: 'ECDE Learning Areas',
+  'Lower Primary': 'Lower Primary Learning Areas',
+  'Upper Primary': 'Upper Primary Learning Areas',
+  'Junior School': 'Junior Secondary Learning Areas',
+};
+
 const emptyTeacherForm = {
   full_name: '',
   email: '',
@@ -99,6 +106,17 @@ const emptyAssignmentForm = {
   subject_id: '',
   class_id: '',
   stream_id: '',
+};
+
+type PendingAssignmentItem = {
+  teacher_id: string;
+  teacher_name: string;
+  subject_id: string;
+  subject_name: string;
+  class_id: string;
+  class_name: string;
+  stream_id: string;
+  stream_name: string;
 };
 
 const emptyDutyForm = {
@@ -168,6 +186,7 @@ export default function DhoiTeachers() {
 
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [assignForm, setAssignForm] = useState(emptyAssignmentForm);
+  const [pendingAssignments, setPendingAssignments] = useState<PendingAssignmentItem[]>([]);
 
   const [dutyDialogOpen, setDutyDialogOpen] = useState(false);
   const [dutyForm, setDutyForm] = useState(emptyDutyForm);
@@ -186,6 +205,108 @@ export default function DhoiTeachers() {
       setTeacherCodesState({});
       return;
     }
+
+    const [classResult, streamResult, subjectResult, assignmentResult, teacherResult] = await Promise.all([
+      supabase
+        .from('hoi_classes')
+        .select('id,name,level,created_at')
+        .eq('school_id', currentUser.schoolId)
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('hoi_streams')
+        .select('id,class_id,name,class_teacher_id,class_teacher_name,student_count')
+        .eq('school_id', currentUser.schoolId),
+      supabase
+        .from('hoi_subjects')
+        .select('id,name,code,category,description,school_id')
+        .eq('school_id', currentUser.schoolId)
+        .order('name', { ascending: true }),
+      supabase
+        .from('hoi_subject_assignments')
+        .select('*')
+        .eq('school_id', currentUser.schoolId)
+        .order('teacher_name', { ascending: true }),
+      supabase
+        .from('hoi_teachers')
+        .select('*')
+        .eq('school_id', currentUser.schoolId)
+        .order('full_name', { ascending: true }),
+    ]);
+
+    if (!teacherResult.error) {
+      const loadedTeachers: HoiTeacher[] = (teacherResult.data || []).map((row: any) => ({
+        id: row.id,
+        full_name: row.full_name || '',
+        email: row.email || '',
+        phone: row.phone || '',
+        employee_id: row.employee_id || '',
+        subject_specialization: row.subject_specialization || '',
+        gender: row.gender === 'Female' ? 'Female' : 'Male',
+        qualification: row.qualification || '',
+        status: row.status || 'active',
+        hired_at: row.hired_at || '',
+        is_class_teacher: Boolean(row.is_class_teacher),
+        class_teacher_class_id: row.class_teacher_class_id || undefined,
+        class_teacher_class_name: row.class_teacher_class_name || undefined,
+        class_teacher_stream_id: row.class_teacher_stream_id || undefined,
+        class_teacher_stream_name: row.class_teacher_stream_name || undefined,
+      }));
+      setTeachers(loadedTeachers);
+    }
+
+    if (!classResult.error) {
+      const loadedClasses: HoiClass[] = (classResult.data || []).map((row: any) => ({
+        id: row.id,
+        name: row.name || '',
+        level: row.level || 'primary',
+        created_at: row.created_at || '',
+      }));
+      setClasses(loadedClasses);
+    }
+
+    if (!streamResult.error) {
+      const loadedStreams: HoiStream[] = (streamResult.data || []).map((row: any) => ({
+        id: row.id,
+        class_id: row.class_id || '',
+        name: row.name || '',
+        class_teacher_id: row.class_teacher_id || undefined,
+        class_teacher_name: row.class_teacher_name || undefined,
+        student_count: Number(row.student_count || 0),
+      }));
+      setStreams(loadedStreams);
+    }
+
+    if (!subjectResult.error) {
+      const byName = new Map<string, HoiSubject>();
+      (subjectResult.data || []).forEach((row: any) => {
+        const key = String(row.name || '').trim().toLowerCase();
+        if (!key || byName.has(key)) return;
+        byName.set(key, {
+          id: String(row.id),
+          name: String(row.name || ''),
+          code: String(row.code || ''),
+          category: (row.category || 'Lower Primary') as HoiSubject['category'],
+          description: row.description || '',
+        });
+      });
+      setSubjects(Array.from(byName.values()));
+    }
+
+    if (!assignmentResult.error) {
+      const mappedAssignments: HoiSubjectAssignment[] = (assignmentResult.data || []).map((row: any) => ({
+        id: row.id,
+        teacher_id: row.teacher_id || '',
+        teacher_name: row.teacher_name || '',
+        subject_id: row.subject_id || '',
+        subject_name: row.subject_name || '',
+        class_id: row.class_id || '',
+        class_name: row.class_name || '',
+        stream_id: row.stream_id || '',
+        stream_name: row.stream_name || '',
+      }));
+      setAssignments(mappedAssignments);
+    }
+
     setTeacherCodesState(await getTeacherCodes(currentUser.schoolId));
   };
 
@@ -221,11 +342,16 @@ export default function DhoiTeachers() {
   const pagedAssignments = assignments.slice((assignPage - 1) * PAGE_SIZE, assignPage * PAGE_SIZE);
   const selectedAssignClass = classes.find((classItem) => classItem.id === assignForm.class_id);
   const selectedAssignClassLevel = selectedAssignClass ? getCbcLevelForClassName(selectedAssignClass.name) : null;
-  const selectedAssignGroup = selectedAssignClassLevel
-    ? CBC_SUBJECT_GROUPS.find((group) => group.value === selectedAssignClassLevel)
+  const selectedAssignGroupLabel = selectedAssignClassLevel
+    ? CBC_LEVEL_DIALOG_LABELS[selectedAssignClassLevel] || selectedAssignClassLevel
     : null;
+  const selectedAssignClassStreams = streams.filter((stream) => stream.class_id === assignForm.class_id);
+  const subjectLevelByName = useMemo(
+    () => new Map(CBC_SUBJECT_GROUPS.flatMap((group) => group.subjects.map((subject) => [subject.name.trim().toLowerCase(), group.value] as const))),
+    []
+  );
   const filteredAssignSubjects = selectedAssignClassLevel
-    ? subjects.filter((subject) => subject.category === selectedAssignClassLevel)
+    ? subjects.filter((subject) => subjectLevelByName.get(subject.name.trim().toLowerCase()) === selectedAssignClassLevel)
     : [];
 
   const rosterEntries = [...duties].sort((a, b) => a.from_date.localeCompare(b.from_date));
@@ -524,56 +650,55 @@ export default function DhoiTeachers() {
     await loadData();
   };
 
-  const getClassStreamCountFromDb = async (classId: string) => {
-    const { count, error } = await supabase
-      .from('hoi_streams')
-      .select('id', { count: 'exact', head: true })
-      .eq('school_id', currentUser?.schoolId || '')
-      .eq('class_id', classId);
-
-    if (error) {
-      return 0;
-    }
-
-    return count ?? 0;
-  };
-
-  const saveAssignment = async () => {
+  const buildPendingAssignment = () => {
     if (!assignForm.teacher_id || !assignForm.subject_id || !assignForm.class_id) {
-      toast({ title: 'Validation Error', description: 'Teacher, subject, and class are required.', variant: 'destructive' });
-      return;
+      toast({ title: 'Validation Error', description: 'Teacher, learning area, and class are required.', variant: 'destructive' });
+      return null;
     }
 
-    const streamCountInDb = await getClassStreamCountFromDb(assignForm.class_id);
     const classStreams = streams.filter((s) => s.class_id === assignForm.class_id);
-    const requiresStream = streamCountInDb > 1;
-    const resolvedStreamId = assignForm.stream_id || (streamCountInDb === 1 && classStreams.length === 1 ? classStreams[0].id : '');
+    const requiresStream = classStreams.length > 1;
+    const resolvedStreamId = assignForm.stream_id || (classStreams.length === 1 ? classStreams[0].id : '');
 
     if (requiresStream && !resolvedStreamId) {
       toast({ title: 'Validation Error', description: 'Stream is required when the selected class has multiple streams.', variant: 'destructive' });
-      return;
+      return null;
     }
 
     const teacher = teachers.find((t) => t.id === assignForm.teacher_id);
     const subject = subjects.find((s) => s.id === assignForm.subject_id);
     const cls = classes.find((c) => c.id === assignForm.class_id);
     const stream = resolvedStreamId ? streams.find((s) => s.id === resolvedStreamId) : null;
-    if (!teacher || !subject || !cls) return;
+    if (!teacher || !subject || !cls) return null;
+
     const classLevel = getCbcLevelForClassName(cls.name);
-    if (classLevel && subject.category !== classLevel) {
+    const subjectLevel = subjectLevelByName.get(subject.name.trim().toLowerCase()) || subject.category;
+    if (classLevel && subjectLevel !== classLevel) {
       toast({
         title: 'Validation Error',
-        description: `Only ${classLevel} subjects can be assigned to ${cls.name}.`,
+        description: `Only ${classLevel} learning areas can be assigned to ${cls.name}.`,
         variant: 'destructive',
       });
-      return;
+      return null;
     }
     if (resolvedStreamId && !stream) {
       toast({ title: 'Validation Error', description: 'Selected stream is invalid for this class.', variant: 'destructive' });
-      return;
+      return null;
     }
 
-    hoiSubjectAssignmentsStorage.add({
+    const existsInPending = pendingAssignments.some((assignment) =>
+      assignment.teacher_id === teacher.id &&
+      assignment.subject_id === subject.id &&
+      assignment.class_id === cls.id &&
+      assignment.stream_id === (stream?.id || '')
+    );
+
+    if (existsInPending) {
+      toast({ title: 'Duplicate Entry', description: 'This learning area assignment is already added.', variant: 'destructive' });
+      return null;
+    }
+
+    return {
       teacher_id: teacher.id,
       teacher_name: teacher.full_name,
       subject_id: subject.id,
@@ -581,20 +706,86 @@ export default function DhoiTeachers() {
       class_id: cls.id,
       class_name: cls.name,
       stream_id: stream?.id || '',
-      stream_name: stream?.name || '',
-    });
-    toast({ title: 'Assignment Created', description: `${teacher.full_name} assigned to ${subject.name} - ${cls.name}${stream?.name ? ` ${stream.name}` : ''}` });
+      stream_name: stream?.name || 'No streams (whole class)',
+    } as PendingAssignmentItem;
+  };
+
+  const addAnotherAssignment = () => {
+    const pendingAssignment = buildPendingAssignment();
+    if (!pendingAssignment) return;
+    setPendingAssignments((prev) => [...prev, pendingAssignment]);
+    setAssignForm((prev) => ({ ...prev, class_id: '', stream_id: '', subject_id: '' }));
+  };
+
+  const removePendingAssignment = (index: number) => {
+    setPendingAssignments((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const saveAssignment = async () => {
+    if (!currentUser?.schoolId) {
+      toast({ title: 'Validation Error', description: 'Missing school context.', variant: 'destructive' });
+      return;
+    }
+
+    let batch = [...pendingAssignments];
+    const hasCurrentSelection = Boolean(assignForm.teacher_id || assignForm.class_id || assignForm.subject_id || assignForm.stream_id);
+    if (hasCurrentSelection) {
+      const pendingAssignment = buildPendingAssignment();
+      if (!pendingAssignment) return;
+      batch = [...batch, pendingAssignment];
+    }
+
+    if (batch.length === 0) {
+      toast({ title: 'Validation Error', description: 'Add at least one assignment before saving.', variant: 'destructive' });
+      return;
+    }
+
+    const payload = batch.map((assignment) => ({
+      school_id: currentUser.schoolId,
+      school_code: currentUser.schoolCode || null,
+      teacher_id: assignment.teacher_id,
+      teacher_name: assignment.teacher_name,
+      subject_id: assignment.subject_id,
+      subject_name: assignment.subject_name,
+      class_id: assignment.class_id,
+      class_name: assignment.class_name,
+      stream_id: assignment.stream_id || null,
+      stream_name: assignment.stream_id ? assignment.stream_name : null,
+      created_at: new Date().toISOString(),
+    }));
+
+    const { error } = await supabase.from('hoi_subject_assignments').insert(payload);
+
+    if (error) {
+      toast({ title: 'Assignment Error', description: error.message, variant: 'destructive' });
+      return;
+    }
+
+    toast({ title: 'Success', description: 'Learning areas assigned successfully.' });
     setAssignDialogOpen(false);
     setAssignForm(emptyAssignmentForm);
+    setPendingAssignments([]);
     await loadData();
   };
 
   const deleteAssignment = () => {
     if (deleteAssignDialog.id) {
-      hoiSubjectAssignmentsStorage.remove(deleteAssignDialog.id);
-      toast({ title: 'Assignment Removed' });
-      setDeleteAssignDialog({ open: false, id: null });
-      loadData();
+      void (async () => {
+        const { error } = await supabase
+          .from('hoi_subject_assignments')
+          .delete()
+          .eq('school_id', currentUser?.schoolId || '')
+          .eq('id', deleteAssignDialog.id);
+
+        if (error) {
+          toast({ title: 'Delete Error', description: error.message, variant: 'destructive' });
+          return;
+        }
+
+        toast({ title: 'Success', description: 'Learning area assignment removed successfully' });
+        setDeleteAssignDialog({ open: false, id: null });
+        await loadData();
+      })();
     }
   };
 
@@ -657,13 +848,13 @@ export default function DhoiTeachers() {
     <div>
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-foreground mb-1">Teacher Management</h1>
-        <p className="text-muted-foreground">Manage teachers, subject assignments, and weekly duty roster</p>
+        <p className="text-muted-foreground">Manage teachers, learning area assignments, and weekly duty roster</p>
       </div>
 
       <Tabs defaultValue="teachers">
         <TabsList className="mb-6">
           <TabsTrigger value="teachers" className="gap-2"><Users className="w-4 h-4" />All Teachers</TabsTrigger>
-          <TabsTrigger value="assignments" className="gap-2"><BookOpen className="w-4 h-4" />Subject Assignments</TabsTrigger>
+          <TabsTrigger value="assignments" className="gap-2"><BookOpen className="w-4 h-4" />Learning Area Assignments</TabsTrigger>
           <TabsTrigger value="roster" className="gap-2"><ClipboardList className="w-4 h-4" />Weekly Duty Roster</TabsTrigger>
         </TabsList>
 
@@ -750,8 +941,8 @@ export default function DhoiTeachers() {
           <Card>
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Subject Assignments ({assignments.length})</CardTitle>
-                <Button onClick={() => { setAssignForm(emptyAssignmentForm); setAssignDialogOpen(true); }} className="gap-2"><Plus className="w-4 h-4" />Assign Subject</Button>
+                <CardTitle className="text-lg">Learning Area Assignments ({assignments.length})</CardTitle>
+                <Button onClick={() => { setAssignForm(emptyAssignmentForm); setPendingAssignments([]); setAssignDialogOpen(true); }} className="gap-2"><Plus className="w-4 h-4" />Assign Learning Area</Button>
               </div>
             </CardHeader>
             <CardContent>
@@ -759,7 +950,7 @@ export default function DhoiTeachers() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Subject</TableHead>
+                      <TableHead>Learning Area</TableHead>
                       <TableHead>Class</TableHead>
                       <TableHead>Stream</TableHead>
                       <TableHead>Teacher Name</TableHead>
@@ -972,7 +1163,7 @@ export default function DhoiTeachers() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Teacher?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete {deleteTeacherDialog.teacher?.full_name}, including their subject assignments and duty records. This action cannot be undone.
+              This will permanently delete {deleteTeacherDialog.teacher?.full_name}, including their learning area assignments and duty records. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -982,10 +1173,16 @@ export default function DhoiTeachers() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
+      <Dialog open={assignDialogOpen} onOpenChange={(open) => {
+        setAssignDialogOpen(open);
+        if (!open) {
+          setAssignForm(emptyAssignmentForm);
+          setPendingAssignments([]);
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Assign Subject to Teacher</DialogTitle>
+            <DialogTitle>Assign Learning Area to Teacher</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -1011,7 +1208,7 @@ export default function DhoiTeachers() {
               </Select>
             </div>
             <div>
-              <Label>Subject *</Label>
+              <Label>Learning Area *</Label>
               <select
                 value={assignForm.subject_id}
                 onChange={(event) => setAssignForm({ ...assignForm, subject_id: event.target.value })}
@@ -1019,10 +1216,10 @@ export default function DhoiTeachers() {
                 className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 max-h-64 overflow-y-auto disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <option value="" disabled>
-                  {assignForm.class_id ? 'Select subject' : 'Select class first'}
+                  {assignForm.class_id ? 'Select learning area' : 'Select class first'}
                 </option>
-                {selectedAssignGroup && filteredAssignSubjects.length > 0 && (
-                  <optgroup label={selectedAssignGroup.label}>
+                {selectedAssignGroupLabel && filteredAssignSubjects.length > 0 && (
+                  <optgroup label={selectedAssignGroupLabel}>
                     {filteredAssignSubjects.map((subject) => (
                       <option key={subject.id} value={subject.id}>{subject.name}</option>
                     ))}
@@ -1032,19 +1229,39 @@ export default function DhoiTeachers() {
             </div>
             <div>
               <Label>Stream (optional for single-stream classes)</Label>
-              <Select value={assignForm.stream_id} onValueChange={(v) => setAssignForm({ ...assignForm, stream_id: v })}>
+              <Select
+                value={assignForm.stream_id || '_whole_class'}
+                onValueChange={(v) => setAssignForm({ ...assignForm, stream_id: v === '_whole_class' ? '' : v })}
+              >
                 <SelectTrigger><SelectValue placeholder="Select stream" /></SelectTrigger>
                 <SelectContent>
-                  {streams.filter((s) => s.class_id === assignForm.class_id).map((s) => (
+                  {selectedAssignClassStreams.length === 0 && (
+                    <SelectItem value="_whole_class">No streams (whole class)</SelectItem>
+                  )}
+                  {selectedAssignClassStreams.map((s) => (
                     <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+            {pendingAssignments.length > 0 && (
+              <div className="space-y-2 rounded-md border p-3">
+                <Label>Assignments to save</Label>
+                <div className="space-y-2">
+                  {pendingAssignments.map((assignment, index) => (
+                    <div key={`${assignment.teacher_id}-${assignment.subject_id}-${assignment.class_id}-${assignment.stream_id}-${index}`} className="flex items-center justify-between text-sm">
+                      <span>{assignment.class_name} | {assignment.stream_name} | {assignment.subject_name}</span>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => removePendingAssignment(index)}>×</Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAssignDialogOpen(false)}>Cancel</Button>
-            <Button onClick={saveAssignment}>Assign</Button>
+            <Button type="button" variant="outline" onClick={addAnotherAssignment}>Add Another</Button>
+            <Button onClick={saveAssignment}>Assign All</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1053,7 +1270,7 @@ export default function DhoiTeachers() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Assignment?</AlertDialogTitle>
-            <AlertDialogDescription>This will remove the subject assignment. This action cannot be undone.</AlertDialogDescription>
+            <AlertDialogDescription>This will remove the learning area assignment. This action cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
