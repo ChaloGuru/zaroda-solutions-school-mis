@@ -59,6 +59,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
+import { useAuthContext } from '@/context/AuthContext';
 
 const LEVEL_LABELS: Record<HoiClass['level'], string> = {
   ecde: 'ECDE',
@@ -83,6 +84,7 @@ const PAGE_SIZE = 10;
 
 export default function DhoiClasses() {
   const { toast } = useToast();
+  const { currentUser } = useAuthContext();
 
   const [classes, setClasses] = useState<HoiClass[]>([]);
   const [streams, setStreams] = useState<HoiStream[]>([]);
@@ -106,10 +108,17 @@ export default function DhoiClasses() {
 
   const loadData = async () => {
     try {
+      if (!currentUser?.schoolId) {
+        setClasses([]);
+        setStreams([]);
+        setTeachers([]);
+        return;
+      }
+
       const [{ data: classRows }, { data: streamRows }, { data: teacherRows }] = await Promise.all([
-        supabase.from('hoi_classes').select('*').order('name', { ascending: true }),
-        supabase.from('hoi_streams').select('*').order('name', { ascending: true }),
-        supabase.from('hoi_teachers').select('*').order('full_name', { ascending: true }),
+        supabase.from('hoi_classes').select('*').eq('school_id', currentUser.schoolId).order('name', { ascending: true }),
+        supabase.from('hoi_streams').select('*').eq('school_id', currentUser.schoolId).order('name', { ascending: true }),
+        supabase.from('hoi_teachers').select('*').eq('school_id', currentUser.schoolId).order('full_name', { ascending: true }),
       ]);
 
       const loadedClasses: HoiClass[] = (classRows || []).map((row: any) => ({
@@ -174,7 +183,7 @@ export default function DhoiClasses() {
 
   useEffect(() => {
     void loadData();
-  }, []);
+  }, [currentUser?.schoolId]);
 
   const toggleExpand = (id: string) => {
     setExpandedClasses((prev) => {
@@ -280,7 +289,11 @@ export default function DhoiClasses() {
     let savedStreamId = editingStream?.id || '';
 
     if (editingStream) {
-      const { error } = await supabase.from('hoi_streams').update(payload).eq('id', editingStream.id);
+      const { error } = await supabase
+        .from('hoi_streams')
+        .update(payload)
+        .eq('school_id', currentUser?.schoolId || '')
+        .eq('id', editingStream.id);
       if (error) {
         toast({ title: 'Stream Save Error', description: error.message, variant: 'destructive' });
         return;
@@ -290,7 +303,11 @@ export default function DhoiClasses() {
     } else {
       const { data, error } = await supabase
         .from('hoi_streams')
-        .insert(payload)
+        .insert({
+          ...payload,
+          school_id: currentUser?.schoolId || null,
+          school_code: currentUser?.schoolCode || null,
+        })
         .select('id')
         .single();
       if (error) {
@@ -311,6 +328,7 @@ export default function DhoiClasses() {
           class_teacher_stream_id: null,
           class_teacher_stream_name: null,
         })
+        .eq('school_id', currentUser?.schoolId || '')
         .eq('class_teacher_stream_id', savedStreamId);
 
       if (streamForm.class_teacher_id) {
@@ -323,6 +341,7 @@ export default function DhoiClasses() {
             class_teacher_stream_id: savedStreamId,
             class_teacher_stream_name: streamForm.name,
           })
+          .eq('school_id', currentUser?.schoolId || '')
           .eq('id', streamForm.class_teacher_id);
       }
     }

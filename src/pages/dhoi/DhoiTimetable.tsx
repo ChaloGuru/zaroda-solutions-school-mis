@@ -53,6 +53,7 @@ import { useToast } from '@/hooks/use-toast';
 import { exportToPdf } from '@/lib/pdfExport';
 import { getCbcLevelForClassName } from '@/lib/cbcSubjects';
 import { supabase } from '@/lib/supabase';
+import { useAuthContext } from '@/context/AuthContext';
 
 const DAYS: MasterTimetableSlot['day'][] = ['MON', 'TUE', 'WED', 'THU', 'FRI'];
 const DAY_LABELS: Record<string, string> = {
@@ -83,6 +84,7 @@ function getVerticalLetters(label: string): string[] {
 
 export default function DhoiTimetable() {
   const { toast } = useToast();
+  const { currentUser } = useAuthContext();
 
   const [timetableType, setTimetableType] = useState<'ecde' | 'lower_primary' | 'upper_primary' | 'junior'>('upper_primary');
   const [classes, setClasses] = useState<HoiClass[]>([]);
@@ -113,7 +115,11 @@ export default function DhoiTimetable() {
   const [editTeacherId, setEditTeacherId] = useState('');
 
   const loadTeacherCodes = useCallback(async () => {
-    const { data, error } = await supabase.from('teacher_codes').select('teacher_id,code');
+    if (!currentUser?.schoolId) return {} as Record<string, string>;
+    const { data, error } = await supabase
+      .from('teacher_codes')
+      .select('teacher_id,code')
+      .eq('school_id', currentUser.schoolId);
     if (error || !data) return {} as Record<string, string>;
     return data.reduce((acc: Record<string, string>, row: any) => {
       if (row.teacher_id && row.code) {
@@ -121,10 +127,14 @@ export default function DhoiTimetable() {
       }
       return acc;
     }, {});
-  }, []);
+  }, [currentUser?.schoolId]);
 
   const loadMasterSlots = useCallback(async () => {
-    const { data, error } = await supabase.from('hoi_master_timetable').select('*');
+    if (!currentUser?.schoolId) return [] as MasterTimetableSlot[];
+    const { data, error } = await supabase
+      .from('hoi_master_timetable')
+      .select('*')
+      .eq('school_id', currentUser.schoolId);
     if (error || !data) return [] as MasterTimetableSlot[];
     return (data as any[]).map((row) => ({
       id: row.id,
@@ -145,7 +155,7 @@ export default function DhoiTimetable() {
       isLocked: Boolean(row.is_locked ?? row.isLocked),
       lockedLabel: row.locked_label ?? row.lockedLabel,
     })) as MasterTimetableSlot[];
-  }, []);
+  }, [currentUser?.schoolId]);
 
   const saveMasterSlots = useCallback(async (slots: MasterTimetableSlot[]) => {
     const payload = slots.map((slot) => ({
@@ -164,15 +174,20 @@ export default function DhoiTimetable() {
       teacher_id: slot.teacherId,
       teacher_name: slot.teacherName,
       teacher_code: slot.teacherCode,
+      school_id: currentUser?.schoolId || null,
+      school_code: currentUser?.schoolCode || null,
       is_locked: slot.isLocked,
       locked_label: slot.lockedLabel ?? null,
     }));
 
-    const { error: deleteError } = await supabase.from('hoi_master_timetable').delete().neq('id', '');
+    const { error: deleteError } = await supabase
+      .from('hoi_master_timetable')
+      .delete()
+      .eq('school_id', currentUser?.schoolId || '');
     if (deleteError) return;
     if (payload.length === 0) return;
     await supabase.from('hoi_master_timetable').upsert(payload, { onConflict: 'id' });
-  }, []);
+  }, [currentUser?.schoolCode, currentUser?.schoolId]);
 
   const loadData = useCallback(async () => {
     setClasses(hoiClassesStorage.getAll());

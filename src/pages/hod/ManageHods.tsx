@@ -6,6 +6,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { hodStorage } from '@/lib/storage';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
+import { useAuthContext } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 const DEPARTMENTS = ['STEM', 'Arts and Sports', 'Social Sciences'];
 
@@ -14,13 +16,18 @@ const ManageHods = () => {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ fullName: '', email: '', password: '', phone: '', employeeId: '', department: DEPARTMENTS[0], hodCode: '' });
   const { toast } = useToast();
+  const { currentUser } = useAuthContext();
 
   useEffect(() => {
     const loadHods = async () => {
-      setHods(await hodStorage.getAll());
+      const allHods = await hodStorage.getAll();
+      const scopedHods = currentUser?.schoolCode
+        ? allHods.filter((hod) => hod.schoolCode === currentUser.schoolCode)
+        : allHods;
+      setHods(scopedHods);
     };
     void loadHods();
-  }, []);
+  }, [currentUser?.schoolCode]);
 
   const reset = () => setForm({ fullName: '', email: '', password: '', phone: '', employeeId: '', department: DEPARTMENTS[0], hodCode: '' });
 
@@ -35,12 +42,56 @@ const ManageHods = () => {
     if (!emailRegex.test(emailVal)) { toast({ title: 'Invalid email', description: 'Please enter a valid email address.', variant: 'destructive' }); return; }
     if (form.password.length < 6) { toast({ title: 'Weak password', description: 'Password must be at least 6 characters.', variant: 'destructive' }); return; }
     if (!form.employeeId.trim()) { toast({ title: 'Missing employee ID', description: 'Please provide an employee ID.', variant: 'destructive' }); return; }
+    if (!currentUser?.schoolId || !currentUser.schoolCode || !currentUser.schoolName) {
+      toast({ title: 'Missing school context', description: 'Your account is not linked to a school.', variant: 'destructive' });
+      return;
+    }
 
     const existing = await hodStorage.findByEmail(emailVal);
     if (existing) { toast({ title: 'Exists', description: 'An HOD with this email already exists.', variant: 'destructive' }); return; }
 
-    const created = await hodStorage.add({ fullName: form.fullName.trim(), email: emailVal, phone: form.phone.trim(), employeeId: form.employeeId.trim(), department: form.department, hodCode: form.hodCode.trim(), schoolCode: '' });
-    setHods(await hodStorage.getAll());
+    const { data: authData, error: createAuthError } = await supabase.auth.signUp({
+      email: emailVal,
+      password: form.password,
+      options: {
+        data: {
+          full_name: form.fullName.trim(),
+          role: 'hod',
+        },
+      },
+    });
+    if (createAuthError) {
+      toast({ title: 'Create failed', description: createAuthError.message, variant: 'destructive' });
+      return;
+    }
+
+    const authUser = authData.user;
+    if (!authUser) {
+      toast({ title: 'Create failed', description: 'Auth user was not created.', variant: 'destructive' });
+      return;
+    }
+
+    const { error: profileUpsertError } = await supabase.from('profiles').upsert({
+      id: authUser.id,
+      email: emailVal,
+      full_name: form.fullName.trim(),
+      role: 'hod',
+      school_id: currentUser.schoolId,
+      school_code: currentUser.schoolCode,
+      school_name: currentUser.schoolName,
+      phone: form.phone.trim() || null,
+      status: 'active',
+      created_by: currentUser.role?.toUpperCase() || 'HOI',
+    }, { onConflict: 'id' });
+
+    if (profileUpsertError) {
+      toast({ title: 'Create failed', description: profileUpsertError.message, variant: 'destructive' });
+      return;
+    }
+
+    const created = await hodStorage.add({ fullName: form.fullName.trim(), email: emailVal, phone: form.phone.trim(), employeeId: form.employeeId.trim(), department: form.department, hodCode: form.hodCode.trim(), schoolCode: currentUser.schoolCode });
+    const allHods = await hodStorage.getAll();
+    setHods(allHods.filter((hod) => hod.schoolCode === currentUser.schoolCode));
     toast({ title: 'HOD created', description: `${created.fullName} created successfully.` });
     reset();
     setOpen(false);

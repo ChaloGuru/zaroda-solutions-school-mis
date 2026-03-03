@@ -4,6 +4,7 @@ import { useAuthContext } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import {
   hoiTeachersStorage,
+  hoiStudentsStorage,
   hoiClassesStorage,
   hoiFeesStorage,
   hoiAttendanceStorage,
@@ -179,7 +180,8 @@ export default function HoiOverview({ onNavigate }: HoiOverviewProps) {
 
       const { data: rollRows } = await supabase
         .from('hoi_students')
-        .select('class_name, gender');
+        .select('class_name, gender')
+        .eq('school_id', currentUser?.schoolId || '');
 
       if (rollRows && Array.isArray(rollRows)) {
         setRollStudents(
@@ -206,7 +208,7 @@ export default function HoiOverview({ onNavigate }: HoiOverviewProps) {
     };
 
     void loadOverviewData();
-  }, [adminAnnouncementUserKey]);
+  }, [adminAnnouncementUserKey, currentUser?.schoolId]);
 
   const unreadAdminCount = adminAnnouncements.filter((announcement) => !readAdminAnnouncementIds.includes(announcement.id)).length;
 

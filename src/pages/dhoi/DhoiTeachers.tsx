@@ -69,6 +69,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { CBC_SUBJECT_GROUPS, getCbcLevelForClassName } from '@/lib/cbcSubjects';
+import { useAuthContext } from '@/context/AuthContext';
 
 const PAGE_SIZE = 10;
 const TEACHER_CODES_KEY = 'zaroda_teacher_codes';
@@ -106,8 +107,11 @@ const emptyDutyForm = {
   remarks: '',
 };
 
-async function getTeacherCodes(): Promise<Record<string, string>> {
-  const { data, error } = await supabase.from('teacher_codes').select('teacher_id,code');
+async function getTeacherCodes(schoolId: string): Promise<Record<string, string>> {
+  const { data, error } = await supabase
+    .from('teacher_codes')
+    .select('teacher_id,code')
+    .eq('school_id', schoolId);
   if (error) return {};
   return (data || []).reduce((acc: Record<string, string>, row: any) => {
     if (row.teacher_id && row.code) {
@@ -117,16 +121,28 @@ async function getTeacherCodes(): Promise<Record<string, string>> {
   }, {});
 }
 
-async function saveTeacherCode(teacherId: string, code: string): Promise<void> {
-  await supabase.from('teacher_codes').upsert({ teacher_id: teacherId, code }, { onConflict: 'teacher_id' });
+async function saveTeacherCode(teacherId: string, code: string, schoolId: string, schoolCode: string): Promise<void> {
+  await supabase
+    .from('teacher_codes')
+    .upsert({
+      teacher_id: teacherId,
+      code,
+      school_id: schoolId,
+      school_code: schoolCode,
+    }, { onConflict: 'teacher_id' });
 }
 
-async function removeTeacherCode(teacherId: string): Promise<void> {
-  await supabase.from('teacher_codes').delete().eq('teacher_id', teacherId);
+async function removeTeacherCode(teacherId: string, schoolId: string): Promise<void> {
+  await supabase
+    .from('teacher_codes')
+    .delete()
+    .eq('school_id', schoolId)
+    .eq('teacher_id', teacherId);
 }
 
 export default function DhoiTeachers() {
   const { toast } = useToast();
+  const { currentUser } = useAuthContext();
 
   const [teachers, setTeachers] = useState<HoiTeacher[]>([]);
   const [assignments, setAssignments] = useState<HoiSubjectAssignment[]>([]);
@@ -164,10 +180,14 @@ export default function DhoiTeachers() {
     setClasses(hoiClassesStorage.getAll());
     setStreams(hoiStreamsStorage.getAll());
     setDuties(hoiTeacherDutiesStorage.getAll());
-    setTeacherCodesState(await getTeacherCodes());
+    if (!currentUser?.schoolId) {
+      setTeacherCodesState({});
+      return;
+    }
+    setTeacherCodesState(await getTeacherCodes(currentUser.schoolId));
   };
 
-  useEffect(() => { void loadData(); }, []);
+  useEffect(() => { void loadData(); }, [currentUser?.schoolId]);
 
   const getCode = (teacherId: string) => teacherCodes[teacherId] || '—';
 
@@ -252,8 +272,12 @@ export default function DhoiTeachers() {
       toast({ title: 'Validation Error', description: 'Password is required when adding a new teacher.', variant: 'destructive' });
       return;
     }
+    if (!currentUser?.schoolId || !currentUser.schoolCode || !currentUser.schoolName) {
+      toast({ title: 'Validation Error', description: 'Your account is missing school tenant details.', variant: 'destructive' });
+      return;
+    }
     const codeVal = teacherForm.teacher_code.trim().toUpperCase();
-    const existingCodes = await getTeacherCodes();
+    const existingCodes = await getTeacherCodes(currentUser.schoolId);
     const codeConflict = Object.entries(existingCodes).find(([tid, c]) => c === codeVal && tid !== (editingTeacher?.id || ''));
     if (codeConflict) {
       toast({ title: 'Duplicate Code', description: `Teacher code "${codeVal}" is already assigned to another teacher.`, variant: 'destructive' });
@@ -279,7 +303,7 @@ export default function DhoiTeachers() {
 
     if (editingTeacher) {
       hoiTeachersStorage.update(editingTeacher.id, { ...teacherData, ...classTeacherFields });
-      await saveTeacherCode(editingTeacher.id, codeVal);
+      await saveTeacherCode(editingTeacher.id, codeVal, currentUser.schoolId, currentUser.schoolCode);
       if (password.trim()) {
         toast({
           title: 'Password Notice',
@@ -299,7 +323,48 @@ export default function DhoiTeachers() {
       toast({ title: 'Teacher Updated', description: `${teacherForm.full_name} has been updated.` });
     } else {
       const newTeacher = hoiTeachersStorage.add({ ...teacherData, ...classTeacherFields, hired_at: new Date().toISOString().split('T')[0] });
-      await saveTeacherCode(newTeacher.id, codeVal);
+      await saveTeacherCode(newTeacher.id, codeVal, currentUser.schoolId, currentUser.schoolCode);
+
+      const signupEmail = teacherForm.email.trim().toLowerCase();
+      const { data: authData, error: createAuthError } = await supabase.auth.signUp({
+        email: signupEmail,
+        password: password.trim(),
+        options: {
+          data: {
+            full_name: teacherForm.full_name.trim(),
+            role: 'teacher',
+          },
+        },
+      });
+      if (createAuthError) {
+        toast({ title: 'Teacher Save Error', description: createAuthError.message, variant: 'destructive' });
+        return;
+      }
+
+      const authUser = authData.user;
+      if (!authUser) {
+        toast({ title: 'Teacher Save Error', description: 'Auth user was not created.', variant: 'destructive' });
+        return;
+      }
+
+      const { error: profileUpsertError } = await supabase.from('profiles').upsert({
+        id: authUser.id,
+        email: signupEmail,
+        full_name: teacherForm.full_name.trim(),
+        role: 'teacher',
+        school_id: currentUser.schoolId,
+        school_code: currentUser.schoolCode,
+        school_name: currentUser.schoolName,
+        phone: teacherForm.phone.trim() || null,
+        status: 'active',
+        subject: teacherForm.subject_specialization.trim() || null,
+        created_by: 'DHOI',
+      }, { onConflict: 'id' });
+      if (profileUpsertError) {
+        toast({ title: 'Teacher Save Error', description: profileUpsertError.message, variant: 'destructive' });
+        return;
+      }
+
       if (password.trim()) {
         toast({
           title: 'Password Notice',
@@ -310,11 +375,11 @@ export default function DhoiTeachers() {
       const existing = allUsers.find(u => u.email.toLowerCase() === teacherForm.email.trim().toLowerCase());
       if (!existing) {
         await platformUsersStorage.add({
-          email: teacherForm.email.trim().toLowerCase(),
+          email: signupEmail,
           fullName: teacherForm.full_name.trim(),
           role: 'teacher',
-          schoolCode: '',
-          schoolName: '',
+          schoolCode: currentUser.schoolCode,
+          schoolName: currentUser.schoolName,
           phone: teacherForm.phone.trim(),
           status: 'active',
           createdBy: 'DHOI',
@@ -335,9 +400,10 @@ export default function DhoiTeachers() {
       }
 
       void sendWelcomeEmail({
-        email: teacherForm.email.trim().toLowerCase(),
+        email: signupEmail,
         fullName: teacherForm.full_name.trim(),
         role: 'teacher',
+        schoolCode: currentUser.schoolCode,
         createdBy: 'DHOI',
       });
 
@@ -404,7 +470,9 @@ export default function DhoiTeachers() {
       await platformUsersStorage.remove(teacherAccount.id);
     }
 
-    await removeTeacherCode(teacher.id);
+    if (currentUser?.schoolId) {
+      await removeTeacherCode(teacher.id, currentUser.schoolId);
+    }
 
     toast({ title: 'Teacher Deleted', description: `${teacher.full_name} and related records have been removed.` });
     setDeleteTeacherDialog({ open: false, teacher: null });
@@ -415,6 +483,7 @@ export default function DhoiTeachers() {
     const { count, error } = await supabase
       .from('hoi_streams')
       .select('id', { count: 'exact', head: true })
+      .eq('school_id', currentUser?.schoolId || '')
       .eq('class_id', classId);
 
     if (error) {

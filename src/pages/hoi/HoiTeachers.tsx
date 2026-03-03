@@ -187,9 +187,12 @@ export default function HoiTeachers() {
     try {
       const schoolRows = await schoolsStorage.getAll();
       console.log('HOI teacher form schools loaded:', schoolRows);
-      setSchools(schoolRows);
-      if (!teacherSchoolId && schoolRows.length > 0) {
-        setTeacherSchoolId(schoolRows[0].id);
+      const scopedSchools = currentUser?.schoolId
+        ? schoolRows.filter((school) => school.id === currentUser.schoolId)
+        : schoolRows;
+      setSchools(scopedSchools);
+      if (!teacherSchoolId && scopedSchools.length > 0) {
+        setTeacherSchoolId(scopedSchools[0].id);
       }
     } catch (error) {
       console.error('HOI teacher school load error:', error);
@@ -410,7 +413,7 @@ export default function HoiTeachers() {
   const openAddTeacher = () => {
     setEditingTeacher(null);
     setTeacherForm(emptyTeacherForm);
-    setTeacherSchoolId(schools[0]?.id || '');
+    setTeacherSchoolId(currentUser?.schoolId || schools[0]?.id || '');
     setTeacherDialogOpen(true);
   };
 
@@ -430,7 +433,7 @@ export default function HoiTeachers() {
       class_teacher_class_id: t.class_teacher_class_id || '',
       class_teacher_stream_id: t.class_teacher_stream_id || '',
     });
-    setTeacherSchoolId(schools[0]?.id || '');
+    setTeacherSchoolId(currentUser?.schoolId || schools[0]?.id || '');
     setTeacherDialogOpen(true);
   };
 
@@ -445,6 +448,7 @@ export default function HoiTeachers() {
     await supabase
       .from('hoi_streams')
       .update({ class_teacher_id: null, class_teacher_name: null })
+      .eq('school_id', currentUser?.schoolId || '')
       .eq('class_teacher_id', teacherId);
 
     if (assignment.is_class_teacher && assignment.class_teacher_stream_id) {
@@ -454,6 +458,7 @@ export default function HoiTeachers() {
           class_teacher_id: teacherId,
           class_teacher_name: teacherName,
         })
+        .eq('school_id', currentUser?.schoolId || '')
         .eq('id', assignment.class_teacher_stream_id);
     }
   };
@@ -467,12 +472,19 @@ export default function HoiTeachers() {
       toast({ title: 'Validation Error', description: 'Please select a school.', variant: 'destructive' });
       return;
     }
+    if (!currentUser?.schoolId || !currentUser.schoolCode || !currentUser.schoolName) {
+      toast({ title: 'Validation Error', description: 'Your account is missing school tenant details.', variant: 'destructive' });
+      return;
+    }
     if (!editingTeacher && !teacherForm.password.trim()) {
       toast({ title: 'Validation Error', description: 'Password is required when adding a new teacher.', variant: 'destructive' });
       return;
     }
     try {
       const selectedSchool = schools.find((s) => s.id === teacherSchoolId);
+      const tenantSchoolId = currentUser.schoolId;
+      const tenantSchoolCode = currentUser.schoolCode;
+      const tenantSchoolName = currentUser.schoolName;
       const { password, is_class_teacher, class_teacher_class_id, class_teacher_stream_id, ...teacherData } = teacherForm;
       const selectedClass = classes.find(c => c.id === class_teacher_class_id);
       const selectedStream = streams.find(s => s.id === class_teacher_stream_id);
@@ -521,9 +533,42 @@ export default function HoiTeachers() {
         toast({ title: 'Teacher Updated', description: `${teacherForm.full_name} has been updated.` });
       } else {
         const newTeacher = hoiTeachersStorage.add({ ...teacherData, ...classTeacherFields, hired_at: new Date().toISOString().split('T')[0] });
+
+        const signupEmail = teacherForm.email.trim().toLowerCase();
+        const { data: authData, error: createAuthError } = await supabase.auth.signUp({
+          email: signupEmail,
+          password: password.trim(),
+          options: {
+            data: {
+              full_name: teacherForm.full_name.trim(),
+              role: 'teacher',
+            },
+          },
+        });
+        if (createAuthError) throw createAuthError;
+
+        const authUser = authData.user;
+        if (!authUser) throw new Error('Auth user was not created.');
+
+        const { error: profileUpsertError } = await supabase.from('profiles').upsert({
+          id: authUser.id,
+          email: signupEmail,
+          full_name: teacherForm.full_name.trim(),
+          role: 'teacher',
+          school_id: tenantSchoolId,
+          school_code: tenantSchoolCode,
+          school_name: tenantSchoolName,
+          phone: teacherForm.phone.trim() || null,
+          status: 'active',
+          subject: teacherForm.subject_specialization.trim() || null,
+          created_by: 'HOI',
+        }, { onConflict: 'id' });
+        if (profileUpsertError) throw profileUpsertError;
+
         const { data: savedTeacher } = await supabase
           .from('hoi_teachers')
           .select('id,full_name')
+          .eq('school_id', tenantSchoolId)
           .eq('email', teacherForm.email.trim().toLowerCase())
           .order('created_at', { ascending: false })
           .limit(1)
@@ -555,8 +600,8 @@ export default function HoiTeachers() {
             email: teacherForm.email.trim().toLowerCase(),
             fullName: teacherForm.full_name.trim(),
             role: 'teacher',
-            schoolCode: selectedSchool?.school_code || '',
-            schoolName: selectedSchool?.name || '',
+            schoolCode: tenantSchoolCode || selectedSchool?.school_code || '',
+            schoolName: tenantSchoolName || selectedSchool?.name || '',
             phone: teacherForm.phone.trim(),
             status: 'active',
             createdBy: 'HOI',
@@ -568,8 +613,8 @@ export default function HoiTeachers() {
           });
         } else {
           await platformUsersStorage.update(existing.id, {
-            schoolCode: selectedSchool?.school_code || existing.schoolCode,
-            schoolName: selectedSchool?.name || existing.schoolName,
+            schoolCode: tenantSchoolCode || selectedSchool?.school_code || existing.schoolCode,
+            schoolName: tenantSchoolName || selectedSchool?.name || existing.schoolName,
             isClassTeacher: classTeacherFields.is_class_teacher,
             classTeacherClassId: classTeacherFields.class_teacher_class_id,
             classTeacherClassName: classTeacherFields.class_teacher_class_name,
@@ -579,10 +624,10 @@ export default function HoiTeachers() {
         }
 
         void sendWelcomeEmail({
-          email: teacherForm.email.trim().toLowerCase(),
+          email: signupEmail,
           fullName: teacherForm.full_name.trim(),
           role: 'teacher',
-          schoolCode: selectedSchool?.school_code,
+          schoolCode: tenantSchoolCode,
           createdBy: 'HOI',
         });
 
@@ -666,6 +711,7 @@ export default function HoiTeachers() {
     const { count, error } = await supabase
       .from('hoi_streams')
       .select('id', { count: 'exact', head: true })
+      .eq('school_id', currentUser?.schoolId || '')
       .eq('class_id', classId);
 
     if (error) {
@@ -712,6 +758,7 @@ export default function HoiTeachers() {
 
     const { error } = await supabase.from('hoi_subject_assignments').insert({
       school_id: currentUser?.schoolId || null,
+      school_code: currentUser?.schoolCode || null,
       teacher_id: teacher.id,
       teacher_name: teacher.full_name,
       subject_id: subject.id,
@@ -744,6 +791,7 @@ export default function HoiTeachers() {
         const { error } = await supabase
           .from('hoi_subject_assignments')
           .delete()
+          .eq('school_id', currentUser?.schoolId || '')
           .eq('id', deleteAssignDialog.id);
 
         if (error) {

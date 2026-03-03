@@ -125,7 +125,7 @@ export default function HoiStudents() {
   };
 
   const loadStreamsForClass = async (selectedClassId: string) => {
-    if (!selectedClassId) {
+    if (!selectedClassId || !currentUser?.schoolId) {
       setStreams([]);
       return;
     }
@@ -133,6 +133,7 @@ export default function HoiStudents() {
     const { data: streamRows, error } = await supabase
       .from('hoi_streams')
       .select('*')
+      .eq('school_id', currentUser.schoolId)
       .eq('class_id', selectedClassId)
       .order('name', { ascending: true });
 
@@ -304,6 +305,7 @@ export default function HoiStudents() {
       const { error } = await supabase
         .from('hoi_students')
         .update(payload)
+        .eq('school_id', currentUser?.schoolId || '')
         .eq('id', editingStudent.id);
 
       if (error) {
@@ -318,6 +320,7 @@ export default function HoiStudents() {
         .insert({
           ...payload,
           school_id: currentUser?.schoolId || null,
+          school_code: currentUser?.schoolCode || null,
           status: 'active',
           enrolled_at: new Date().toISOString().split('T')[0],
         });
@@ -356,6 +359,7 @@ export default function HoiStudents() {
         stream_name: stream.name,
         status: 'transferred',
       })
+      .eq('school_id', currentUser?.schoolId || '')
       .eq('id', transferStudent.id);
 
     if (error) {
