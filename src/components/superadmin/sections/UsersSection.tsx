@@ -17,7 +17,9 @@ import { supabase } from '@/lib/supabase';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 
 const ROLE_OPTIONS = [
+  { value: 'superadmin', label: 'SuperAdmin', loginEnabled: true },
   { value: 'hoi', label: 'HOI (Head of Institution)', loginEnabled: true },
+  { value: 'hod', label: 'HOD (Head of Department)', loginEnabled: true },
   { value: 'teacher', label: 'Teacher', loginEnabled: true },
   { value: 'dhoi', label: 'DHOI (Deputy Head)', loginEnabled: true },
   { value: 'student', label: 'Student', loginEnabled: false },
@@ -32,7 +34,9 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const ROLE_COLORS: Record<string, string> = {
+  superadmin: 'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-300',
   hoi: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  hod: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
   teacher: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
   dhoi: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
   student: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
@@ -68,12 +72,13 @@ export default function UsersSection() {
   const [activeTab, setActiveTab] = useState<TabId>('all_users');
   const [users, setUsers] = useState<PlatformUser[]>([]);
   const [activities, setActivities] = useState<LoginActivityWithCreatedAt[]>([]);
-  const [schools, setSchools] = useState<Array<{ school_code: string; name: string }>>([]);
+  const [schools, setSchools] = useState<Array<{ id: string; school_code: string; name: string }>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [schoolFilter, setSchoolFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [activityPage, setActivityPage] = useState(1);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -99,11 +104,31 @@ export default function UsersSection() {
 
   const loadData = async () => {
     try {
-      const [usersData, activitiesData, schoolsData] = await Promise.all([
-        platformUsersStorage.getAll(),
+      const [profileRes, activitiesData, schoolsData] = await Promise.all([
+        supabase.from('profiles').select('*').order('created_at', { ascending: false }),
         activityStorage.getRecent(200),
         schoolsStorage.getAll(),
       ]);
+
+      if (profileRes.error) throw profileRes.error;
+
+      const usersData: PlatformUser[] = (profileRes.data || []).map((row: any) => ({
+        id: row.id,
+        email: row.email || '',
+        fullName: row.full_name || '',
+        role: row.role,
+        schoolCode: row.school_code || '',
+        schoolName: row.school_name || '',
+        phone: row.phone || '',
+        status: row.status || 'inactive',
+        subject: row.subject || undefined,
+        grade: row.grade || undefined,
+        createdAt: row.created_at || new Date().toISOString(),
+        createdBy: row.created_by || 'System',
+        lastLogin: row.last_login || null,
+        loginCount: Number(row.login_count || 0),
+      }));
+
       setUsers(usersData);
       setActivities(activitiesData.map((activity) => ({
         ...activity,
@@ -129,7 +154,8 @@ export default function UsersSection() {
     const matchSearch = !search || u.fullName.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase()) || u.schoolName.toLowerCase().includes(search.toLowerCase());
     const matchRole = roleFilter === 'all' || u.role === roleFilter;
     const matchStatus = statusFilter === 'all' || u.status === statusFilter;
-    return matchSearch && matchRole && matchStatus;
+    const matchSchool = schoolFilter === 'all' || u.schoolCode === schoolFilter;
+    return matchSearch && matchRole && matchStatus && matchSchool;
   });
 
   const totalPages = Math.ceil(filteredUsers.length / perPage);
@@ -325,6 +351,27 @@ export default function UsersSection() {
         grade: formData.grade.trim() || undefined,
       });
 
+      const { data: selectedSchool, error: selectedSchoolError } = await supabase
+        .from('schools')
+        .select('id, school_code, name')
+        .eq('school_code', formData.schoolCode.trim())
+        .maybeSingle();
+      if (selectedSchoolError) throw selectedSchoolError;
+      const { error: profileUpdateError } = await supabase
+        .from('profiles')
+        .update({
+          full_name: formData.fullName.trim(),
+          email: newEmail,
+          phone: formData.phone.trim(),
+          school_id: selectedSchool?.id || null,
+          school_code: selectedSchool?.school_code || formData.schoolCode.trim(),
+          school_name: selectedSchool?.name || formData.schoolName.trim() || formData.schoolCode.trim(),
+          subject: formData.subject.trim() || null,
+          grade: formData.grade.trim() || null,
+        })
+        .eq('id', selectedUser.id);
+      if (profileUpdateError) throw profileUpdateError;
+
       await activityStorage.add({
         userId: selectedUser.id,
         email: formData.email.trim().toLowerCase(),
@@ -354,6 +401,12 @@ export default function UsersSection() {
       setIsSubmitting(true);
       const newStatus = user.status === 'active' ? 'suspended' : 'active';
       await platformUsersStorage.update(user.id, { status: newStatus });
+
+      const { error: profileStatusError } = await supabase
+        .from('profiles')
+        .update({ status: newStatus })
+        .eq('id', user.id);
+      if (profileStatusError) throw profileStatusError;
 
       await activityStorage.add({
         userId: user.id,
@@ -572,6 +625,19 @@ export default function UsersSection() {
               <SelectContent>
                 <SelectItem value="all">All Roles</SelectItem>
                 {ROLE_OPTIONS.map(r => <SelectItem key={r.value} value={r.value}>{r.label.split(' (')[0]}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={schoolFilter} onValueChange={v => { setSchoolFilter(v); setPage(1); }}>
+              <SelectTrigger className="w-[220px]">
+                <SelectValue placeholder="Filter by school" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Schools</SelectItem>
+                {schools.map((school) => (
+                  <SelectItem key={school.school_code} value={school.school_code}>
+                    {school.name} ({school.school_code})
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Select value={statusFilter} onValueChange={v => { setStatusFilter(v); setPage(1); }}>

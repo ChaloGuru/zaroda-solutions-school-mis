@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabase';
 
 const emptyForm = {
   full_name: '',
@@ -75,10 +76,29 @@ export default function StudentsSection() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [studentRows, schoolRows] = await Promise.all([
-        studentsStorage.getAll(),
+      const [studentsRes, schoolRows] = await Promise.all([
+        supabase.from('hoi_students').select('*').order('created_at', { ascending: false }),
         schoolsStorage.getAll(),
       ]);
+
+      if (studentsRes.error) throw studentsRes.error;
+
+      const studentRows: Student[] = (studentsRes.data || []).map((row: any) => ({
+        id: row.id,
+        full_name: row.full_name || '',
+        admission_no: row.admission_no || '',
+        school_id: row.school_id || '',
+        grade: row.class_name || row.grade || '',
+        stream: row.stream_name || row.stream || '',
+        guardian_name: row.guardian_name || '',
+        guardian_phone: row.guardian_phone || '',
+        guardian_email: row.guardian_email || '',
+        gender: row.gender === 'Female' ? 'Female' : 'Male',
+        date_of_birth: row.date_of_birth || '',
+        status: row.status || 'active',
+        enrolled_at: row.enrolled_at || row.created_at || new Date().toISOString(),
+      }));
+
       setStudents(studentRows);
       setSchools(schoolRows);
     } catch (error) {
@@ -143,10 +163,46 @@ export default function StudentsSection() {
     }
     try {
       if (editingStudent) {
-        await studentsStorage.update(editingStudent.id, form);
+        const selectedSchool = schools.find((s) => s.id === form.school_id);
+        const { error } = await supabase
+          .from('hoi_students')
+          .update({
+            full_name: form.full_name,
+            admission_no: form.admission_no,
+            school_id: form.school_id,
+            school_code: selectedSchool?.school_code || null,
+            class_name: form.grade,
+            stream_name: form.stream,
+            guardian_name: form.guardian_name,
+            guardian_phone: form.guardian_phone,
+            guardian_email: form.guardian_email,
+            gender: form.gender,
+            date_of_birth: form.date_of_birth,
+            status: form.status,
+          })
+          .eq('id', editingStudent.id);
+        if (error) throw error;
         toast({ title: 'Student Updated', description: `${form.full_name} has been updated successfully.` });
       } else {
-        await studentsStorage.add(form);
+        const selectedSchool = schools.find((s) => s.id === form.school_id);
+        const { error } = await supabase
+          .from('hoi_students')
+          .insert({
+            full_name: form.full_name,
+            admission_no: form.admission_no,
+            school_id: form.school_id,
+            school_code: selectedSchool?.school_code || null,
+            class_name: form.grade,
+            stream_name: form.stream,
+            guardian_name: form.guardian_name,
+            guardian_phone: form.guardian_phone,
+            guardian_email: form.guardian_email,
+            gender: form.gender,
+            date_of_birth: form.date_of_birth,
+            status: form.status,
+            enrolled_at: new Date().toISOString().split('T')[0],
+          });
+        if (error) throw error;
         toast({ title: 'Student Added', description: `${form.full_name} has been added successfully.` });
       }
       setDialogOpen(false);
@@ -163,7 +219,11 @@ export default function StudentsSection() {
   const handleDelete = async () => {
     if (!deleteDialog.student) return;
     try {
-      await studentsStorage.remove(deleteDialog.student.id);
+      const { error } = await supabase
+        .from('hoi_students')
+        .delete()
+        .eq('id', deleteDialog.student.id);
+      if (error) throw error;
       toast({ title: 'Student Deleted', description: `${deleteDialog.student.full_name} has been permanently removed.` });
       setDeleteDialog({ open: false, student: null });
       await loadData();

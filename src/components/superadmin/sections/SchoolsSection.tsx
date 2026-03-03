@@ -102,8 +102,31 @@ export default function SchoolsSection() {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const rows = await schoolsStorage.getAll();
-      console.log('Schools load result:', rows);
+      const { data, error } = await supabase
+        .from('schools')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const rows: School[] = (data || []).map((row: any) => ({
+        id: row.id,
+        name: row.name || '',
+        school_code: row.school_code || '',
+        school_type: Array.isArray(row.school_type) ? row.school_type : [],
+        county: row.county || '',
+        sub_county: row.sub_county || '',
+        zone: row.zone || '',
+        contact_name: row.contact_name || '',
+        contact_email: row.contact_email || '',
+        contact_phone: row.contact_phone || '',
+        status: row.status || 'pending',
+        categories: Array.isArray(row.categories) ? row.categories : [],
+        student_count: Number(row.student_count || 0),
+        faculty_count: Number(row.faculty_count || 0),
+        created_at: row.created_at || new Date().toISOString(),
+      }));
+
       setSchools(rows);
     } catch (error) {
       console.error('Schools load error:', error);
@@ -210,13 +233,22 @@ export default function SchoolsSection() {
       contact_phone: form.contact_phone,
       status: form.status,
       categories: cats,
+      student_count: form.student_count || 0,
+      faculty_count: form.faculty_count || 0,
     };
     try {
       if (editingSchool) {
-        await schoolsStorage.update(editingSchool.id, payload);
+        const { error } = await supabase
+          .from('schools')
+          .update(payload)
+          .eq('id', editingSchool.id);
+        if (error) throw error;
         toast({ title: 'School Updated', description: `${form.name} has been updated successfully.` });
       } else {
-        await schoolsStorage.add(payload);
+        const { error } = await supabase
+          .from('schools')
+          .insert(payload);
+        if (error) throw error;
         toast({ title: 'School Added', description: `${form.name} has been added successfully.` });
       }
       setDialogOpen(false);
@@ -234,7 +266,11 @@ export default function SchoolsSection() {
   const handleDelete = async () => {
     if (!deleteDialog.school) return;
     try {
-      await schoolsStorage.remove(deleteDialog.school.id);
+      const { error } = await supabase
+        .from('schools')
+        .delete()
+        .eq('id', deleteDialog.school.id);
+      if (error) throw error;
       toast({ title: 'School Deleted', description: `${deleteDialog.school.name} has been permanently removed.` });
       setDeleteDialog({ open: false, school: null });
       await loadSchools();
@@ -249,7 +285,11 @@ export default function SchoolsSection() {
 
   const handleStatusChange = async (id: string, newStatus: 'active' | 'suspended') => {
     try {
-      await schoolsStorage.update(id, { status: newStatus });
+      const { error } = await supabase
+        .from('schools')
+        .update({ status: newStatus })
+        .eq('id', id);
+      if (error) throw error;
       toast({ title: 'Status Updated', description: `School has been ${newStatus === 'active' ? 'activated' : 'suspended'}.` });
       await loadSchools();
     } catch (error) {

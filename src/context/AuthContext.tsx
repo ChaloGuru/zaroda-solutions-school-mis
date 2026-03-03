@@ -14,7 +14,7 @@ export interface AuthUser {
   email: string;
   fullName: string;
   role: UserRole;
-  schoolId?: string;
+  schoolId?: string | null;
   schoolName?: string;
   schoolCode: string;
   phone?: string;
@@ -64,7 +64,7 @@ const mapProfileToAuthUser = (profile: any): AuthUser => ({
   email: profile.email,
   fullName: profile.full_name,
   role: profile.role,
-  schoolId: profile.school_id || undefined,
+  schoolId: profile.role === 'superadmin' ? null : (profile.school_id || null),
   schoolName: profile.school_name || undefined,
   schoolCode: profile.school_code || '',
   phone: profile.phone || undefined,
