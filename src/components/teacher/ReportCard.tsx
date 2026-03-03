@@ -180,7 +180,7 @@ export default function ReportCard({ studentId, term }: ReportCardProps) {
           <table className="report-card-table w-full text-sm">
             <thead>
               <tr className="bg-muted/60 border-b">
-                <th className="text-left p-3 font-semibold">Subject/Learning Area</th>
+                <th className="text-left p-3 font-semibold">Learning Area</th>
                 <th className="text-left p-3 font-semibold">Activity Type</th>
                 <th className="text-left p-3 font-semibold">Performance Level</th>
                 <th className="text-left p-3 font-semibold">Teacher Comment</th>

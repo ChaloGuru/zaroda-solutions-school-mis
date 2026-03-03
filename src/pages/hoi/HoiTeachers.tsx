@@ -309,7 +309,7 @@ export default function HoiTeachers() {
   const getTeacherRoleLabel = (teacher: StaffRow) => {
     if (teacher.staffRole === 'dhoi') return 'DHOI';
     if (teacher.is_class_teacher) return 'Class Teacher';
-    return 'Subject Teacher';
+    return 'Learning Area Teacher';
   };
 
   const totalAssignPages = Math.max(1, Math.ceil(assignments.length / PAGE_SIZE));
@@ -543,7 +543,7 @@ export default function HoiTeachers() {
 
   const saveAssignment = async () => {
     if (!assignForm.teacher_id || !assignForm.subject_id || !assignForm.class_id) {
-      toast({ title: 'Validation Error', description: 'Teacher, subject, and class are required.', variant: 'destructive' });
+      toast({ title: 'Validation Error', description: 'Teacher, learning area, and class are required.', variant: 'destructive' });
       return;
     }
 
@@ -566,7 +566,7 @@ export default function HoiTeachers() {
     if (classLevel && subject.category !== classLevel) {
       toast({
         title: 'Validation Error',
-        description: `Only ${classLevel} subjects can be assigned to ${cls.name}.`,
+        description: `Only ${classLevel} learning areas can be assigned to ${cls.name}.`,
         variant: 'destructive',
       });
       return;
@@ -663,7 +663,7 @@ export default function HoiTeachers() {
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground mb-1">Teacher Management</h1>
-          <p className="text-muted-foreground">Manage teachers, subject assignments, and duty roster</p>
+          <p className="text-muted-foreground">Manage teachers, learning area assignments, and duty roster</p>
         </div>
         <Button variant="outline" className="gap-2" onClick={openDhoiDialog}>
           <Shield className="w-4 h-4" />
@@ -674,7 +674,7 @@ export default function HoiTeachers() {
       <Tabs defaultValue="teachers">
         <TabsList className="mb-6 w-full justify-start overflow-x-auto">
           <TabsTrigger value="teachers" className="gap-2"><Users className="w-4 h-4" />All Teachers</TabsTrigger>
-          <TabsTrigger value="assignments" className="gap-2"><BookOpen className="w-4 h-4" />Subject Assignments</TabsTrigger>
+          <TabsTrigger value="assignments" className="gap-2"><BookOpen className="w-4 h-4" />Learning Area Assignments</TabsTrigger>
           <TabsTrigger value="roster" className="gap-2"><ClipboardList className="w-4 h-4" />Duty Roster</TabsTrigger>
         </TabsList>
 
@@ -773,8 +773,8 @@ export default function HoiTeachers() {
           <Card>
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Subject Assignments ({assignments.length})</CardTitle>
-                <Button onClick={() => { setAssignForm(emptyAssignmentForm); setAssignDialogOpen(true); }} className="gap-2"><Plus className="w-4 h-4" />Assign Subject</Button>
+                <CardTitle className="text-lg">Learning Area Assignments ({assignments.length})</CardTitle>
+                <Button onClick={() => { setAssignForm(emptyAssignmentForm); setAssignDialogOpen(true); }} className="gap-2"><Plus className="w-4 h-4" />Assign Learning Area</Button>
               </div>
             </CardHeader>
             <CardContent>
@@ -782,7 +782,7 @@ export default function HoiTeachers() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Teacher</TableHead>
-                    <TableHead>Subject</TableHead>
+                    <TableHead>Learning Area</TableHead>
                     <TableHead>Class</TableHead>
                     <TableHead>Stream</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -901,7 +901,7 @@ export default function HoiTeachers() {
               </div>
             </div>
             <div>
-              <Label>Subject Specialization</Label>
+              <Label>Learning Area Specialization</Label>
               <Input value={teacherForm.subject_specialization} onChange={(e) => setTeacherForm({ ...teacherForm, subject_specialization: e.target.value })} />
             </div>
             <div>
@@ -982,7 +982,7 @@ export default function HoiTeachers() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Teacher?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete {deleteTeacherDialog.teacher?.full_name}, including their subject assignments and duty records. This action cannot be undone.
+              This will permanently delete {deleteTeacherDialog.teacher?.full_name}, including their learning area assignments and duty records. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -995,7 +995,7 @@ export default function HoiTeachers() {
       <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Assign Subject to Teacher</DialogTitle>
+            <DialogTitle>Assign Learning Area to Teacher</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -1021,7 +1021,7 @@ export default function HoiTeachers() {
               </Select>
             </div>
             <div>
-              <Label>Subject *</Label>
+              <Label>Learning Area *</Label>
               <select
                 value={assignForm.subject_id}
                 onChange={(event) => setAssignForm({ ...assignForm, subject_id: event.target.value })}
@@ -1029,7 +1029,7 @@ export default function HoiTeachers() {
                 className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 max-h-64 overflow-y-auto disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <option value="" disabled>
-                  {assignForm.class_id ? 'Select subject' : 'Select class first'}
+                  {assignForm.class_id ? 'Select learning area' : 'Select class first'}
                 </option>
                 {selectedAssignGroup && filteredAssignSubjects.length > 0 && (
                   <optgroup label={selectedAssignGroup.label}>
@@ -1063,7 +1063,7 @@ export default function HoiTeachers() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Assignment?</AlertDialogTitle>
-            <AlertDialogDescription>This will remove the subject assignment. This action cannot be undone.</AlertDialogDescription>
+            <AlertDialogDescription>This will remove the learning area assignment. This action cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>

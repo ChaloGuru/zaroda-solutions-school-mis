@@ -386,7 +386,7 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-yellow-700">
               <AlertCircle size={24} />
-              Subject Not Found
+              Learning Area Not Found
             </CardTitle>
             <CardDescription>
               No assessment framework found for <strong>{subject}</strong> in <strong>{grade}</strong>.
@@ -394,7 +394,7 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              The assessment framework may use a different subject name. Available subjects for {grade}:
+              The assessment framework may use a different learning area name. Available learning areas for {grade}:
             </p>
             <div className="flex flex-wrap gap-2">
               {availableSubjects.map((subjectName) => (
@@ -404,7 +404,7 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
               ))}
             </div>
             {availableSubjects.length === 0 && (
-              <p className="text-sm text-muted-foreground italic">No subjects are configured for this grade yet.</p>
+              <p className="text-sm text-muted-foreground italic">No learning areas are configured for this grade yet.</p>
             )}
           </CardContent>
         </Card>

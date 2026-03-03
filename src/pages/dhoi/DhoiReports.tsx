@@ -183,7 +183,7 @@ export default function DhoiReports() {
                     <TableHead>Time</TableHead>
                     <TableHead>Class</TableHead>
                     <TableHead>Stream</TableHead>
-                    <TableHead>Subject</TableHead>
+                    <TableHead>Learning Area</TableHead>
                     <TableHead>Teacher</TableHead>
                     <TableHead>Room</TableHead>
                   </TableRow>
@@ -233,7 +233,7 @@ export default function DhoiReports() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Teacher</TableHead>
-                    <TableHead>Subject</TableHead>
+                    <TableHead>Learning Area</TableHead>
                     <TableHead>Class</TableHead>
                     <TableHead>Stream</TableHead>
                   </TableRow>

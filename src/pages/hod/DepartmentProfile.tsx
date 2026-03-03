@@ -49,7 +49,7 @@ const DepartmentProfile = () => {
     const refreshed = await departmentsStorage.findByName(profile.name);
     setProfile(refreshed || null);
     setForm({ ...form, newSubject: '' });
-    toast({ title: 'Added', description: 'Subject added.' });
+    toast({ title: 'Added', description: 'Learning area added.' });
   };
 
   const addGoal = async () => {
@@ -104,9 +104,9 @@ const DepartmentProfile = () => {
             <div>{profile.description}</div>
 
             <div>
-              <h3 className="font-medium">Subjects</h3>
+              <h3 className="font-medium">Learning Areas</h3>
               <div className="flex gap-2 mt-2">
-                <Input placeholder="Add subject" value={form.newSubject} onChange={(e) => setForm({ ...form, newSubject: e.target.value })} />
+                <Input placeholder="Add learning area" value={form.newSubject} onChange={(e) => setForm({ ...form, newSubject: e.target.value })} />
                 <Button onClick={addSubject}>Add</Button>
               </div>
               <div className="mt-2">

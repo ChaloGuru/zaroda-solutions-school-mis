@@ -111,7 +111,7 @@ const Exams = () => {
               <div><Label>Name</Label><Input value={createForm.name} onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} /></div>
               <div><Label>Type</Label><Input value={createForm.type} onChange={(e) => setCreateForm({ ...createForm, type: e.target.value })} /></div>
               <div><Label>Date</Label><Input type="date" value={createForm.date} onChange={(e) => setCreateForm({ ...createForm, date: e.target.value })} /></div>
-              <div><Label>Subjects (comma separated)</Label><Input value={createForm.subjects} onChange={(e) => setCreateForm({ ...createForm, subjects: e.target.value })} /></div>
+              <div><Label>Learning Areas (comma separated)</Label><Input value={createForm.subjects} onChange={(e) => setCreateForm({ ...createForm, subjects: e.target.value })} /></div>
               <div><Label>Classes (comma separated)</Label><Input value={createForm.classes} onChange={(e) => setCreateForm({ ...createForm, classes: e.target.value })} /></div>
               <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setOpenCreate(false)}>Cancel</Button><Button onClick={createExam}>Create</Button></div>
             </div>
@@ -126,7 +126,7 @@ const Exams = () => {
               <TableHead>Name</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Date</TableHead>
-              <TableHead>Subjects</TableHead>
+              <TableHead>Learning Areas</TableHead>
               <TableHead>Classes</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
@@ -156,7 +156,7 @@ const Exams = () => {
           <TableHeader>
             <TableRow>
               <TableHead>Exam</TableHead>
-              <TableHead>Subject</TableHead>
+              <TableHead>Learning Area</TableHead>
               <TableHead>Class</TableHead>
               <TableHead>Student</TableHead>
               <TableHead>Marks</TableHead>
@@ -191,9 +191,9 @@ const Exams = () => {
             <div className="space-y-3 mt-2">
               <div className="flex gap-3 items-center">
                 <div className="w-64">
-                  <Label>Subject</Label>
+                  <Label>Learning Area</Label>
                   <select className="w-full p-2 border rounded-md bg-card" value={subjectForEntry} onChange={(e) => setSubjectForEntry(e.target.value)}>
-                    <option value="">Select subject</option>
+                    <option value="">Select learning area</option>
                     {(selectedExam.subjects || []).map((s: string) => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
@@ -237,7 +237,7 @@ const Exams = () => {
               <div className="flex justify-end gap-2">
                 <Button variant="secondary" onClick={() => setOpenEntry(false)}>Close</Button>
                 <Button onClick={async () => {
-                  if (!subjectForEntry || !classForEntry) { toast({ title: 'Select subject/class', description: 'Please select a subject and class before saving.', variant: 'destructive' }); return; }
+                  if (!subjectForEntry || !classForEntry) { toast({ title: 'Select learning area/class', description: 'Please select a learning area and class before saving.', variant: 'destructive' }); return; }
                   const selectedAssessmentBook = assessmentBookOptions.find((option) => option.id === assessmentBookForEntry);
                   const studentList = students;
                   for (const s of studentList) {

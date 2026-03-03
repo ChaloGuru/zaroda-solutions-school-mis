@@ -426,7 +426,7 @@ export default function DhoiTeachers() {
 
   const saveAssignment = async () => {
     if (!assignForm.teacher_id || !assignForm.subject_id || !assignForm.class_id) {
-      toast({ title: 'Validation Error', description: 'Teacher, subject, and class are required.', variant: 'destructive' });
+      toast({ title: 'Validation Error', description: 'Teacher, learning area, and class are required.', variant: 'destructive' });
       return;
     }
 
@@ -449,7 +449,7 @@ export default function DhoiTeachers() {
     if (classLevel && subject.category !== classLevel) {
       toast({
         title: 'Validation Error',
-        description: `Only ${classLevel} subjects can be assigned to ${cls.name}.`,
+        description: `Only ${classLevel} learning areas can be assigned to ${cls.name}.`,
         variant: 'destructive',
       });
       return;
@@ -543,13 +543,13 @@ export default function DhoiTeachers() {
     <div>
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-foreground mb-1">Teacher Management</h1>
-        <p className="text-muted-foreground">Manage teachers, subject assignments, and weekly duty roster</p>
+        <p className="text-muted-foreground">Manage teachers, learning area assignments, and weekly duty roster</p>
       </div>
 
       <Tabs defaultValue="teachers">
         <TabsList className="mb-6">
           <TabsTrigger value="teachers" className="gap-2"><Users className="w-4 h-4" />All Teachers</TabsTrigger>
-          <TabsTrigger value="assignments" className="gap-2"><BookOpen className="w-4 h-4" />Subject Assignments</TabsTrigger>
+          <TabsTrigger value="assignments" className="gap-2"><BookOpen className="w-4 h-4" />Learning Area Assignments</TabsTrigger>
           <TabsTrigger value="roster" className="gap-2"><ClipboardList className="w-4 h-4" />Weekly Duty Roster</TabsTrigger>
         </TabsList>
 
@@ -584,7 +584,7 @@ export default function DhoiTeachers() {
                       <TableHead>Code</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Email</TableHead>
-                      <TableHead>Subjects Assigned</TableHead>
+                      <TableHead>Learning Areas Assigned</TableHead>
                       <TableHead>Classes Assigned</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -636,8 +636,8 @@ export default function DhoiTeachers() {
           <Card>
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Subject Assignments ({assignments.length})</CardTitle>
-                <Button onClick={() => { setAssignForm(emptyAssignmentForm); setAssignDialogOpen(true); }} className="gap-2"><Plus className="w-4 h-4" />Assign Subject</Button>
+                <CardTitle className="text-lg">Learning Area Assignments ({assignments.length})</CardTitle>
+                <Button onClick={() => { setAssignForm(emptyAssignmentForm); setAssignDialogOpen(true); }} className="gap-2"><Plus className="w-4 h-4" />Assign Learning Area</Button>
               </div>
             </CardHeader>
             <CardContent>
@@ -645,7 +645,7 @@ export default function DhoiTeachers() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Subject</TableHead>
+                      <TableHead>Learning Area</TableHead>
                       <TableHead>Class</TableHead>
                       <TableHead>Stream</TableHead>
                       <TableHead>Teacher Name</TableHead>
@@ -751,7 +751,7 @@ export default function DhoiTeachers() {
               </div>
             </div>
             <div>
-              <Label>Subject Specialization</Label>
+              <Label>Learning Area Specialization</Label>
               <Input value={teacherForm.subject_specialization} onChange={(e) => setTeacherForm({ ...teacherForm, subject_specialization: e.target.value })} />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -844,7 +844,7 @@ export default function DhoiTeachers() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Teacher?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete {deleteTeacherDialog.teacher?.full_name}, including their subject assignments and duty records. This action cannot be undone.
+              This will permanently delete {deleteTeacherDialog.teacher?.full_name}, including their learning area assignments and duty records. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -857,7 +857,7 @@ export default function DhoiTeachers() {
       <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Assign Subject to Teacher</DialogTitle>
+            <DialogTitle>Assign Learning Area to Teacher</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -883,7 +883,7 @@ export default function DhoiTeachers() {
               </Select>
             </div>
             <div>
-              <Label>Subject *</Label>
+              <Label>Learning Area *</Label>
               <select
                 value={assignForm.subject_id}
                 onChange={(event) => setAssignForm({ ...assignForm, subject_id: event.target.value })}
@@ -891,7 +891,7 @@ export default function DhoiTeachers() {
                 className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 max-h-64 overflow-y-auto disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <option value="" disabled>
-                  {assignForm.class_id ? 'Select subject' : 'Select class first'}
+                  {assignForm.class_id ? 'Select learning area' : 'Select class first'}
                 </option>
                 {selectedAssignGroup && filteredAssignSubjects.length > 0 && (
                   <optgroup label={selectedAssignGroup.label}>
@@ -925,7 +925,7 @@ export default function DhoiTeachers() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Assignment?</AlertDialogTitle>
-            <AlertDialogDescription>This will remove the subject assignment. This action cannot be undone.</AlertDialogDescription>
+            <AlertDialogDescription>This will remove the learning area assignment. This action cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>

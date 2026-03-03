@@ -191,7 +191,7 @@ export default function DhoiTimetable() {
       if (showToast) {
         toast({
           title: 'Generation Skipped',
-          description: 'No subject assignments found. Add assignments to auto-generate timetable slots.',
+          description: 'No learning area assignments found. Add assignments to auto-generate timetable slots.',
           variant: 'destructive',
         });
       }
@@ -256,7 +256,7 @@ export default function DhoiTimetable() {
 
   const handleCellSave = () => {
     if (!editSubjectId || !editTeacherId) {
-      toast({ title: 'Missing Info', description: 'Please select both subject and teacher.', variant: 'destructive' });
+      toast({ title: 'Missing Info', description: 'Please select both learning area and teacher.', variant: 'destructive' });
       return;
     }
 
@@ -268,7 +268,7 @@ export default function DhoiTimetable() {
     if (selectedClassLevel && subject.category !== selectedClassLevel) {
       toast({
         title: 'Validation Error',
-        description: `Only ${selectedClassLevel} subjects can be scheduled for ${cls.name}.`,
+        description: `Only ${selectedClassLevel} learning areas can be scheduled for ${cls.name}.`,
         variant: 'destructive',
       });
       return;
@@ -571,10 +571,10 @@ export default function DhoiTimetable() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>Subject</Label>
+              <Label>Learning Area</Label>
               <Select value={editSubjectId} onValueChange={(v) => { setEditSubjectId(v); setEditTeacherId(''); }}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select subject" />
+                  <SelectValue placeholder="Select learning area" />
                 </SelectTrigger>
                 <SelectContent>
                   {filteredSubjects.map((s) => (

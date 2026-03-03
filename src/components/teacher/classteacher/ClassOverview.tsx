@@ -92,7 +92,7 @@ export default function ClassOverview({ classId, className, streamId, streamName
               </div>
               <div>
                 <p className="text-2xl font-bold">{uniqueSubjects.length}</p>
-                <p className="text-xs text-gray-500">Subjects</p>
+                <p className="text-xs text-gray-500">Learning Areas</p>
               </div>
             </div>
           </CardContent>
@@ -106,7 +106,7 @@ export default function ClassOverview({ classId, className, streamId, streamName
               </div>
               <div>
                 <p className="text-2xl font-bold">{uniqueTeachers.length}</p>
-                <p className="text-xs text-gray-500">Subject Teachers</p>
+                <p className="text-xs text-gray-500">Learning Area Teachers</p>
               </div>
             </div>
           </CardContent>
@@ -118,12 +118,12 @@ export default function ClassOverview({ classId, className, streamId, streamName
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-primary" />
-              Subject Teachers
+              Learning Area Teachers
             </CardTitle>
           </CardHeader>
           <CardContent>
             {assignments.length === 0 ? (
-              <p className="text-gray-500 text-sm">No subject assignments found.</p>
+              <p className="text-gray-500 text-sm">No learning area assignments found.</p>
             ) : (
               <div className="space-y-2">
                 {[...new Map(assignments.map(a => [a.subject_name, a])).values()].map(a => (

@@ -717,7 +717,7 @@ export default function UsersSection() {
               {(formData.role === 'teacher') && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label>Subject</Label>
+                    <Label>Learning Area</Label>
                     <Input value={formData.subject} onChange={e => setFormData(prev => ({ ...prev, subject: e.target.value }))} placeholder="e.g., Mathematics" className="mt-1" />
                   </div>
                   <div>
@@ -952,7 +952,7 @@ export default function UsersSection() {
                 </div>
                 {selectedUser.subject && (
                   <div>
-                    <p className="text-xs text-muted-foreground">Subject</p>
+                    <p className="text-xs text-muted-foreground">Learning Area</p>
                     <p className="text-sm font-medium">{selectedUser.subject}</p>
                   </div>
                 )}

@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo, Fragment } from 'react';
 import { motion } from 'framer-motion';
 import { useAuthContext } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 import {
-  hoiStudentsStorage,
   hoiTeachersStorage,
   hoiClassesStorage,
   hoiFeesStorage,
@@ -57,13 +57,12 @@ export default function HoiOverview({ onNavigate }: HoiOverviewProps) {
   const [adminAnnouncements, setAdminAnnouncements] = useState<AdminAnnouncement[]>([]);
   const [readAdminAnnouncementIds, setReadAdminAnnouncementIds] = useState<string[]>([]);
   const [chartData, setChartData] = useState<{ name: string; revenue: number; attendance: number }[]>([]);
+  const [rollStudents, setRollStudents] = useState<Array<{ class_name: string; gender: 'Male' | 'Female' | null }>>([]);
 
   const adminAnnouncementUserKey = useMemo(() => {
     const identity = currentUser?.id || currentUser?.email || 'hoi_guest';
     return `hoi:${identity}`;
   }, [currentUser]);
-
-  const students = useMemo(() => hoiStudentsStorage.getAll(), []);
 
   const normalizeRollClass = (value: string): string => {
     const normalized = (value || '').trim().toLowerCase().replace(/\s+/g, ' ');
@@ -110,7 +109,7 @@ export default function HoiOverview({ onNavigate }: HoiOverviewProps) {
 
     return groups.map((group) => {
       const rows = group.classes.map((className) => {
-        const classStudents = students.filter((student) => normalizeRollClass(student.class_name) === className);
+        const classStudents = rollStudents.filter((student) => normalizeRollClass(student.class_name) === className);
         const boys = classStudents.filter((student) => student.gender === 'Male').length;
         const girls = classStudents.filter((student) => student.gender === 'Female').length;
         return {
@@ -132,7 +131,18 @@ export default function HoiOverview({ onNavigate }: HoiOverviewProps) {
 
       return { ...group, rows, subtotal };
     });
-  }, [students]);
+  }, [rollStudents]);
+
+  const schoolRollGrandTotal = useMemo(() => {
+    return schoolRollGroups.reduce(
+      (acc, group) => ({
+        boys: acc.boys + group.subtotal.boys,
+        girls: acc.girls + group.subtotal.girls,
+        total: acc.total + group.subtotal.total,
+      }),
+      { boys: 0, girls: 0, total: 0 }
+    );
+  }, [schoolRollGroups]);
 
   useEffect(() => {
     const loadOverviewData = async () => {
@@ -166,6 +176,21 @@ export default function HoiOverview({ onNavigate }: HoiOverviewProps) {
 
       setAnnouncements(anns.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
       setAdminAnnouncements(await adminAnnouncementsStorage.getByTargetRole('hoi'));
+
+      const { data: rollRows } = await supabase
+        .from('hoi_students')
+        .select('class_name, gender');
+
+      if (rollRows && Array.isArray(rollRows)) {
+        setRollStudents(
+          rollRows.map((row) => ({
+            class_name: String(row.class_name || ''),
+            gender: row.gender === 'Male' || row.gender === 'Female' ? row.gender : null,
+          }))
+        );
+      } else {
+        setRollStudents([]);
+      }
 
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const cData = months.map((m, i) => {
@@ -390,31 +415,48 @@ export default function HoiOverview({ onNavigate }: HoiOverviewProps) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[220px]">Level / Class</TableHead>
-                    <TableHead className="text-right">Boys</TableHead>
-                    <TableHead className="text-right">Girls</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead className="w-[220px] font-bold">Class</TableHead>
+                    <TableHead className="text-right font-bold">Boys</TableHead>
+                    <TableHead className="text-right font-bold">Girls</TableHead>
+                    <TableHead className="text-right font-bold">Total</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {schoolRollGroups.map((group) => (
+                  {schoolRollGroups.map((group, groupIndex) => (
                     <Fragment key={`${group.section}-group`}>
-                      <TableRow key={`${group.section}-header`} className="bg-muted/40">
-                        <TableCell className="font-semibold">{group.section}</TableCell>
-                        <TableCell className="text-right font-semibold">{group.subtotal.boys}</TableCell>
-                        <TableCell className="text-right font-semibold">{group.subtotal.girls}</TableCell>
-                        <TableCell className="text-right font-semibold">{group.subtotal.total}</TableCell>
+                      <TableRow key={`${group.section}-header`} className="bg-muted/30">
+                        <TableCell className="font-semibold" colSpan={4}>{group.section}</TableCell>
                       </TableRow>
-                      {group.rows.map((row) => (
-                        <TableRow key={`${group.section}-${row.className}`}>
+                      {group.rows.map((row, rowIndex) => (
+                        <TableRow
+                          key={`${group.section}-${row.className}`}
+                          className={rowIndex % 2 === 0 ? 'bg-background' : 'bg-muted/10'}
+                        >
                           <TableCell className="pl-6">{row.className}</TableCell>
                           <TableCell className="text-right">{row.boys}</TableCell>
                           <TableCell className="text-right">{row.girls}</TableCell>
                           <TableCell className="text-right">{row.total}</TableCell>
                         </TableRow>
                       ))}
+                      <TableRow key={`${group.section}-subtotal`} className="bg-muted/40 font-semibold">
+                        <TableCell>{group.section} Total</TableCell>
+                        <TableCell className="text-right">{group.subtotal.boys}</TableCell>
+                        <TableCell className="text-right">{group.subtotal.girls}</TableCell>
+                        <TableCell className="text-right">{group.subtotal.total}</TableCell>
+                      </TableRow>
+                      {groupIndex < schoolRollGroups.length - 1 && (
+                        <TableRow key={`${group.section}-divider`}>
+                          <TableCell colSpan={4} className="h-0 p-0 border-b border-border/60" />
+                        </TableRow>
+                      )}
                     </Fragment>
                   ))}
+                  <TableRow className="bg-primary/10 font-bold border-t-2 border-primary/30">
+                    <TableCell>Grand Total</TableCell>
+                    <TableCell className="text-right">{schoolRollGrandTotal.boys}</TableCell>
+                    <TableCell className="text-right">{schoolRollGrandTotal.girls}</TableCell>
+                    <TableCell className="text-right">{schoolRollGrandTotal.total}</TableCell>
+                  </TableRow>
                 </TableBody>
               </Table>
             </CardContent>

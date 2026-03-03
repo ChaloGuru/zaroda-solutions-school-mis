@@ -55,7 +55,7 @@ const TeachersInDept = () => {
             <TableRow>
               <TableHead>Staff No</TableHead>
               <TableHead>Name</TableHead>
-              <TableHead>Subjects</TableHead>
+              <TableHead>Learning Areas</TableHead>
               <TableHead>Department</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>

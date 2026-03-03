@@ -148,13 +148,13 @@ export default function DhoiSubjects() {
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!form.name.trim()) e.name = 'Subject name is required';
-    if (!form.code.trim()) e.code = 'Subject code is required';
+    if (!form.name.trim()) e.name = 'Learning area name is required';
+    if (!form.code.trim()) e.code = 'Learning area code is required';
     if (!form.category) e.category = 'Category is required';
     const duplicate = subjects.find(
       (s) => s.code.toLowerCase() === form.code.trim().toLowerCase() && s.id !== editingId
     );
-    if (duplicate) e.code = 'Subject code already exists';
+    if (duplicate) e.code = 'Learning area code already exists';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -198,7 +198,7 @@ export default function DhoiSubjects() {
         category: form.category,
         description: form.description.trim() || undefined,
       });
-      toast({ title: 'Subject Updated', description: `${form.name} has been updated.` });
+      toast({ title: 'Learning Area Updated', description: `${form.name} has been updated.` });
     } else {
       hoiSubjectsStorage.add({
         name: form.name.trim(),
@@ -206,7 +206,7 @@ export default function DhoiSubjects() {
         category: form.category,
         description: form.description.trim() || undefined,
       });
-      toast({ title: 'Subject Added', description: `${form.name} has been added.` });
+      toast({ title: 'Learning Area Added', description: `${form.name} has been added.` });
     }
     setDialogOpen(false);
     reload();
@@ -216,7 +216,7 @@ export default function DhoiSubjects() {
     if (deleteId) {
       const subj = subjects.find((s) => s.id === deleteId);
       hoiSubjectsStorage.remove(deleteId);
-      toast({ title: 'Subject Deleted', description: `${subj?.name || 'Subject'} has been removed.` });
+      toast({ title: 'Learning Area Deleted', description: `${subj?.name || 'Learning Area'} has been removed.` });
       setDeleteDialogOpen(false);
       setDeleteId(null);
       reload();
@@ -234,12 +234,12 @@ export default function DhoiSubjects() {
         <div>
           <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
             <BookOpen className="w-8 h-8 text-primary" />
-            Subjects Management
+            Learning Areas Management
           </h1>
-          <p className="text-muted-foreground mt-1">Manage school subjects and curriculum</p>
+          <p className="text-muted-foreground mt-1">Manage school learning areas and curriculum</p>
         </div>
         <Button onClick={openAdd} className="gap-2">
-          <Plus className="w-4 h-4" /> Add Subject
+          <Plus className="w-4 h-4" /> Add Learning Area
         </Button>
       </div>
 
@@ -249,14 +249,14 @@ export default function DhoiSubjects() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Search subjects by name, code or category..."
+                placeholder="Search learning areas by name, code or category..."
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                 className="pl-10"
               />
             </div>
             <div className="text-sm text-muted-foreground">
-              {filtered.length} subject{filtered.length !== 1 ? 's' : ''} found
+              {filtered.length} learning area{filtered.length !== 1 ? 's' : ''} found
             </div>
           </div>
         </CardContent>
@@ -267,7 +267,7 @@ export default function DhoiSubjects() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Subject</TableHead>
+                <TableHead>Learning Area</TableHead>
                 <TableHead>Code</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Teacher Assignments</TableHead>
@@ -279,7 +279,7 @@ export default function DhoiSubjects() {
               {paginated.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                    No subjects found.
+                    No learning areas found.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -354,16 +354,16 @@ export default function DhoiSubjects() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingId ? 'Edit Subject' : 'Add Subject'}</DialogTitle>
+            <DialogTitle>{editingId ? 'Edit Learning Area' : 'Add Learning Area'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="name">Subject Name *</Label>
+              <Label htmlFor="name">Learning Area Name *</Label>
               <Input id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Mathematics" />
               {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="code">Subject Code *</Label>
+              <Label htmlFor="code">Learning Area Code *</Label>
               <Input id="code" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="e.g. MATH" />
               {errors.code && <p className="text-xs text-destructive">{errors.code}</p>}
             </div>
@@ -389,7 +389,7 @@ export default function DhoiSubjects() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave}>{editingId ? 'Update' : 'Add'} Subject</Button>
+            <Button onClick={handleSave}>{editingId ? 'Update' : 'Add'} Learning Area</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -405,7 +405,7 @@ export default function DhoiSubjects() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Subject</TableHead>
+                <TableHead>Learning Area</TableHead>
                 <TableHead>Class</TableHead>
                 <TableHead>Stream</TableHead>
                 <TableHead>Teacher Name</TableHead>
@@ -416,7 +416,7 @@ export default function DhoiSubjects() {
               {viewPaginated.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                    No assignments found for this subject.
+                    No assignments found for this learning area.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -456,9 +456,9 @@ export default function DhoiSubjects() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Subject</AlertDialogTitle>
+            <AlertDialogTitle>Delete Learning Area</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this subject? This action cannot be undone.
+              Are you sure you want to delete this learning area? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

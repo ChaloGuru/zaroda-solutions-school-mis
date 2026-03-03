@@ -169,7 +169,7 @@ export default function HoiTimetable() {
 
   const validate = () => {
     const e: Record<string, string> = {};
-    if (!form.subject_id) e.subject_id = 'Subject is required';
+    if (!form.subject_id) e.subject_id = 'Learning area is required';
     if (!form.teacher_id) e.teacher_id = 'Teacher is required';
     if (!form.room.trim()) e.room = 'Room is required';
     setErrors(e);
@@ -211,7 +211,7 @@ export default function HoiTimetable() {
     if (selectedClassLevel && subject.category !== selectedClassLevel) {
       toast({
         title: 'Validation Error',
-        description: `Only ${selectedClassLevel} subjects can be scheduled for ${selectedClass.name}.`,
+        description: `Only ${selectedClassLevel} learning areas can be scheduled for ${selectedClass.name}.`,
         variant: 'destructive',
       });
       return;
@@ -417,10 +417,10 @@ export default function HoiTimetable() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>Subject *</Label>
+              <Label>Learning Area *</Label>
               <Select value={form.subject_id} onValueChange={(v) => setForm({ ...form, subject_id: v })}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select subject" />
+                  <SelectValue placeholder="Select learning area" />
                 </SelectTrigger>
                 <SelectContent>
                   {filteredSubjects.map((s) => (

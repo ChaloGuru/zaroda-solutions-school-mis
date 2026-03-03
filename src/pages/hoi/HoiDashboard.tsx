@@ -62,7 +62,7 @@ const menuGroups: MenuGroup[] = [
   {
     label: 'Academic',
     items: [
-      { id: 'subjects', label: 'Subjects', icon: BookOpen },
+      { id: 'subjects', label: 'Learning Areas', icon: BookOpen },
       { id: 'timetable', label: 'Timetable', icon: Calendar },
       { id: 'attendance', label: 'Attendance', icon: ClipboardCheck },
     ],

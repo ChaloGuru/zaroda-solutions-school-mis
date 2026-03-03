@@ -41,7 +41,7 @@ const SubjectsCurriculum = () => {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">Subjects & Curriculum</h2>
+        <h2 className="text-lg font-semibold">Learning Areas & Curriculum</h2>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button>Add Scheme of Work</Button>
@@ -50,7 +50,7 @@ const SubjectsCurriculum = () => {
             <DialogHeader><DialogTitle>New Scheme</DialogTitle></DialogHeader>
             <div className="space-y-3 mt-2">
               <div><Label>Term</Label><Input value={form.term} onChange={(e) => setForm({ ...form, term: e.target.value })} /></div>
-              <div><Label>Subject</Label><Input value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} /></div>
+              <div><Label>Learning Area</Label><Input value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} /></div>
               <div><Label>Class</Label><Input value={form.className} onChange={(e) => setForm({ ...form, className: e.target.value })} /></div>
               <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setOpen(false)}>Cancel</Button><Button onClick={createScheme}>Create</Button></div>
             </div>
@@ -63,7 +63,7 @@ const SubjectsCurriculum = () => {
           <TableHeader>
             <TableRow>
               <TableHead>Term</TableHead>
-              <TableHead>Subject</TableHead>
+              <TableHead>Learning Area</TableHead>
               <TableHead>Class</TableHead>
               <TableHead>Weeks</TableHead>
             </TableRow>

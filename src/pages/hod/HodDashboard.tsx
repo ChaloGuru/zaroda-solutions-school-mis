@@ -23,7 +23,7 @@ const menuGroups: MenuGroup[] = [
     label: 'People & Curriculum',
     items: [
       { id: 'teachers', label: 'Teachers', icon: Users },
-      { id: 'subjects', label: 'Subjects & Curriculum', icon: BookOpen },
+      { id: 'subjects', label: 'Learning Areas & Curriculum', icon: BookOpen },
       { id: 'lessons', label: 'Lesson Notes', icon: FileText },
       { id: 'exams', label: 'Exams & Assessment', icon: Calendar },
     ],

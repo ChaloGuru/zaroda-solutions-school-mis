@@ -154,7 +154,7 @@ export default function ClassReports({ classId, className, streamId, streamName 
       <Tabs defaultValue="overall">
         <TabsList className="mb-6">
           <TabsTrigger value="overall" className="gap-2"><BarChart3 className="w-4 h-4" />Overall Results</TabsTrigger>
-          <TabsTrigger value="subjects" className="gap-2"><FileText className="w-4 h-4" />Subject Analysis</TabsTrigger>
+          <TabsTrigger value="subjects" className="gap-2"><FileText className="w-4 h-4" />Learning Area Analysis</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overall">
@@ -239,9 +239,9 @@ export default function ClassReports({ classId, className, streamId, streamName 
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <FileText className="w-4 h-4 text-primary" />
-                  Subject Performance Analysis - Term {selectedTerm}
+                  Learning Area Performance Analysis - Term {selectedTerm}
                 </CardTitle>
-                <Button variant="outline" size="sm" onClick={() => subjectReportRef.current && void exportToPdf(subjectReportRef.current.id, { title: `${className} ${streamName} Subject Analysis`, filename: `${className}_${streamName}_Subject_Analysis.pdf` })}>
+                <Button variant="outline" size="sm" onClick={() => subjectReportRef.current && void exportToPdf(subjectReportRef.current.id, { title: `${className} ${streamName} Learning Area Analysis`, filename: `${className}_${streamName}_Learning_Area_Analysis.pdf` })}>
                   <Download className="w-4 h-4 mr-1" />PDF
                 </Button>
               </div>
@@ -251,7 +251,7 @@ export default function ClassReports({ classId, className, streamId, streamName 
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="font-bold">Subject</TableHead>
+                      <TableHead className="font-bold">Learning Area</TableHead>
                       <TableHead className="text-center font-bold">Assessed</TableHead>
                       <TableHead className="text-center font-bold">Average</TableHead>
                       <TableHead className="text-center font-bold">Highest</TableHead>
@@ -261,7 +261,7 @@ export default function ClassReports({ classId, className, streamId, streamName 
                   </TableHeader>
                   <TableBody>
                     {subjectAverages.length === 0 ? (
-                      <TableRow><TableCell colSpan={6} className="text-center text-gray-500 py-8">No subjects assigned to this class.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={6} className="text-center text-gray-500 py-8">No learning areas assigned to this class.</TableCell></TableRow>
                     ) : subjectAverages.map(s => (
                       <TableRow key={s.subject}>
                         <TableCell className="font-medium">{s.subject}</TableCell>

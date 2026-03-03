@@ -96,7 +96,7 @@ export default function DhoiOverview({ onNavigate }: DhoiOverviewProps) {
     subjects.slice(0, 2).forEach((s) => {
       recentActivities.push({
         id: `subject-${s.id}`,
-        message: `Subject "${s.name}" (${s.code}) assigned as ${s.category}`,
+        message: `Learning area "${s.name}" (${s.code}) assigned as ${s.category}`,
         timestamp: new Date().toISOString().split('T')[0],
         type: 'subject',
       });
@@ -118,7 +118,7 @@ export default function DhoiOverview({ onNavigate }: DhoiOverviewProps) {
     { label: 'Total Teachers', value: totalTeachers, icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-500/10' },
     { label: 'Total Students', value: totalStudents, icon: GraduationCap, color: 'text-primary', bg: 'bg-primary/10' },
     { label: 'Total Classes', value: totalClasses, icon: Layers, color: 'text-violet-600', bg: 'bg-violet-500/10' },
-    { label: 'Total Subjects', value: totalSubjects, icon: BookOpen, color: 'text-amber-600', bg: 'bg-amber-500/10' },
+    { label: 'Total Learning Areas', value: totalSubjects, icon: BookOpen, color: 'text-amber-600', bg: 'bg-amber-500/10' },
     {
       label: 'Timetable Status',
       value: timetableGenerated ? 'Generated' : 'Not Generated',
@@ -130,7 +130,7 @@ export default function DhoiOverview({ onNavigate }: DhoiOverviewProps) {
 
   const quickActions = [
     { label: 'Add Teacher', icon: Plus, section: 'Teachers' },
-    { label: 'Assign Subject', icon: BookOpen, section: 'Subjects' },
+    { label: 'Assign Learning Area', icon: BookOpen, section: 'Learning Areas' },
     { label: 'Review Auto Timetable', icon: Calendar, section: 'Timetable' },
     { label: 'View Roster', icon: ClipboardList, section: 'Roster' },
   ];

@@ -57,7 +57,7 @@ const LessonNotes = () => {
             <TableRow>
               <TableHead>Title</TableHead>
               <TableHead>Teacher</TableHead>
-              <TableHead>Subject</TableHead>
+              <TableHead>Learning Area</TableHead>
               <TableHead>Class</TableHead>
               <TableHead>Week</TableHead>
               <TableHead>Status</TableHead>

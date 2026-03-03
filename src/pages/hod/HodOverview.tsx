@@ -91,7 +91,7 @@ const HodOverview = ({ onNavigate }: { onNavigate?: (s: string) => void }) => {
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card className="p-4">Teachers<br/><div className="text-2xl font-bold">{teachers.length}</div></Card>
-        <Card className="p-4">Subjects<br/><div className="text-2xl font-bold">{schemes.length}</div></Card>
+        <Card className="p-4">Learning Areas<br/><div className="text-2xl font-bold">{schemes.length}</div></Card>
         <Card className="p-4">Students<br/><div className="text-2xl font-bold">{studentsTaking}</div></Card>
         <Card className="p-4">Average Performance<br/><div className="text-2xl font-bold">{avgPerformance}%</div></Card>
         <Card className="p-4">Lessons (7d)<br/><div className="text-2xl font-bold">{recentLessonNotes.length}</div></Card>
@@ -99,7 +99,7 @@ const HodOverview = ({ onNavigate }: { onNavigate?: (s: string) => void }) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="col-span-2 bg-card border border-border rounded-md p-4">
-          <h3 className="font-semibold mb-2">Performance by Subject</h3>
+          <h3 className="font-semibold mb-2">Performance by Learning Area</h3>
           <div style={{ height: 260 }}>
             <ResponsiveContainer>
               <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>

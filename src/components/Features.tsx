@@ -6,7 +6,7 @@ const Features = () => {
       icon: FileBarChart,
       title: 'Automatic Results Generation',
       description:
-        'Class termly summative reports are automatically generated when subject teachers upload scores. The report is instantly generated.',
+        'Class termly summative reports are automatically generated when learning area teachers upload scores. The report is instantly generated.',
       color: 'primary',
     },
     {

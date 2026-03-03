@@ -297,10 +297,10 @@ const Dashboard = () => {
                 </Select>
               </div>
               <div>
-                <Label className="text-xs uppercase tracking-wide text-gray-500">Subject</Label>
+                <Label className="text-xs uppercase tracking-wide text-gray-500">Learning Area</Label>
                 <Select value={selectedAssessmentSubject} onValueChange={setSelectedAssessmentSubject}>
                   <SelectTrigger className="h-9 mt-1">
-                    <SelectValue placeholder="Select subject" />
+                    <SelectValue placeholder="Select learning area" />
                   </SelectTrigger>
                   <SelectContent>
                     {assessmentSubjectOptions.map((subjectOption) => (
@@ -332,7 +332,7 @@ const Dashboard = () => {
               Assessment Book Not Available
             </CardTitle>
             <CardDescription>
-              No class-subject assignment was found for your account. Please ask HOI/DHOI to assign at least one subject and class.
+              No class-learning area assignment was found for your account. Please ask HOI/DHOI to assign at least one learning area and class.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -353,7 +353,7 @@ const Dashboard = () => {
                 <div className="text-center py-12">
                   <AlertCircle size={48} className="mx-auto text-gray-400 mb-4" />
                   <h3 className="text-lg font-semibold text-gray-700 mb-2">Your timetable has not been set yet</h3>
-                  <p className="text-gray-500">The timetable is generated automatically once subject assignments are available.</p>
+                  <p className="text-gray-500">The timetable is generated automatically once learning area assignments are available.</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -362,7 +362,7 @@ const Dashboard = () => {
                       <TableRow>
                         <TableHead className="bg-muted text-foreground font-semibold">Day</TableHead>
                         <TableHead className="bg-muted text-foreground font-semibold">Time</TableHead>
-                        <TableHead className="bg-muted text-foreground font-semibold">Subject</TableHead>
+                        <TableHead className="bg-muted text-foreground font-semibold">Learning Area</TableHead>
                         <TableHead className="bg-muted text-foreground font-semibold">Class</TableHead>
                         <TableHead className="bg-muted text-foreground font-semibold">Stream</TableHead>
                       </TableRow>
@@ -449,7 +449,7 @@ const Dashboard = () => {
                   )}
                   {currentUser.subject && (
                     <div className="space-y-1">
-                      <Label className="text-gray-500 text-xs uppercase tracking-wide">Subject</Label>
+                      <Label className="text-gray-500 text-xs uppercase tracking-wide">Learning Area</Label>
                       <p className="flex items-center gap-2 text-gray-700">
                         <BookOpen size={14} className="text-gray-400" />
                         {currentUser.subject}
