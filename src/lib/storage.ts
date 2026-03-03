@@ -115,7 +115,7 @@ export interface PlatformUser {
   id: string;
   email: string;
   fullName: string;
-  role: 'hoi' | 'teacher' | 'dhoi' | 'student' | 'parent';
+  role: 'hoi' | 'teacher' | 'dhoi' | 'hod' | 'student' | 'parent';
   schoolCode: string;
   schoolName: string;
   phone: string;
