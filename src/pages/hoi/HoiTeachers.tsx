@@ -1017,26 +1017,6 @@ export default function HoiTeachers() {
     } else {
       importedCount = teacherImportPayload.length;
 
-      (insertedTeachers || []).forEach((teacher: any) => {
-        hoiTeachersStorage.add({
-          id: teacher.id,
-          full_name: teacher.full_name || '',
-          email: teacher.email || '',
-          phone: teacher.phone || '',
-          employee_id: teacher.employee_id || '',
-          subject_specialization: teacher.subject_specialization || '',
-          gender: teacher.gender === 'Female' ? 'Female' : 'Male',
-          qualification: teacher.qualification || '',
-          status: teacher.status || 'active',
-          hired_at: teacher.hired_at || new Date().toISOString().split('T')[0],
-          is_class_teacher: !!teacher.is_class_teacher,
-          class_teacher_class_id: teacher.class_teacher_class_id || undefined,
-          class_teacher_class_name: teacher.class_teacher_class_name || undefined,
-          class_teacher_stream_id: teacher.class_teacher_stream_id || undefined,
-          class_teacher_stream_name: teacher.class_teacher_stream_name || undefined,
-        });
-      });
-
       const teacherCodeRows = (insertedTeachers || [])
         .map((teacher: any) => {
           const code = teacherImportCodes[String(teacher.email || '').toLowerCase()];
