@@ -5,6 +5,7 @@ import {
   hoiStudentsStorage,
   hoiClassesStorage,
   hoiSubjectsStorage,
+  hoiTimetableStorage,
   HoiTeacher,
 } from '@/lib/hoiStorage';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,7 +25,6 @@ import {
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
 import { useToast } from '@/hooks/use-toast';
-import { getJsonValue } from '@/lib/appKv';
 
 interface DhoiOverviewProps {
   onNavigate: (section: string) => void;
@@ -64,8 +64,8 @@ export default function DhoiOverview({ onNavigate }: DhoiOverviewProps) {
     setTotalClasses(classes.length);
     setTotalSubjects(subjects.length);
 
-    const masterTimetable = getJsonValue<unknown[]>('zaroda_master_timetable', []);
-    setTimetableGenerated(masterTimetable.length > 0);
+    const timetableSlots = hoiTimetableStorage.getAll();
+    setTimetableGenerated(timetableSlots.length > 0);
 
     const statusCounts: Record<string, number> = { active: 0, on_leave: 0, deactivated: 0 };
     teachers.forEach((t: HoiTeacher) => {
@@ -102,7 +102,7 @@ export default function DhoiOverview({ onNavigate }: DhoiOverviewProps) {
       });
     });
 
-    if (masterTimetable.length > 0) {
+    if (timetableSlots.length > 0) {
       recentActivities.push({
         id: 'timetable-gen',
         message: 'Master timetable generated successfully',

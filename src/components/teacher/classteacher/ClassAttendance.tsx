@@ -8,7 +8,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ClipboardCheck, Save, Calendar, CheckCircle, XCircle, Search } from 'lucide-react';
 import { hoiStudentsStorage, hoiAttendanceStorage, HoiStudent, HoiAttendance } from '@/lib/hoiStorage';
 import { useToast } from '@/hooks/use-toast';
-import { setJsonValue } from '@/lib/appKv';
 
 interface ClassAttendanceProps {
   classId: string;
@@ -58,7 +57,10 @@ export default function ClassAttendance({ classId, className, streamId, streamNa
 
   const saveAttendance = () => {
     const allAtt = hoiAttendanceStorage.getAll();
-    const filtered = allAtt.filter(a => !(a.class_id === classId && a.stream_id === streamId && a.date === selectedDate));
+    const existingForDate = allAtt.filter(a => a.class_id === classId && a.stream_id === streamId && a.date === selectedDate);
+    existingForDate.forEach((record) => {
+      hoiAttendanceStorage.remove(record.id);
+    });
 
     const newRecords = students.map(s => ({
       student_id: s.id,
@@ -72,10 +74,9 @@ export default function ClassAttendance({ classId, className, streamId, streamNa
       marked_by: teacherName,
     }));
 
-    newRecords.forEach(r => {
-      filtered.push({ ...r, id: crypto.randomUUID() } as HoiAttendance);
+    newRecords.forEach((record) => {
+      hoiAttendanceStorage.add(record as Omit<HoiAttendance, 'id'>);
     });
-    setJsonValue('zaroda_hoi_attendance', filtered);
 
     toast({ title: 'Attendance Saved', description: `Attendance for ${selectedDate} has been saved for ${className} ${streamName}.` });
     loadData();

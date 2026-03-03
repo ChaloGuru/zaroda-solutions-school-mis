@@ -62,7 +62,6 @@ import {
   Eye,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getJsonValue } from '@/lib/appKv';
 
 const PAGE_SIZE = 10;
 
@@ -73,11 +72,6 @@ const emptyForm = {
   description: '',
 };
 
-interface TeacherCode {
-  teacher_id: string;
-  code: string;
-}
-
 export default function DhoiSubjects() {
   const { toast } = useToast();
   const [subjects, setSubjects] = useState<HoiSubject[]>([]);
@@ -85,7 +79,6 @@ export default function DhoiSubjects() {
   const [teachers, setTeachers] = useState<HoiTeacher[]>([]);
   const [classes, setClasses] = useState<HoiClass[]>([]);
   const [streams, setStreams] = useState<HoiStream[]>([]);
-  const [teacherCodes, setTeacherCodes] = useState<TeacherCode[]>([]);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -112,9 +105,6 @@ export default function DhoiSubjects() {
     setTeachers(hoiTeachersStorage.getAll());
     setClasses(hoiClassesStorage.getAll());
     setStreams(hoiStreamsStorage.getAll());
-    const storedCodes = getJsonValue<Record<string, string>>('zaroda_teacher_codes', {});
-    const mappedCodes = Object.entries(storedCodes).map(([teacher_id, code]) => ({ teacher_id, code }));
-    setTeacherCodes(mappedCodes);
   };
 
   useEffect(() => { reload(); }, []);
@@ -142,8 +132,8 @@ export default function DhoiSubjects() {
   };
 
   const getTeacherCode = (teacherId: string) => {
-    const found = teacherCodes.find((tc) => tc.teacher_id === teacherId);
-    return found?.code || '—';
+    const teacher = teachers.find((t) => t.id === teacherId);
+    return teacher?.employee_id || '—';
   };
 
   const validate = () => {

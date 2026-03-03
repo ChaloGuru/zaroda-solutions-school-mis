@@ -4,7 +4,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { hodStorage } from '@/lib/storage';
-import { getJsonValue, setJsonValue } from '@/lib/appKv';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 
@@ -25,15 +24,6 @@ const ManageHods = () => {
 
   const reset = () => setForm({ fullName: '', email: '', password: '', phone: '', employeeId: '', department: DEPARTMENTS[0], hodCode: '' });
 
-  const savePassword = (email: string, pwd: string) => {
-    try {
-      const key = 'zaroda_passwords';
-      const pwds = getJsonValue<Record<string, string>>(key, {});
-      pwds[email.toLowerCase()] = pwd;
-      setJsonValue(key, pwds);
-    } catch (e) { /* ignore */ }
-  };
-
   const handleCreate = async () => {
     // validation
     if (!form.fullName.trim() || !form.email.trim() || !form.password.trim() || !form.department.trim()) {
@@ -50,7 +40,6 @@ const ManageHods = () => {
     if (existing) { toast({ title: 'Exists', description: 'An HOD with this email already exists.', variant: 'destructive' }); return; }
 
     const created = await hodStorage.add({ fullName: form.fullName.trim(), email: emailVal, phone: form.phone.trim(), employeeId: form.employeeId.trim(), department: form.department, hodCode: form.hodCode.trim(), schoolCode: '' });
-    savePassword(created.email, form.password.trim());
     setHods(await hodStorage.getAll());
     toast({ title: 'HOD created', description: `${created.fullName} created successfully.` });
     reset();

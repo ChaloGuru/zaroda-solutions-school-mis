@@ -1,5 +1,5 @@
-import { getJsonValue, removeJsonValue, setJsonValue } from '@/lib/appKv';
-import { CBC_HOI_SUBJECTS, CBC_SUBJECT_NAME_TO_LEVEL, type CbcSubjectLevel } from '@/lib/cbcSubjects';
+import { supabase } from '@/lib/supabase';
+import { type CbcSubjectLevel } from '@/lib/cbcSubjects';
 
 export interface HoiClass {
   id: string;
@@ -7,8 +7,6 @@ export interface HoiClass {
   level: 'ecde' | 'primary' | 'junior_secondary';
   created_at: string;
 }
-
-type LegacyHoiClass = HoiClass & { level?: HoiClass['level'] | 'secondary' };
 
 export interface HoiStream {
   id: string;
@@ -261,585 +259,389 @@ export interface HoiCalendarEvent {
   description?: string;
 }
 
-function getData<T>(key: string): T[] {
-  return getJsonValue<T[]>(key, []);
+type RowMapper<T> = (row: any) => T;
+type InsertMapper<T> = (item: Omit<T, 'id'>) => Record<string, unknown>;
+type UpdateMapper<T> = (updates: Partial<T>) => Record<string, unknown>;
+
+function createStore<T extends { id: string }>(
+  table: string,
+  mapRow: RowMapper<T>,
+  mapInsert: InsertMapper<T>,
+  mapUpdate: UpdateMapper<T> = (updates) => updates as Record<string, unknown>
+) {
+  let cache: T[] = [];
+  let hydrated = false;
+
+  const refresh = async () => {
+    try {
+      const { data, error } = await supabase.from(table).select('*');
+      if (error) return;
+      cache = (data || []).map(mapRow);
+      hydrated = true;
+    } catch {
+    }
+  };
+
+  const ensureHydrated = () => {
+    if (!hydrated) {
+      hydrated = true;
+      void refresh();
+    }
+  };
+
+  return {
+    getAll: (): T[] => {
+      ensureHydrated();
+      return [...cache];
+    },
+    add: (item: Omit<T, 'id'>): T => {
+      ensureHydrated();
+      const optimistic = { ...item, id: crypto.randomUUID() } as T;
+      cache = [...cache, optimistic];
+      void (async () => {
+        const { data, error } = await supabase.from(table).insert(mapInsert(item)).select().maybeSingle();
+        if (!error && data) {
+          const mapped = mapRow(data);
+          cache = cache.map((row) => (row.id === optimistic.id ? mapped : row));
+        }
+      })();
+      return optimistic;
+    },
+    update: (id: string, updates: Partial<T>): T | undefined => {
+      ensureHydrated();
+      let updatedRow: T | undefined;
+      cache = cache.map((row) => {
+        if (row.id !== id) return row;
+        updatedRow = { ...row, ...updates };
+        return updatedRow;
+      });
+      if (!updatedRow) return undefined;
+      void supabase.from(table).update(mapUpdate(updates)).eq('id', id);
+      return updatedRow;
+    },
+    remove: (id: string): void => {
+      ensureHydrated();
+      cache = cache.filter((row) => row.id !== id);
+      void supabase.from(table).delete().eq('id', id);
+    },
+    refresh,
+  };
 }
 
-function setData<T>(key: string, data: T[]): void {
-  setJsonValue(key, data);
-}
+const mapClass = (row: any): HoiClass => ({
+  id: row.id,
+  name: row.name || '',
+  level: row.level || 'primary',
+  created_at: row.created_at || new Date().toISOString(),
+});
 
-function addItem<T extends { id: string }>(key: string, item: Omit<T, 'id'>): T {
-  const data = getData<T>(key);
-  const newItem = { ...item, id: crypto.randomUUID() } as T;
-  data.push(newItem);
-  setData(key, data);
-  return newItem;
-}
+const mapStream = (row: any): HoiStream => ({
+  id: row.id,
+  class_id: row.class_id || '',
+  name: row.name || '',
+  class_teacher_id: row.class_teacher_id || undefined,
+  class_teacher_name: row.class_teacher_name || undefined,
+  student_count: Number(row.student_count || 0),
+});
 
-function updateItem<T extends { id: string }>(key: string, id: string, updates: Partial<T>): T | undefined {
-  const data = getData<T>(key);
-  const idx = data.findIndex((item) => item.id === id);
-  if (idx === -1) return undefined;
-  data[idx] = { ...data[idx], ...updates };
-  setData(key, data);
-  return data[idx];
-}
+const mapTeacher = (row: any): HoiTeacher => ({
+  id: row.id,
+  full_name: row.full_name || '',
+  email: row.email || '',
+  phone: row.phone || '',
+  employee_id: row.employee_id || '',
+  subject_specialization: row.subject_specialization || '',
+  gender: row.gender === 'Female' ? 'Female' : 'Male',
+  qualification: row.qualification || '',
+  status: row.status || 'active',
+  hired_at: row.hired_at || '',
+  is_class_teacher: Boolean(row.is_class_teacher),
+  class_teacher_class_id: row.class_teacher_class_id || undefined,
+  class_teacher_class_name: row.class_teacher_class_name || undefined,
+  class_teacher_stream_id: row.class_teacher_stream_id || undefined,
+  class_teacher_stream_name: row.class_teacher_stream_name || undefined,
+});
 
-function deleteItem<T extends { id: string }>(key: string, id: string): void {
-  const data = getData<T>(key).filter((item) => item.id !== id);
-  setData(key, data);
-}
+const mapSubject = (row: any): HoiSubject => ({
+  id: row.id,
+  name: row.name || '',
+  code: row.code || '',
+  category: row.category || 'Junior School',
+  description: row.description || undefined,
+});
 
-function getSeeded<T>(key: string, seed: T[]): T[] {
-  return getJsonValue<T[]>(key, seed);
-}
+const mapAssignment = (row: any): HoiSubjectAssignment => ({
+  id: row.id,
+  teacher_id: row.teacher_id || '',
+  teacher_name: row.teacher_name || '',
+  subject_id: row.subject_id || '',
+  subject_name: row.subject_name || '',
+  class_id: row.class_id || '',
+  class_name: row.class_name || '',
+  stream_id: row.stream_id || '',
+  stream_name: row.stream_name || '',
+});
 
-function getObject<T>(key: string, defaultValue: T): T {
-  return getJsonValue<T>(key, defaultValue);
-}
+const mapDuty = (row: any): HoiTeacherDuty => ({
+  id: row.id,
+  teacher_id: row.teacher_id || '',
+  teacher_name: row.teacher_name || '',
+  teacher_two_id: row.teacher_two_id || '',
+  teacher_two_name: row.teacher_two_name || '',
+  from_date: row.from_date || '',
+  to_date: row.to_date || '',
+  remarks: row.remarks || '',
+  duty_type: row.duty_type || undefined,
+  day: row.day || undefined,
+  time_slot: row.time_slot || undefined,
+});
 
-function setObject<T>(key: string, data: T): void {
-  setJsonValue(key, data);
-}
+const mapStudent = (row: any): HoiStudent => ({
+  id: row.id,
+  full_name: row.full_name || '',
+  admission_no: row.admission_no || '',
+  upi: row.upi || '',
+  class_id: row.class_id || '',
+  class_name: row.class_name || '',
+  stream_id: row.stream_id || '',
+  stream_name: row.stream_name || '',
+  gender: row.gender === 'Female' ? 'Female' : 'Male',
+  date_of_birth: row.date_of_birth || '',
+  guardian_name: row.guardian_name || '',
+  guardian_phone: row.guardian_phone || '',
+  guardian_email: row.guardian_email || '',
+  status: row.status || 'active',
+  enrolled_at: row.enrolled_at || row.created_at || '',
+});
 
-const HOI_STUDENTS_KEY = 'zaroda_hoi_students';
-const HOI_STUDENTS_MIGRATION_KEY = 'zaroda_hoi_students_seed_migrated_v1';
-const LEGACY_SEED_STUDENT_NAMES = new Set([
-  'Mercy Njeri',
-  'Victor Mwangi',
-  'Angela Wambui',
-  'Kevin Odhiambo',
-  'Faith Akinyi',
-  'Brian Kiprop',
-  'Dennis Otieno',
-  'Lucy Chebet',
-  'Grace Wanjiku',
-  'James Kamau',
-]);
+const mapOfficial = (row: any): HoiOfficial => ({
+  id: row.id,
+  full_name: row.full_name || '',
+  role: row.role || 'Senior Teacher',
+  department: row.department || undefined,
+  email: row.email || undefined,
+  phone: row.phone || undefined,
+  status: row.status || 'active',
+});
 
-function looksLikeLegacySeedStudent(value: unknown): boolean {
-  if (!value || typeof value !== 'object') return false;
-  const row = value as { id?: unknown; full_name?: unknown; admission_no?: unknown };
-  const id = typeof row.id === 'string' ? row.id : '';
-  const fullName = typeof row.full_name === 'string' ? row.full_name : '';
-  const admissionNo = typeof row.admission_no === 'string' ? row.admission_no : '';
-  return (/^hs\d+$/i.test(id) && admissionNo.startsWith('ADM-2025-')) || LEGACY_SEED_STUDENT_NAMES.has(fullName);
-}
+const mapTimetable = (row: any): HoiTimetableSlot => ({
+  id: row.id,
+  class_id: row.class_id || '',
+  class_name: row.class_name || '',
+  stream_id: row.stream_id || '',
+  stream_name: row.stream_name || '',
+  day: row.day || 'Monday',
+  period: Number(row.period || 0),
+  time_start: row.time_start || '',
+  time_end: row.time_end || '',
+  subject_id: row.subject_id || '',
+  subject_name: row.subject_name || '',
+  teacher_id: row.teacher_id || '',
+  teacher_name: row.teacher_name || '',
+  room: row.room || '',
+});
 
-function runHoiStudentsSeedMigrationGuard(): void {
-  const migrated = getJsonValue<boolean>(HOI_STUDENTS_MIGRATION_KEY, false);
-  if (migrated) return;
+const mapAttendance = (row: any): HoiAttendance => ({
+  id: row.id,
+  student_id: row.student_id || '',
+  student_name: row.student_name || '',
+  class_id: row.class_id || '',
+  class_name: row.class_name || '',
+  stream_id: row.stream_id || '',
+  stream_name: row.stream_name || '',
+  date: row.date || '',
+  status: row.status || 'present',
+  marked_by: row.marked_by || '',
+});
 
-  const existing = getJsonValue<unknown[]>(HOI_STUDENTS_KEY, []);
-  if (existing.some(looksLikeLegacySeedStudent)) {
-    removeJsonValue(HOI_STUDENTS_KEY);
-  }
+const mapFee = (row: any): HoiFeePayment => ({
+  id: row.id,
+  student_id: row.student_id || '',
+  student_name: row.student_name || '',
+  admission_no: row.admission_no || '',
+  amount: Number(row.amount || 0),
+  term: row.term || 'Term 1',
+  year: Number(row.year || new Date().getFullYear()),
+  date: row.date || '',
+  payment_method: row.payment_method || 'cash',
+  receipt_no: row.receipt_no || '',
+  recorded_by: row.recorded_by || '',
+});
 
-  setJsonValue(HOI_STUDENTS_MIGRATION_KEY, true);
-}
+const mapExpense = (row: any): HoiExpense => ({
+  id: row.id,
+  item: row.item || '',
+  amount: Number(row.amount || 0),
+  category: row.category || 'other',
+  date: row.date || '',
+  approved_by: row.approved_by || '',
+  notes: row.notes || undefined,
+});
 
-runHoiStudentsSeedMigrationGuard();
+const mapBook = (row: any): HoiBook => ({
+  id: row.id,
+  title: row.title || '',
+  author: row.author || '',
+  isbn: row.isbn || '',
+  copies_available: Number(row.copies_available || 0),
+  total_copies: Number(row.total_copies || 0),
+  category: row.category || 'textbook',
+});
 
-const SEED_CLASSES: HoiClass[] = [
-  { id: 'c1', name: 'PP1', level: 'ecde', created_at: '2025-01-10' },
-  { id: 'c2', name: 'PP2', level: 'ecde', created_at: '2025-01-10' },
-  { id: 'c3', name: 'Grade 1', level: 'primary', created_at: '2025-01-10' },
-  { id: 'c4', name: 'Grade 2', level: 'primary', created_at: '2025-01-10' },
-  { id: 'c5', name: 'Grade 3', level: 'primary', created_at: '2025-01-10' },
-  { id: 'c6', name: 'Grade 4', level: 'primary', created_at: '2025-01-10' },
-  { id: 'c7', name: 'Grade 5', level: 'primary', created_at: '2025-01-10' },
-  { id: 'c8', name: 'Grade 6', level: 'primary', created_at: '2025-01-10' },
-  { id: 'c9', name: 'Grade 7', level: 'junior_secondary', created_at: '2025-01-10' },
-  { id: 'c10', name: 'Grade 8', level: 'junior_secondary', created_at: '2025-01-10' },
-  { id: 'c11', name: 'Grade 9', level: 'junior_secondary', created_at: '2025-01-10' },
-];
+const mapBookIssue = (row: any): HoiBookIssue => ({
+  id: row.id,
+  book_id: row.book_id || '',
+  book_title: row.book_title || '',
+  student_id: row.student_id || '',
+  student_name: row.student_name || '',
+  date_issued: row.date_issued || '',
+  due_date: row.due_date || '',
+  date_returned: row.date_returned || undefined,
+  status: row.status || 'issued',
+});
 
-const SEED_STREAMS: HoiStream[] = [
-  { id: 'str1', class_id: 'c9', name: 'East', class_teacher_id: 't1', class_teacher_name: 'Jane Muthoni', student_count: 42 },
-  { id: 'str2', class_id: 'c9', name: 'West', class_teacher_id: 't2', class_teacher_name: 'Robert Ouma', student_count: 40 },
-  { id: 'str3', class_id: 'c10', name: 'East', class_teacher_id: 't3', class_teacher_name: 'Alice Njoroge', student_count: 38 },
-  { id: 'str4', class_id: 'c10', name: 'West', class_teacher_id: 't4', class_teacher_name: 'Thomas Kimani', student_count: 41 },
-  { id: 'str5', class_id: 'c11', name: 'East', class_teacher_id: 't5', class_teacher_name: 'Caroline Achieng', student_count: 39 },
-  { id: 'str6', class_id: 'c11', name: 'West', class_teacher_id: 't6', class_teacher_name: 'Emmanuel Kipchoge', student_count: 37 },
-  { id: 'str7', class_id: 'c8', name: 'A', class_teacher_id: 't7', class_teacher_name: 'Diana Wairimu', student_count: 44 },
-  { id: 'str8', class_id: 'c1', name: 'A', student_count: 35 },
-  { id: 'str9', class_id: 'c2', name: 'A', student_count: 33 },
-];
+const mapSport = (row: any): HoiSport => ({
+  id: row.id,
+  name: row.name || '',
+  category: row.category || 'team',
+  coach_name: row.coach_name || undefined,
+});
 
-const SEED_TEACHERS: HoiTeacher[] = [
-  { id: 't1', full_name: 'Jane Muthoni', email: 'j.muthoni@school.ac.ke', phone: '+254 711 100 002', employee_id: 'EMP-001', subject_specialization: 'Mathematics', gender: 'Female', qualification: 'B.Ed Mathematics', status: 'active', hired_at: '2021-03-10' },
-  { id: 't2', full_name: 'Robert Ouma', email: 'r.ouma@school.ac.ke', phone: '+254 711 200 001', employee_id: 'EMP-002', subject_specialization: 'English', gender: 'Male', qualification: 'M.Ed Administration', status: 'active', hired_at: '2019-06-15' },
-  { id: 't3', full_name: 'Alice Njoroge', email: 'a.njoroge@school.ac.ke', phone: '+254 711 200 002', employee_id: 'EMP-003', subject_specialization: 'English', gender: 'Female', qualification: 'B.Ed English', status: 'active', hired_at: '2022-01-20' },
-  { id: 't4', full_name: 'Thomas Kimani', email: 't.kimani@school.ac.ke', phone: '+254 711 300 001', employee_id: 'EMP-004', subject_specialization: 'Integrated Science', gender: 'Male', qualification: 'M.Ed Science Education', status: 'active', hired_at: '2020-09-01' },
-  { id: 't5', full_name: 'Caroline Achieng', email: 'c.achieng@school.ac.ke', phone: '+254 711 300 002', employee_id: 'EMP-005', subject_specialization: 'Kiswahili', gender: 'Female', qualification: 'B.Ed Kiswahili', status: 'on_leave', hired_at: '2021-05-15' },
-  { id: 't6', full_name: 'Emmanuel Kipchoge', email: 'e.kipchoge@school.ac.ke', phone: '+254 711 400 001', employee_id: 'EMP-006', subject_specialization: 'Physical Education', gender: 'Male', qualification: 'B.Ed PE', status: 'active', hired_at: '2023-02-01' },
-  { id: 't7', full_name: 'Diana Wairimu', email: 'd.wairimu@school.ac.ke', phone: '+254 711 600 001', employee_id: 'EMP-007', subject_specialization: 'Science & Technology', gender: 'Female', qualification: 'M.Ed Curriculum', status: 'active', hired_at: '2020-03-10' },
-  { id: 't8', full_name: 'Samuel Kariuki', email: 's.kariuki@school.ac.ke', phone: '+254 711 100 001', employee_id: 'EMP-008', subject_specialization: 'Pre-Technical Studies', gender: 'Male', qualification: 'PhD Education', status: 'active', hired_at: '2020-01-05' },
-];
+const mapSportsTeam = (row: any): HoiSportsTeam => ({
+  id: row.id,
+  sport_id: row.sport_id || '',
+  sport_name: row.sport_name || '',
+  student_id: row.student_id || '',
+  student_name: row.student_name || '',
+  admission_no: row.admission_no || '',
+  class_name: row.class_name || '',
+  stream_name: row.stream_name || '',
+  date_of_birth: row.date_of_birth || '',
+  upi: row.upi || '',
+  position: row.position || undefined,
+});
 
-const SEED_SUBJECTS: HoiSubject[] = CBC_HOI_SUBJECTS;
+const mapSportsEvent = (row: any): HoiSportsEvent => ({
+  id: row.id,
+  name: row.name || '',
+  sport_id: row.sport_id || '',
+  sport_name: row.sport_name || '',
+  date: row.date || '',
+  venue: row.venue || '',
+  teams_involved: row.teams_involved || '',
+  status: row.status || 'upcoming',
+  results: row.results || undefined,
+});
 
-const LEGACY_844_SUBJECTS = new Set([
-  'chemistry',
-  'biology',
-  'physics',
-  'history',
-  'geography',
-  'computer studies',
-  'business studies',
-  'home science',
-  'art & craft',
-  'art and craft',
-]);
+const mapElection = (row: any): HoiElection => ({
+  id: row.id,
+  name: row.name || '',
+  positions: row.positions || [],
+  date: row.date || '',
+  status: row.status || 'upcoming',
+});
 
-function inferSubjectCategory(subjectName: string): HoiSubject['category'] {
-  const name = (subjectName || '').trim().toLowerCase();
-  const mapped = CBC_SUBJECT_NAME_TO_LEVEL.get(name);
-  if (mapped) return mapped;
-  if (name.includes('activity')) return 'ECDE';
-  return 'Junior School';
-}
+const mapCandidate = (row: any): HoiCandidate => ({
+  id: row.id,
+  election_id: row.election_id || '',
+  student_id: row.student_id || '',
+  student_name: row.student_name || '',
+  class_name: row.class_name || '',
+  position: row.position || '',
+  votes: Number(row.votes || 0),
+  photo: row.photo || undefined,
+});
 
-function normalizeSubjectCategory(subject: HoiSubject | (HoiSubject & { category: string })): HoiSubject['category'] {
-  const category = String(subject.category || '').trim().toLowerCase();
-  if (category === 'ecde') return 'ECDE';
-  if (category === 'lower primary' || category === 'lower_primary') return 'Lower Primary';
-  if (category === 'upper primary' || category === 'upper_primary') return 'Upper Primary';
-  if (category === 'junior school' || category === 'junior_school') return 'Junior School';
+const mapAnnouncement = (row: any): HoiAnnouncement => ({
+  id: row.id,
+  title: row.title || '',
+  content: row.content || '',
+  priority: row.priority || 'low',
+  date: row.date || '',
+  author: row.author || '',
+});
 
-  return inferSubjectCategory(subject.name);
-}
+const mapCalendarEvent = (row: any): HoiCalendarEvent => ({
+  id: row.id,
+  title: row.title || '',
+  date: row.date || '',
+  type: row.type || 'academic',
+  description: row.description || undefined,
+});
 
-function normalizeText(value: string) {
-  return value.trim().toLowerCase();
-}
-
-function migrateToCbcSubjects(subjects: HoiSubject[]) {
-  const byKey = new Map<string, HoiSubject>();
-
-  subjects.forEach((subject) => {
-    const normalizedName = normalizeText(subject.name);
-    if (!normalizedName || LEGACY_844_SUBJECTS.has(normalizedName)) return;
-
-    const normalizedSubject: HoiSubject = {
-      ...subject,
-      category: normalizeSubjectCategory(subject),
-    };
-    byKey.set(`${normalizeText(normalizedSubject.name)}|${normalizedSubject.category}`, normalizedSubject);
-  });
-
-  SEED_SUBJECTS.forEach((subject) => {
-    byKey.set(`${normalizeText(subject.name)}|${subject.category}`, subject);
-  });
-
-  return Array.from(byKey.values());
-}
-
-const SEED_SUBJECT_ASSIGNMENTS: HoiSubjectAssignment[] = [
-  { id: 'sa1', teacher_id: 't1', teacher_name: 'Jane Muthoni', subject_id: 'js-mathematics', subject_name: 'Mathematics', class_id: 'c9', class_name: 'Grade 7', stream_id: 'str1', stream_name: 'East' },
-  { id: 'sa2', teacher_id: 't1', teacher_name: 'Jane Muthoni', subject_id: 'js-mathematics', subject_name: 'Mathematics', class_id: 'c9', class_name: 'Grade 7', stream_id: 'str2', stream_name: 'West' },
-  { id: 'sa3', teacher_id: 't2', teacher_name: 'Robert Ouma', subject_id: 'js-english', subject_name: 'English', class_id: 'c9', class_name: 'Grade 7', stream_id: 'str1', stream_name: 'East' },
-  { id: 'sa4', teacher_id: 't3', teacher_name: 'Alice Njoroge', subject_id: 'js-english', subject_name: 'English', class_id: 'c10', class_name: 'Grade 8', stream_id: 'str3', stream_name: 'East' },
-  { id: 'sa5', teacher_id: 't4', teacher_name: 'Thomas Kimani', subject_id: 'js-integrated-science', subject_name: 'Integrated Science', class_id: 'c11', class_name: 'Grade 9', stream_id: 'str5', stream_name: 'East' },
-  { id: 'sa6', teacher_id: 't5', teacher_name: 'Caroline Achieng', subject_id: 'js-kiswahili-ksl', subject_name: 'Kiswahili / KSL', class_id: 'c10', class_name: 'Grade 8', stream_id: 'str4', stream_name: 'West' },
-  { id: 'sa7', teacher_id: 't7', teacher_name: 'Diana Wairimu', subject_id: 'up-science-technology', subject_name: 'Science & Technology', class_id: 'c8', class_name: 'Grade 6', stream_id: 'str7', stream_name: 'A' },
-  { id: 'sa8', teacher_id: 't8', teacher_name: 'Samuel Kariuki', subject_id: 'js-pre-technical-studies', subject_name: 'Pre-Technical Studies', class_id: 'c11', class_name: 'Grade 9', stream_id: 'str6', stream_name: 'West' },
-];
-
-const SEED_TEACHER_DUTIES: HoiTeacherDuty[] = [
-  { id: 'td1', teacher_id: 't1', teacher_name: 'Jane Muthoni', teacher_two_id: 't2', teacher_two_name: 'Robert Ouma', from_date: '2026-02-23', to_date: '2026-03-01', remarks: 'Morning gate and assembly supervision' },
-  { id: 'td2', teacher_id: 't3', teacher_name: 'Alice Njoroge', from_date: '2026-03-02', to_date: '2026-03-08', remarks: 'General duty rotation' },
-  { id: 'td3', teacher_id: 't4', teacher_name: 'Thomas Kimani', teacher_two_id: 't5', teacher_two_name: 'Caroline Achieng', from_date: '2026-03-09', to_date: '2026-03-15', remarks: 'Games and compound supervision' },
-  { id: 'td4', teacher_id: 't7', teacher_name: 'Diana Wairimu', from_date: '2026-03-16', to_date: '2026-03-22', remarks: '' },
-];
-
-
-const SEED_OFFICIALS: HoiOfficial[] = [
-  { id: 'of1', full_name: 'Dr. Samuel Kariuki', role: 'Deputy Head', department: 'Administration', email: 's.kariuki@school.ac.ke', phone: '+254 711 100 001', status: 'active' },
-  { id: 'of2', full_name: 'Thomas Kimani', role: 'HOD', department: 'Sciences', email: 't.kimani@school.ac.ke', phone: '+254 711 300 001', status: 'active' },
-  { id: 'of3', full_name: 'Alice Njoroge', role: 'HOD', department: 'Languages', email: 'a.njoroge@school.ac.ke', phone: '+254 711 200 002', status: 'active' },
-  { id: 'of4', full_name: 'Robert Ouma', role: 'Senior Teacher', department: 'Humanities', email: 'r.ouma@school.ac.ke', phone: '+254 711 200 001', status: 'active' },
-];
-
-const SEED_TIMETABLE: HoiTimetableSlot[] = [
-  { id: 'tt1', class_id: 'c9', class_name: 'Grade 7', stream_id: 'str1', stream_name: 'East', day: 'Monday', period: 1, time_start: '08:00', time_end: '08:40', subject_id: 'js-mathematics', subject_name: 'Mathematics', teacher_id: 't1', teacher_name: 'Jane Muthoni', room: 'Room 7A' },
-  { id: 'tt2', class_id: 'c9', class_name: 'Grade 7', stream_id: 'str1', stream_name: 'East', day: 'Monday', period: 2, time_start: '08:40', time_end: '09:20', subject_id: 'js-english', subject_name: 'English', teacher_id: 't2', teacher_name: 'Robert Ouma', room: 'Room 7A' },
-  { id: 'tt3', class_id: 'c9', class_name: 'Grade 7', stream_id: 'str1', stream_name: 'East', day: 'Monday', period: 3, time_start: '09:20', time_end: '10:00', subject_id: 'js-kiswahili-ksl', subject_name: 'Kiswahili / KSL', teacher_id: 't5', teacher_name: 'Caroline Achieng', room: 'Room 7A' },
-  { id: 'tt4', class_id: 'c10', class_name: 'Grade 8', stream_id: 'str3', stream_name: 'East', day: 'Monday', period: 1, time_start: '08:00', time_end: '08:40', subject_id: 'js-english', subject_name: 'English', teacher_id: 't3', teacher_name: 'Alice Njoroge', room: 'Room 8A' },
-  { id: 'tt5', class_id: 'c10', class_name: 'Grade 8', stream_id: 'str3', stream_name: 'East', day: 'Monday', period: 2, time_start: '08:40', time_end: '09:20', subject_id: 'js-integrated-science', subject_name: 'Integrated Science', teacher_id: 't4', teacher_name: 'Thomas Kimani', room: 'Lab 1' },
-  { id: 'tt6', class_id: 'c11', class_name: 'Grade 9', stream_id: 'str5', stream_name: 'East', day: 'Tuesday', period: 1, time_start: '08:00', time_end: '08:40', subject_id: 'js-pre-technical-studies', subject_name: 'Pre-Technical Studies', teacher_id: 't8', teacher_name: 'Samuel Kariuki', room: 'Lab 2' },
-  { id: 'tt7', class_id: 'c11', class_name: 'Grade 9', stream_id: 'str5', stream_name: 'East', day: 'Tuesday', period: 2, time_start: '08:40', time_end: '09:20', subject_id: 'js-integrated-science', subject_name: 'Integrated Science', teacher_id: 't7', teacher_name: 'Diana Wairimu', room: 'Lab 3' },
-  { id: 'tt8', class_id: 'c8', class_name: 'Grade 6', stream_id: 'str7', stream_name: 'A', day: 'Wednesday', period: 1, time_start: '08:00', time_end: '08:40', subject_id: 'up-mathematics', subject_name: 'Mathematics', teacher_id: 't1', teacher_name: 'Jane Muthoni', room: 'Room 6A' },
-];
-
-const SEED_ATTENDANCE: HoiAttendance[] = [];
-
-const SEED_FEES: HoiFeePayment[] = [];
-
-const SEED_EXPENSES: HoiExpense[] = [
-  { id: 'exp1', item: 'Electricity Bill - September', amount: 45000, category: 'utilities', date: '2025-09-05', approved_by: 'Principal' },
-  { id: 'exp2', item: 'Science Laboratory Equipment', amount: 120000, category: 'supplies', date: '2025-08-20', approved_by: 'Principal', notes: 'Integrated Science lab restocking' },
-  { id: 'exp3', item: 'Staff Salaries - September', amount: 850000, category: 'salaries', date: '2025-09-01', approved_by: 'Board Chair' },
-  { id: 'exp4', item: 'School Bus Maintenance', amount: 75000, category: 'transport', date: '2025-08-15', approved_by: 'Principal' },
-  { id: 'exp5', item: 'Classroom Repairs', amount: 60000, category: 'maintenance', date: '2025-07-10', approved_by: 'Deputy Head', notes: 'Grade 9 classrooms roof repair' },
-  { id: 'exp6', item: 'Stationery and Printing', amount: 25000, category: 'supplies', date: '2025-09-10', approved_by: 'Principal' },
-  { id: 'exp7', item: 'Water Bill - August', amount: 18000, category: 'utilities', date: '2025-08-05', approved_by: 'Bursar' },
-];
-
-const SEED_BOOKS: HoiBook[] = [
-  { id: 'bk1', title: 'KLB Mathematics Grade 7', author: 'Kenya Literature Bureau', isbn: '978-9966-10-001', copies_available: 35, total_copies: 40, category: 'textbook' },
-  { id: 'bk2', title: 'KLB English Grade 8', author: 'Kenya Literature Bureau', isbn: '978-9966-10-002', copies_available: 28, total_copies: 35, category: 'textbook' },
-  { id: 'bk3', title: 'A Doll\'s House', author: 'Henrik Ibsen', isbn: '978-0-486-27062', copies_available: 18, total_copies: 20, category: 'fiction' },
-  { id: 'bk4', title: 'The River and the Source', author: 'Margaret Ogola', isbn: '978-9966-46-001', copies_available: 22, total_copies: 25, category: 'fiction' },
-  { id: 'bk5', title: 'Encyclopaedia Britannica Vol. 1', author: 'Britannica', isbn: '978-1-59339-292', copies_available: 3, total_copies: 3, category: 'reference' },
-  { id: 'bk6', title: 'KLB Integrated Science Grade 9', author: 'Kenya Literature Bureau', isbn: '978-9966-10-003', copies_available: 30, total_copies: 38, category: 'textbook' },
-  { id: 'bk7', title: 'Daily Nation Education Digest', author: 'Nation Media Group', isbn: '978-9966-20-001', copies_available: 10, total_copies: 10, category: 'periodical' },
-];
-
-const SEED_BOOK_ISSUES: HoiBookIssue[] = [];
-
-const SEED_SPORTS: HoiSport[] = [
-  { id: 'sp1', name: 'Football', category: 'team', coach_name: 'Emmanuel Kipchoge' },
-  { id: 'sp2', name: 'Netball', category: 'team', coach_name: 'Diana Wairimu' },
-  { id: 'sp3', name: 'Athletics', category: 'individual', coach_name: 'Emmanuel Kipchoge' },
-  { id: 'sp4', name: 'Rugby', category: 'team', coach_name: 'Robert Ouma' },
-  { id: 'sp5', name: 'Volleyball', category: 'team' },
-  { id: 'sp6', name: 'Swimming', category: 'individual' },
-];
-
-const SEED_SPORTS_TEAMS: HoiSportsTeam[] = [];
-
-const SEED_SPORTS_EVENTS: HoiSportsEvent[] = [
-  { id: 'se1', name: 'Inter-House Football Tournament', sport_id: 'sp1', sport_name: 'Football', date: '2025-10-15', venue: 'School Grounds', teams_involved: 'Simba House vs Chui House', status: 'upcoming' },
-  { id: 'se2', name: 'County Athletics Championship', sport_id: 'sp3', sport_name: 'Athletics', date: '2025-09-28', venue: 'Nyayo Stadium', teams_involved: 'County Schools', status: 'upcoming' },
-  { id: 'se3', name: 'Friendly Netball Match', sport_id: 'sp2', sport_name: 'Netball', date: '2025-09-10', venue: 'School Grounds', teams_involved: 'vs Moi Girls Nairobi', status: 'completed', results: 'Won 25-18' },
-  { id: 'se4', name: 'Regional Rugby Sevens', sport_id: 'sp4', sport_name: 'Rugby', date: '2025-11-05', venue: 'RFUEA Grounds', teams_involved: 'Regional Schools', status: 'upcoming' },
-  { id: 'se5', name: 'Inter-Class Volleyball', sport_id: 'sp5', sport_name: 'Volleyball', date: '2025-08-20', venue: 'School Grounds', teams_involved: 'Grade 8 vs Grade 9', status: 'completed', results: 'Grade 9 won 3-1' },
-];
-
-const SEED_ELECTIONS: HoiElection[] = [
-  { id: 'el1', name: '2025 Student Council Elections', positions: ['Head Boy', 'Head Girl', 'Deputy Head Boy', 'Deputy Head Girl', 'Games Captain'], date: '2025-09-20', status: 'completed' },
-  { id: 'el2', name: '2025 Class Representatives', positions: ['Grade 7 Rep', 'Grade 8 Rep', 'Grade 9 Rep'], date: '2025-09-22', status: 'completed' },
-  { id: 'el3', name: '2026 Student Council Elections', positions: ['Head Boy', 'Head Girl', 'Deputy Head Boy', 'Deputy Head Girl'], date: '2026-02-15', status: 'upcoming' },
-];
-
-const SEED_CANDIDATES: HoiCandidate[] = [];
-
-const SEED_ANNOUNCEMENTS: HoiAnnouncement[] = [
-  { id: 'ann1', title: 'Term 3 Opening Day', content: 'All students are expected to report by 8:00 AM on Monday 1st September 2025. Full school uniform is mandatory.', priority: 'high', date: '2025-08-25', author: 'Principal' },
-  { id: 'ann2', title: 'Parent-Teacher Meeting', content: 'Parents and guardians are invited for a general meeting on Saturday 20th September 2025 at 10:00 AM in the school hall.', priority: 'medium', date: '2025-09-10', author: 'Deputy Head' },
-  { id: 'ann3', title: 'End of Term Assessment', content: 'Grade 9 summative assessments will begin on Monday 6th October 2025. All candidates must clear fee balances before sitting assessments.', priority: 'urgent', date: '2025-09-15', author: 'Principal' },
-  { id: 'ann4', title: 'Sports Day', content: 'Annual sports day will be held on Friday 17th October 2025. Students should come in their house colours.', priority: 'medium', date: '2025-09-20', author: 'Games Master' },
-  { id: 'ann5', title: 'Library Book Returns', content: 'All borrowed library books must be returned by end of week. Overdue fines will apply.', priority: 'low', date: '2025-09-12', author: 'Librarian' },
-  { id: 'ann6', title: 'Water Shortage Notice', content: 'Due to county water rationing, students are advised to carry extra drinking water this week.', priority: 'high', date: '2025-09-14', author: 'Principal' },
-];
+export const hoiClassesStorage = createStore<HoiClass>('hoi_classes', mapClass, (item) => item as unknown as Record<string, unknown>);
+export const hoiStreamsStorage = createStore<HoiStream>('hoi_streams', mapStream, (item) => item as unknown as Record<string, unknown>);
+export const hoiTeachersStorage = createStore<HoiTeacher>('hoi_teachers', mapTeacher, (item) => item as unknown as Record<string, unknown>);
+export const hoiSubjectsStorage = createStore<HoiSubject>('hoi_subjects', mapSubject, (item) => item as unknown as Record<string, unknown>);
+export const hoiSubjectAssignmentsStorage = createStore<HoiSubjectAssignment>('hoi_subject_assignments', mapAssignment, (item) => item as unknown as Record<string, unknown>);
+export const hoiTeacherDutiesStorage = createStore<HoiTeacherDuty>('hoi_teacher_duties', mapDuty, (item) => item as unknown as Record<string, unknown>);
+export const hoiStudentsStorage = createStore<HoiStudent>('hoi_students', mapStudent, (item) => item as unknown as Record<string, unknown>);
+export const hoiOfficialsStorage = createStore<HoiOfficial>('hoi_officials', mapOfficial, (item) => item as unknown as Record<string, unknown>);
+export const hoiTimetableStorage = createStore<HoiTimetableSlot>('hoi_timetable', mapTimetable, (item) => item as unknown as Record<string, unknown>);
+export const hoiAttendanceStorage = createStore<HoiAttendance>('hoi_attendance', mapAttendance, (item) => item as unknown as Record<string, unknown>);
+export const hoiFeesStorage = createStore<HoiFeePayment>('hoi_fees', mapFee, (item) => item as unknown as Record<string, unknown>);
+export const hoiExpensesStorage = createStore<HoiExpense>('hoi_expenses', mapExpense, (item) => item as unknown as Record<string, unknown>);
+export const hoiBooksStorage = createStore<HoiBook>('hoi_books', mapBook, (item) => item as unknown as Record<string, unknown>);
+export const hoiBookIssuesStorage = createStore<HoiBookIssue>('hoi_book_issues', mapBookIssue, (item) => item as unknown as Record<string, unknown>);
+export const hoiSportsStorage = createStore<HoiSport>('hoi_sports', mapSport, (item) => item as unknown as Record<string, unknown>);
+export const hoiSportsTeamsStorage = createStore<HoiSportsTeam>('hoi_sports_teams', mapSportsTeam, (item) => item as unknown as Record<string, unknown>);
+export const hoiSportsEventsStorage = createStore<HoiSportsEvent>('hoi_sports_events', mapSportsEvent, (item) => item as unknown as Record<string, unknown>);
+export const hoiElectionsStorage = createStore<HoiElection>('hoi_elections', mapElection, (item) => item as unknown as Record<string, unknown>);
+export const hoiCandidatesStorage = createStore<HoiCandidate>('hoi_candidates', mapCandidate, (item) => item as unknown as Record<string, unknown>);
+export const hoiAnnouncementsStorage = createStore<HoiAnnouncement>('hoi_announcements', mapAnnouncement, (item) => item as unknown as Record<string, unknown>);
+export const hoiCalendarEventsStorage = createStore<HoiCalendarEvent>('hoi_calendar_events', mapCalendarEvent, (item) => item as unknown as Record<string, unknown>);
 
 const DEFAULT_SCHOOL_PROFILE: HoiSchoolProfile = {
-  name: 'Greenwood Academy',
-  address: 'P.O. Box 4521-00100, Nairobi',
-  motto: 'Excellence Through Discipline',
-  contact_email: 'admin@greenwood.ac.ke',
-  contact_phone: '+254 712 345 678',
-  county: 'Nairobi',
-  sub_county: 'Westlands',
-  zone: 'Westlands Zone',
-  school_code: 'GWA-001',
-  academic_year: '2025',
-  current_term: 'Term 3',
-  term_start_date: '2025-09-01',
-  term_end_date: '2025-11-28',
+  name: 'School',
+  address: '',
+  motto: '',
+  contact_email: '',
+  contact_phone: '',
+  county: '',
+  sub_county: '',
+  zone: '',
+  school_code: '',
+  academic_year: `${new Date().getFullYear()}`,
+  current_term: 'Term 1',
+  term_start_date: '',
+  term_end_date: '',
 };
 
-const SEED_CALENDAR_EVENTS: HoiCalendarEvent[] = [
-  { id: 'cal1', title: 'Term 3 Opens', date: '2025-09-01', type: 'academic' },
-  { id: 'cal2', title: 'Mashujaa Day', date: '2025-10-20', type: 'holiday', description: 'National public holiday' },
-  { id: 'cal3', title: 'Summative Assessment', date: '2025-10-06', type: 'exam', description: 'Grade 9 summative assessments begin' },
-  { id: 'cal4', title: 'Inter-House Sports Day', date: '2025-10-17', type: 'sports' },
-  { id: 'cal5', title: 'Staff Meeting', date: '2025-09-08', type: 'meeting', description: 'Term 3 planning and welfare' },
-  { id: 'cal6', title: 'Parent-Teacher Conference', date: '2025-09-20', type: 'meeting', description: 'General parents meeting' },
-  { id: 'cal7', title: 'End of Term Exams', date: '2025-11-10', type: 'exam', description: 'Grade 7-9 End of Term examinations' },
-  { id: 'cal8', title: 'Term 3 Closes', date: '2025-11-28', type: 'academic' },
-  { id: 'cal9', title: 'Jamhuri Day', date: '2025-12-12', type: 'holiday', description: 'National independence day' },
-];
+let schoolProfileCache: HoiSchoolProfile = DEFAULT_SCHOOL_PROFILE;
+let schoolProfileHydrated = false;
 
-export const hoiClassesStorage = {
-  getAll: (): HoiClass[] => {
-    const classes = getSeeded<LegacyHoiClass>('zaroda_hoi_classes', SEED_CLASSES as LegacyHoiClass[]);
-    const normalized = classes.map((item) => {
-      if ((item.level as string) === 'secondary') {
-        return { ...item, level: 'junior_secondary' as HoiClass['level'] };
-      }
-      return { ...item, level: item.level || 'primary' } as HoiClass;
-    });
-    if (JSON.stringify(normalized) !== JSON.stringify(classes)) {
-      setData('zaroda_hoi_classes', normalized);
-    }
-    return normalized;
-  },
-  add: (item: Omit<HoiClass, 'id'>) => addItem<HoiClass>('zaroda_hoi_classes', item),
-  update: (id: string, updates: Partial<HoiClass>) => updateItem<HoiClass>('zaroda_hoi_classes', id, updates),
-  remove: (id: string) => deleteItem<HoiClass>('zaroda_hoi_classes', id),
-};
-
-export const hoiStreamsStorage = {
-  getAll: (): HoiStream[] => getSeeded<HoiStream>('zaroda_hoi_streams', SEED_STREAMS),
-  add: (item: Omit<HoiStream, 'id'>) => addItem<HoiStream>('zaroda_hoi_streams', item),
-  update: (id: string, updates: Partial<HoiStream>) => updateItem<HoiStream>('zaroda_hoi_streams', id, updates),
-  remove: (id: string) => deleteItem<HoiStream>('zaroda_hoi_streams', id),
-};
-
-export const hoiTeachersStorage = {
-  getAll: (): HoiTeacher[] => getSeeded<HoiTeacher>('zaroda_hoi_teachers', SEED_TEACHERS),
-  add: (item: Omit<HoiTeacher, 'id'>) => addItem<HoiTeacher>('zaroda_hoi_teachers', item),
-  update: (id: string, updates: Partial<HoiTeacher>) => updateItem<HoiTeacher>('zaroda_hoi_teachers', id, updates),
-  remove: (id: string) => deleteItem<HoiTeacher>('zaroda_hoi_teachers', id),
-};
-
-export const hoiSubjectsStorage = {
-  getAll: (): HoiSubject[] => {
-    const subjects = getSeeded<HoiSubject>('zaroda_hoi_subjects', SEED_SUBJECTS);
-    const normalized = migrateToCbcSubjects(subjects);
-    if (JSON.stringify(normalized) !== JSON.stringify(subjects)) {
-      setData('zaroda_hoi_subjects', normalized);
-    }
-    return normalized;
-  },
-  add: (item: Omit<HoiSubject, 'id'>) => addItem<HoiSubject>('zaroda_hoi_subjects', item),
-  update: (id: string, updates: Partial<HoiSubject>) => updateItem<HoiSubject>('zaroda_hoi_subjects', id, updates),
-  remove: (id: string) => deleteItem<HoiSubject>('zaroda_hoi_subjects', id),
-};
-
-export const hoiSubjectAssignmentsStorage = {
-  getAll: (): HoiSubjectAssignment[] => {
-    const assignments = getSeeded<HoiSubjectAssignment>('zaroda_hoi_subject_assignments', SEED_SUBJECT_ASSIGNMENTS);
-    const subjects = hoiSubjectsStorage.getAll();
-    const subjectById = new Map(subjects.map((subject) => [subject.id, subject]));
-    const subjectByName = new Map(subjects.map((subject) => [normalizeText(subject.name), subject]));
-
-    const normalized = assignments
-      .map((assignment) => {
-        const byId = subjectById.get(assignment.subject_id);
-        const byName = subjectByName.get(normalizeText(assignment.subject_name));
-        const subject = byId || byName;
-        if (!subject) return null;
-
-        return {
-          ...assignment,
-          subject_id: subject.id,
-          subject_name: subject.name,
-        };
-      })
-      .filter((assignment): assignment is HoiSubjectAssignment => Boolean(assignment));
-
-    if (JSON.stringify(normalized) !== JSON.stringify(assignments)) {
-      setData('zaroda_hoi_subject_assignments', normalized);
-    }
-
-    return normalized;
-  },
-  add: (item: Omit<HoiSubjectAssignment, 'id'>) => addItem<HoiSubjectAssignment>('zaroda_hoi_subject_assignments', item),
-  update: (id: string, updates: Partial<HoiSubjectAssignment>) => updateItem<HoiSubjectAssignment>('zaroda_hoi_subject_assignments', id, updates),
-  remove: (id: string) => deleteItem<HoiSubjectAssignment>('zaroda_hoi_subject_assignments', id),
-};
-
-export const hoiTeacherDutiesStorage = {
-  getAll: (): HoiTeacherDuty[] => {
-    const duties = getSeeded<HoiTeacherDuty>('zaroda_hoi_teacher_duties', SEED_TEACHER_DUTIES);
-    const today = new Date();
-    const fallbackFrom = today.toISOString().split('T')[0];
-    const fallbackToDate = new Date(today);
-    fallbackToDate.setDate(fallbackToDate.getDate() + 6);
-    const fallbackTo = fallbackToDate.toISOString().split('T')[0];
-
-    const normalized = duties.map((duty) => ({
-      ...duty,
-      from_date: duty.from_date || fallbackFrom,
-      to_date: duty.to_date || duty.from_date || fallbackTo,
-      teacher_two_id: duty.teacher_two_id || '',
-      teacher_two_name: duty.teacher_two_name || '',
-      remarks: duty.remarks || '',
-    }));
-
-    if (JSON.stringify(normalized) !== JSON.stringify(duties)) {
-      setData('zaroda_hoi_teacher_duties', normalized);
-    }
-
-    return normalized;
-  },
-  add: (item: Omit<HoiTeacherDuty, 'id'>) => addItem<HoiTeacherDuty>('zaroda_hoi_teacher_duties', item),
-  update: (id: string, updates: Partial<HoiTeacherDuty>) => updateItem<HoiTeacherDuty>('zaroda_hoi_teacher_duties', id, updates),
-  remove: (id: string) => deleteItem<HoiTeacherDuty>('zaroda_hoi_teacher_duties', id),
-};
-
-export const hoiStudentsStorage = {
-  getAll: (): HoiStudent[] => {
-    const students = getData<HoiStudent>(HOI_STUDENTS_KEY);
-    const normalized = students.map((student) => ({
-      ...student,
-      upi: student.upi || '',
-    }));
-    if (JSON.stringify(normalized) !== JSON.stringify(students)) {
-      setData(HOI_STUDENTS_KEY, normalized);
-    }
-    return normalized;
-  },
-  add: (item: Omit<HoiStudent, 'id'>) => addItem<HoiStudent>(HOI_STUDENTS_KEY, item),
-  update: (id: string, updates: Partial<HoiStudent>) => updateItem<HoiStudent>(HOI_STUDENTS_KEY, id, updates),
-  remove: (id: string) => deleteItem<HoiStudent>(HOI_STUDENTS_KEY, id),
-};
-
-export const hoiOfficialsStorage = {
-  getAll: (): HoiOfficial[] => getSeeded<HoiOfficial>('zaroda_hoi_officials', SEED_OFFICIALS),
-  add: (item: Omit<HoiOfficial, 'id'>) => addItem<HoiOfficial>('zaroda_hoi_officials', item),
-  update: (id: string, updates: Partial<HoiOfficial>) => updateItem<HoiOfficial>('zaroda_hoi_officials', id, updates),
-  remove: (id: string) => deleteItem<HoiOfficial>('zaroda_hoi_officials', id),
-};
-
-export const hoiTimetableStorage = {
-  getAll: (): HoiTimetableSlot[] => {
-    const slots = getSeeded<HoiTimetableSlot>('zaroda_hoi_timetable', SEED_TIMETABLE);
-    const subjects = hoiSubjectsStorage.getAll();
-    const subjectById = new Map(subjects.map((subject) => [subject.id, subject]));
-    const subjectByName = new Map(subjects.map((subject) => [normalizeText(subject.name), subject]));
-
-    const normalized = slots
-      .map((slot) => {
-        const byId = subjectById.get(slot.subject_id);
-        const byName = subjectByName.get(normalizeText(slot.subject_name));
-        const subject = byId || byName;
-        if (!subject) return null;
-
-        return {
-          ...slot,
-          subject_id: subject.id,
-          subject_name: subject.name,
-        };
-      })
-      .filter((slot): slot is HoiTimetableSlot => Boolean(slot));
-
-    if (JSON.stringify(normalized) !== JSON.stringify(slots)) {
-      setData('zaroda_hoi_timetable', normalized);
-    }
-
-    return normalized;
-  },
-  add: (item: Omit<HoiTimetableSlot, 'id'>) => addItem<HoiTimetableSlot>('zaroda_hoi_timetable', item),
-  update: (id: string, updates: Partial<HoiTimetableSlot>) => updateItem<HoiTimetableSlot>('zaroda_hoi_timetable', id, updates),
-  remove: (id: string) => deleteItem<HoiTimetableSlot>('zaroda_hoi_timetable', id),
-};
-
-export const hoiAttendanceStorage = {
-  getAll: (): HoiAttendance[] => getSeeded<HoiAttendance>('zaroda_hoi_attendance', SEED_ATTENDANCE),
-  add: (item: Omit<HoiAttendance, 'id'>) => addItem<HoiAttendance>('zaroda_hoi_attendance', item),
-  update: (id: string, updates: Partial<HoiAttendance>) => updateItem<HoiAttendance>('zaroda_hoi_attendance', id, updates),
-  remove: (id: string) => deleteItem<HoiAttendance>('zaroda_hoi_attendance', id),
-};
-
-export const hoiFeesStorage = {
-  getAll: (): HoiFeePayment[] => getSeeded<HoiFeePayment>('zaroda_hoi_fees', SEED_FEES),
-  add: (item: Omit<HoiFeePayment, 'id'>) => addItem<HoiFeePayment>('zaroda_hoi_fees', item),
-  update: (id: string, updates: Partial<HoiFeePayment>) => updateItem<HoiFeePayment>('zaroda_hoi_fees', id, updates),
-  remove: (id: string) => deleteItem<HoiFeePayment>('zaroda_hoi_fees', id),
-};
-
-export const hoiExpensesStorage = {
-  getAll: (): HoiExpense[] => getSeeded<HoiExpense>('zaroda_hoi_expenses', SEED_EXPENSES),
-  add: (item: Omit<HoiExpense, 'id'>) => addItem<HoiExpense>('zaroda_hoi_expenses', item),
-  update: (id: string, updates: Partial<HoiExpense>) => updateItem<HoiExpense>('zaroda_hoi_expenses', id, updates),
-  remove: (id: string) => deleteItem<HoiExpense>('zaroda_hoi_expenses', id),
-};
-
-export const hoiBooksStorage = {
-  getAll: (): HoiBook[] => getSeeded<HoiBook>('zaroda_hoi_books', SEED_BOOKS),
-  add: (item: Omit<HoiBook, 'id'>) => addItem<HoiBook>('zaroda_hoi_books', item),
-  update: (id: string, updates: Partial<HoiBook>) => updateItem<HoiBook>('zaroda_hoi_books', id, updates),
-  remove: (id: string) => deleteItem<HoiBook>('zaroda_hoi_books', id),
-};
-
-export const hoiBookIssuesStorage = {
-  getAll: (): HoiBookIssue[] => getSeeded<HoiBookIssue>('zaroda_hoi_book_issues', SEED_BOOK_ISSUES),
-  add: (item: Omit<HoiBookIssue, 'id'>) => addItem<HoiBookIssue>('zaroda_hoi_book_issues', item),
-  update: (id: string, updates: Partial<HoiBookIssue>) => updateItem<HoiBookIssue>('zaroda_hoi_book_issues', id, updates),
-  remove: (id: string) => deleteItem<HoiBookIssue>('zaroda_hoi_book_issues', id),
-};
-
-export const hoiSportsStorage = {
-  getAll: (): HoiSport[] => getSeeded<HoiSport>('zaroda_hoi_sports', SEED_SPORTS),
-  add: (item: Omit<HoiSport, 'id'>) => addItem<HoiSport>('zaroda_hoi_sports', item),
-  update: (id: string, updates: Partial<HoiSport>) => updateItem<HoiSport>('zaroda_hoi_sports', id, updates),
-  remove: (id: string) => deleteItem<HoiSport>('zaroda_hoi_sports', id),
-};
-
-export const hoiSportsTeamsStorage = {
-  getAll: (): HoiSportsTeam[] => {
-    const teams = getSeeded<HoiSportsTeam>('zaroda_hoi_sports_teams', SEED_SPORTS_TEAMS);
-    const studentsById = new Map(hoiStudentsStorage.getAll().map((student) => [student.id, student]));
-    const normalized = teams.map((team) => {
-      const student = studentsById.get(team.student_id);
-      return {
-        ...team,
-        admission_no: team.admission_no || student?.admission_no || '',
-        class_name: team.class_name || student?.class_name || '',
-        stream_name: team.stream_name || student?.stream_name || '',
-        date_of_birth: team.date_of_birth || student?.date_of_birth || '',
-        upi: team.upi || student?.upi || '',
-      };
-    });
-    if (JSON.stringify(normalized) !== JSON.stringify(teams)) {
-      setData('zaroda_hoi_sports_teams', normalized);
-    }
-    return normalized;
-  },
-  add: (item: Omit<HoiSportsTeam, 'id'>) => addItem<HoiSportsTeam>('zaroda_hoi_sports_teams', item),
-  update: (id: string, updates: Partial<HoiSportsTeam>) => updateItem<HoiSportsTeam>('zaroda_hoi_sports_teams', id, updates),
-  remove: (id: string) => deleteItem<HoiSportsTeam>('zaroda_hoi_sports_teams', id),
-};
-
-export const hoiSportsEventsStorage = {
-  getAll: (): HoiSportsEvent[] => getSeeded<HoiSportsEvent>('zaroda_hoi_sports_events', SEED_SPORTS_EVENTS),
-  add: (item: Omit<HoiSportsEvent, 'id'>) => addItem<HoiSportsEvent>('zaroda_hoi_sports_events', item),
-  update: (id: string, updates: Partial<HoiSportsEvent>) => updateItem<HoiSportsEvent>('zaroda_hoi_sports_events', id, updates),
-  remove: (id: string) => deleteItem<HoiSportsEvent>('zaroda_hoi_sports_events', id),
-};
-
-export const hoiElectionsStorage = {
-  getAll: (): HoiElection[] => getSeeded<HoiElection>('zaroda_hoi_elections', SEED_ELECTIONS),
-  add: (item: Omit<HoiElection, 'id'>) => addItem<HoiElection>('zaroda_hoi_elections', item),
-  update: (id: string, updates: Partial<HoiElection>) => updateItem<HoiElection>('zaroda_hoi_elections', id, updates),
-  remove: (id: string) => deleteItem<HoiElection>('zaroda_hoi_elections', id),
-};
-
-export const hoiCandidatesStorage = {
-  getAll: (): HoiCandidate[] => getSeeded<HoiCandidate>('zaroda_hoi_candidates', SEED_CANDIDATES),
-  add: (item: Omit<HoiCandidate, 'id'>) => addItem<HoiCandidate>('zaroda_hoi_candidates', item),
-  update: (id: string, updates: Partial<HoiCandidate>) => updateItem<HoiCandidate>('zaroda_hoi_candidates', id, updates),
-  remove: (id: string) => deleteItem<HoiCandidate>('zaroda_hoi_candidates', id),
-};
-
-export const hoiAnnouncementsStorage = {
-  getAll: (): HoiAnnouncement[] => getSeeded<HoiAnnouncement>('zaroda_hoi_announcements', SEED_ANNOUNCEMENTS),
-  add: (item: Omit<HoiAnnouncement, 'id'>) => addItem<HoiAnnouncement>('zaroda_hoi_announcements', item),
-  update: (id: string, updates: Partial<HoiAnnouncement>) => updateItem<HoiAnnouncement>('zaroda_hoi_announcements', id, updates),
-  remove: (id: string) => deleteItem<HoiAnnouncement>('zaroda_hoi_announcements', id),
+const refreshSchoolProfile = async () => {
+  const { data, error } = await supabase.from('hoi_school_profile').select('*').limit(1).maybeSingle();
+  if (error || !data) return;
+  schoolProfileCache = {
+    name: data.name || 'School',
+    address: data.address || '',
+    motto: data.motto || '',
+    logo: data.logo || undefined,
+    contact_email: data.contact_email || '',
+    contact_phone: data.contact_phone || '',
+    county: data.county || '',
+    sub_county: data.sub_county || '',
+    zone: data.zone || '',
+    school_code: data.school_code || '',
+    academic_year: data.academic_year || `${new Date().getFullYear()}`,
+    current_term: data.current_term || 'Term 1',
+    term_start_date: data.term_start_date || '',
+    term_end_date: data.term_end_date || '',
+  };
+  schoolProfileHydrated = true;
 };
 
 export const hoiSchoolProfileStorage = {
   get: (): HoiSchoolProfile => {
-    const profile = getObject<HoiSchoolProfile>('zaroda_hoi_school_profile', DEFAULT_SCHOOL_PROFILE);
-    if (!profile.zone) {
-      const migrated = { ...profile, zone: DEFAULT_SCHOOL_PROFILE.zone };
-      setObject<HoiSchoolProfile>('zaroda_hoi_school_profile', migrated);
-      return migrated;
+    if (!schoolProfileHydrated) {
+      schoolProfileHydrated = true;
+      void refreshSchoolProfile();
     }
-    return profile;
+    return schoolProfileCache;
   },
-  save: (profile: HoiSchoolProfile) => setObject<HoiSchoolProfile>('zaroda_hoi_school_profile', profile),
-};
-
-export const hoiCalendarEventsStorage = {
-  getAll: (): HoiCalendarEvent[] => getSeeded<HoiCalendarEvent>('zaroda_hoi_calendar_events', SEED_CALENDAR_EVENTS),
-  add: (item: Omit<HoiCalendarEvent, 'id'>) => addItem<HoiCalendarEvent>('zaroda_hoi_calendar_events', item),
-  update: (id: string, updates: Partial<HoiCalendarEvent>) => updateItem<HoiCalendarEvent>('zaroda_hoi_calendar_events', id, updates),
-  remove: (id: string) => deleteItem<HoiCalendarEvent>('zaroda_hoi_calendar_events', id),
+  save: (profile: HoiSchoolProfile) => {
+    schoolProfileCache = profile;
+    void supabase.from('hoi_school_profile').upsert(profile as unknown as Record<string, unknown>);
+  },
 };

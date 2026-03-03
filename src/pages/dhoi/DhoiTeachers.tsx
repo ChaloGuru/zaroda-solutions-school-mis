@@ -72,7 +72,6 @@ import { CBC_SUBJECT_GROUPS, getCbcLevelForClassName } from '@/lib/cbcSubjects';
 import { useAuthContext } from '@/context/AuthContext';
 
 const PAGE_SIZE = 10;
-const TEACHER_CODES_KEY = 'zaroda_teacher_codes';
 
 const SYSTEM_CREATED_BY = new Set(['superadmin', 'system', 'hoi', 'dhoi']);
 

@@ -51,11 +51,8 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { exportToPdf } from '@/lib/pdfExport';
-import { getJsonValue, setJsonValue } from '@/lib/appKv';
 import { getCbcLevelForClassName } from '@/lib/cbcSubjects';
-
-const STORAGE_KEY = 'zaroda_master_timetable';
-const TEACHER_CODES_KEY = 'zaroda_teacher_codes';
+import { supabase } from '@/lib/supabase';
 
 const DAYS: MasterTimetableSlot['day'][] = ['MON', 'TUE', 'WED', 'THU', 'FRI'];
 const DAY_LABELS: Record<string, string> = {
@@ -115,7 +112,69 @@ export default function DhoiTimetable() {
   const [editSubjectId, setEditSubjectId] = useState('');
   const [editTeacherId, setEditTeacherId] = useState('');
 
-  const loadData = useCallback(() => {
+  const loadTeacherCodes = useCallback(async () => {
+    const { data, error } = await supabase.from('teacher_codes').select('teacher_id,code');
+    if (error || !data) return {} as Record<string, string>;
+    return data.reduce((acc: Record<string, string>, row: any) => {
+      if (row.teacher_id && row.code) {
+        acc[row.teacher_id] = String(row.code);
+      }
+      return acc;
+    }, {});
+  }, []);
+
+  const loadMasterSlots = useCallback(async () => {
+    const { data, error } = await supabase.from('hoi_master_timetable').select('*');
+    if (error || !data) return [] as MasterTimetableSlot[];
+    return (data as any[]).map((row) => ({
+      id: row.id,
+      timetableType: row.timetable_type ?? row.timetableType,
+      classId: row.class_id ?? row.classId,
+      className: row.class_name ?? row.className,
+      streamId: row.stream_id ?? row.streamId,
+      streamName: row.stream_name ?? row.streamName,
+      day: row.day,
+      periodIndex: Number(row.period_index ?? row.periodIndex ?? 0),
+      timeStart: row.time_start ?? row.timeStart,
+      timeEnd: row.time_end ?? row.timeEnd,
+      subjectId: row.subject_id ?? row.subjectId,
+      subjectName: row.subject_name ?? row.subjectName,
+      teacherId: row.teacher_id ?? row.teacherId,
+      teacherName: row.teacher_name ?? row.teacherName,
+      teacherCode: row.teacher_code ?? row.teacherCode,
+      isLocked: Boolean(row.is_locked ?? row.isLocked),
+      lockedLabel: row.locked_label ?? row.lockedLabel,
+    })) as MasterTimetableSlot[];
+  }, []);
+
+  const saveMasterSlots = useCallback(async (slots: MasterTimetableSlot[]) => {
+    const payload = slots.map((slot) => ({
+      id: slot.id,
+      timetable_type: slot.timetableType,
+      class_id: slot.classId,
+      class_name: slot.className,
+      stream_id: slot.streamId,
+      stream_name: slot.streamName,
+      day: slot.day,
+      period_index: slot.periodIndex,
+      time_start: slot.timeStart,
+      time_end: slot.timeEnd,
+      subject_id: slot.subjectId,
+      subject_name: slot.subjectName,
+      teacher_id: slot.teacherId,
+      teacher_name: slot.teacherName,
+      teacher_code: slot.teacherCode,
+      is_locked: slot.isLocked,
+      locked_label: slot.lockedLabel ?? null,
+    }));
+
+    const { error: deleteError } = await supabase.from('hoi_master_timetable').delete().neq('id', '');
+    if (deleteError) return;
+    if (payload.length === 0) return;
+    await supabase.from('hoi_master_timetable').upsert(payload, { onConflict: 'id' });
+  }, []);
+
+  const loadData = useCallback(async () => {
     setClasses(hoiClassesStorage.getAll());
     setStreams(hoiStreamsStorage.getAll());
     setSubjects(hoiSubjectsStorage.getAll());
@@ -123,15 +182,15 @@ export default function DhoiTimetable() {
     setAssignments(hoiSubjectAssignmentsStorage.getAll());
     setSchoolName(hoiSchoolProfileStorage.get().name || 'School');
 
-    setTeacherCodes(getJsonValue<Record<string, string>>(TEACHER_CODES_KEY, {}));
-
-    setAllSlots(getJsonValue<MasterTimetableSlot[]>(STORAGE_KEY, []));
+    const [loadedTeacherCodes, loadedSlots] = await Promise.all([loadTeacherCodes(), loadMasterSlots()]);
+    setTeacherCodes(loadedTeacherCodes);
+    setAllSlots(loadedSlots);
 
     setDataReady(true);
-  }, []);
+  }, [loadMasterSlots, loadTeacherCodes]);
 
   useEffect(() => {
-    loadData();
+    void loadData();
   }, [loadData]);
 
   useEffect(() => {
@@ -180,7 +239,7 @@ export default function DhoiTimetable() {
 
   const saveSlots = (slots: MasterTimetableSlot[]) => {
     setAllSlots(slots);
-    setJsonValue(STORAGE_KEY, slots);
+    void saveMasterSlots(slots);
   };
 
   const generateForType = useCallback((type: 'ecde' | 'lower_primary' | 'upper_primary' | 'junior', showToast = false) => {
@@ -200,8 +259,7 @@ export default function DhoiTimetable() {
 
     const generated = generateTimetable(configForType, relevantAssignments, teacherCodes);
 
-    const existing = getJsonValue<MasterTimetableSlot[]>(STORAGE_KEY, []);
-    const otherSlots = existing.filter((s) => s.timetableType !== type);
+    const otherSlots = allSlots.filter((s) => s.timetableType !== type);
     const newAll = [...otherSlots, ...generated];
 
     saveSlots(newAll);
@@ -212,7 +270,7 @@ export default function DhoiTimetable() {
         description: `${TYPE_LABELS[type]} master timetable has been regenerated successfully.`,
       });
     }
-  }, [assignments, teacherCodes, toast]);
+  }, [allSlots, assignments, teacherCodes, toast]);
 
   const handleGenerate = async () => {
     setGenerating(true);
