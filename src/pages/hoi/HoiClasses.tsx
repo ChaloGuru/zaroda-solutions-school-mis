@@ -49,6 +49,7 @@ import {
   UserCheck,
   ChevronLeft,
   ChevronRight,
+  X,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -58,12 +59,21 @@ import { useAuthContext } from '@/context/AuthContext';
 const LEVEL_LABELS: Record<HoiClass['level'], string> = {
   ecde: 'ECDE',
   primary: 'Primary',
-  junior_secondary: 'JS',
+  junior_secondary: 'Junior Secondary',
+};
+
+const CBC_CLASS_OPTIONS: Record<HoiClass['level'], string[]> = {
+  ecde: ['PP1', 'PP2'],
+  primary: ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'],
+  junior_secondary: ['Grade 7', 'Grade 8', 'Grade 9'],
 };
 
 const emptyClassForm = {
-  name: '',
-  level: 'primary' as HoiClass['level'],
+  level: '' as '' | HoiClass['level'],
+  class_name: '',
+  has_streams: false,
+  stream_input: '',
+  stream_names: [] as string[],
 };
 
 const emptyStreamForm = {
@@ -210,24 +220,132 @@ export default function HoiClasses() {
 
   const openEditClass = (cls: HoiClass) => {
     setEditingClass(cls);
-    setClassForm({ name: cls.name, level: cls.level });
+    const classStreams = getStreamsForClass(cls.id);
+    setClassForm({
+      level: cls.level,
+      class_name: cls.name,
+      has_streams: classStreams.length > 0,
+      stream_input: '',
+      stream_names: classStreams.map((stream) => stream.name),
+    });
     setClassDialogOpen(true);
   };
 
-  const handleSaveClass = () => {
-    if (!classForm.name) {
-      toast({ title: 'Validation Error', description: 'Class name is required.', variant: 'destructive' });
+  const addStreamTag = () => {
+    const streamName = classForm.stream_input.trim();
+    if (!streamName) {
+      toast({ title: 'Validation Error', description: 'Stream name must be at least 1 character.', variant: 'destructive' });
       return;
     }
-    if (editingClass) {
-      hoiClassesStorage.update(editingClass.id, { ...classForm, created_at: editingClass.created_at });
-      toast({ title: 'Class Updated', description: `${classForm.name} has been updated.` });
-    } else {
-      hoiClassesStorage.add({ ...classForm, created_at: new Date().toISOString().split('T')[0] });
-      toast({ title: 'Class Added', description: `${classForm.name} has been created.` });
+
+    const exists = classForm.stream_names.some((existingStream) => existingStream.toLowerCase() === streamName.toLowerCase());
+    if (exists) {
+      toast({ title: 'Validation Error', description: 'Duplicate stream names are not allowed.', variant: 'destructive' });
+      return;
     }
+
+    setClassForm((prev) => ({
+      ...prev,
+      stream_names: [...prev.stream_names, streamName],
+      stream_input: '',
+    }));
+  };
+
+  const removeStreamTag = (streamName: string) => {
+    setClassForm((prev) => ({
+      ...prev,
+      stream_names: prev.stream_names.filter((existingStream) => existingStream !== streamName),
+    }));
+  };
+
+  const handleSaveClass = async () => {
+    if (!currentUser?.schoolId) {
+      toast({ title: 'Validation Error', description: 'Missing school context.', variant: 'destructive' });
+      return;
+    }
+
+    if (!classForm.level) {
+      toast({ title: 'Validation Error', description: 'Please select a level.', variant: 'destructive' });
+      return;
+    }
+
+    if (!classForm.class_name) {
+      toast({ title: 'Validation Error', description: 'Please select a class.', variant: 'destructive' });
+      return;
+    }
+
+    if (classForm.has_streams && classForm.stream_names.length === 0) {
+      toast({ title: 'Validation Error', description: 'Please add at least one stream or choose No Stream.', variant: 'destructive' });
+      return;
+    }
+
+    const classExists = classes.some(
+      (cls) => cls.name.toLowerCase() === classForm.class_name.toLowerCase() && cls.id !== editingClass?.id
+    );
+    if (classExists) {
+      toast({ title: 'Validation Error', description: 'This class already exists for this school.', variant: 'destructive' });
+      return;
+    }
+
+    if (editingClass) {
+      const { error } = await supabase
+        .from('hoi_classes')
+        .update({
+          name: classForm.class_name,
+          level: classForm.level,
+          has_streams: classForm.has_streams,
+        })
+        .eq('school_id', currentUser.schoolId)
+        .eq('id', editingClass.id);
+
+      if (error) {
+        toast({ title: 'Class Save Error', description: error.message, variant: 'destructive' });
+        return;
+      }
+
+      toast({ title: 'Class Updated', description: `${classForm.class_name} has been updated.` });
+      setClassDialogOpen(false);
+      await loadData();
+      return;
+    }
+
+    const { data: insertedClass, error: classInsertError } = await supabase
+      .from('hoi_classes')
+      .insert({
+        name: classForm.class_name,
+        level: classForm.level,
+        has_streams: classForm.has_streams,
+        school_id: currentUser.schoolId,
+        school_code: currentUser.schoolCode || null,
+      })
+      .select('id,name')
+      .single();
+
+    if (classInsertError || !insertedClass?.id) {
+      toast({ title: 'Class Save Error', description: classInsertError?.message || 'Could not create class.', variant: 'destructive' });
+      return;
+    }
+
+    if (classForm.has_streams) {
+      const streamRows = classForm.stream_names.map((streamName) => ({
+        name: streamName,
+        class_id: insertedClass.id,
+        class_name: insertedClass.name,
+        school_id: currentUser.schoolId,
+        school_code: currentUser.schoolCode || null,
+        student_count: 0,
+      }));
+
+      const { error: streamInsertError } = await supabase.from('hoi_streams').insert(streamRows);
+      if (streamInsertError) {
+        toast({ title: 'Stream Save Error', description: streamInsertError.message, variant: 'destructive' });
+        return;
+      }
+    }
+
+    toast({ title: 'Class Added', description: `${classForm.class_name} has been created.` });
     setClassDialogOpen(false);
-    loadData();
+    await loadData();
   };
 
   const handleDeleteClass = () => {
@@ -447,7 +565,11 @@ export default function HoiClasses() {
                             <Layers className="w-5 h-5 text-primary" />
                           </div>
                           <div>
-                            <h3 className="font-semibold text-foreground">{cls.name}</h3>
+                            <h3 className="font-semibold text-foreground">
+                              {classStreams.length === 0
+                                ? `${cls.name} (No streams)`
+                                : `${cls.name} → ${classStreams.map((stream) => stream.name).join(', ')} (${classStreams.length} streams)`}
+                            </h3>
                             <div className="flex items-center gap-3 text-xs text-muted-foreground">
                               <Badge variant="outline">{LEVEL_LABELS[cls.level]}</Badge>
                               <span>{classStreams.length} stream{classStreams.length !== 1 ? 's' : ''}</span>
@@ -554,22 +676,74 @@ export default function HoiClasses() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Class Name</Label>
-              <Input value={classForm.name} onChange={(e) => setClassForm({ ...classForm, name: e.target.value })} placeholder="e.g. PP1, Grade 7" />
-            </div>
-            <div className="space-y-2">
-              <Label>Level</Label>
-              <Select value={classForm.level} onValueChange={(v: HoiClass['level']) => setClassForm({ ...classForm, level: v })}>
+              <Label>Step 1: Select Level</Label>
+              <Select value={classForm.level || '_none'} onValueChange={(v: string) => setClassForm({ ...classForm, level: v === '_none' ? '' : (v as HoiClass['level']), class_name: '', has_streams: false, stream_input: '', stream_names: [] })}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Choose level" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="_none">Choose level</SelectItem>
                   <SelectItem value="ecde">ECDE</SelectItem>
                   <SelectItem value="primary">Primary</SelectItem>
-                  <SelectItem value="junior_secondary">JS</SelectItem>
+                  <SelectItem value="junior_secondary">Junior Secondary</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Label>Step 2: Select Class</Label>
+              <Select value={classForm.class_name || '_none'} onValueChange={(v: string) => setClassForm({ ...classForm, class_name: v === '_none' ? '' : v, has_streams: false, stream_input: '', stream_names: [] })} disabled={!classForm.level}>
+                <SelectTrigger>
+                  <SelectValue placeholder={classForm.level ? 'Choose class' : 'Select level first'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">Choose class</SelectItem>
+                  {(classForm.level ? CBC_CLASS_OPTIONS[classForm.level] : []).map((classOption) => (
+                    <SelectItem key={classOption} value={classOption}>{classOption}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {classForm.class_name && (
+              <div className="space-y-3 border rounded-md p-3">
+                <Label>Step 3: Streams</Label>
+                <div className="space-y-2">
+                  <Label>Does this class have streams?</Label>
+                  <Select value={classForm.has_streams ? 'yes' : 'no'} onValueChange={(value) => setClassForm((prev) => ({ ...prev, has_streams: value === 'yes', stream_input: value === 'yes' ? prev.stream_input : '', stream_names: value === 'yes' ? prev.stream_names : [] }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="no">No Stream (single class)</SelectItem>
+                      <SelectItem value="yes">Yes, add streams</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {classForm.has_streams && (
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
+                      <Input
+                        value={classForm.stream_input}
+                        onChange={(e) => setClassForm((prev) => ({ ...prev, stream_input: e.target.value }))}
+                        placeholder="Stream name e.g. North, South, A, B"
+                      />
+                      <Button type="button" variant="outline" onClick={addStreamTag}>Add Stream</Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {classForm.stream_names.map((streamName) => (
+                        <Badge key={streamName} variant="secondary" className="gap-1">
+                          {streamName}
+                          <button type="button" onClick={() => removeStreamTag(streamName)}>
+                            <X className="w-3 h-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setClassDialogOpen(false)}>Cancel</Button>
