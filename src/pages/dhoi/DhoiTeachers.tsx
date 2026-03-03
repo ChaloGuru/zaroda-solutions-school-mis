@@ -327,10 +327,16 @@ export default function DhoiTeachers() {
       toast({ title: 'Teacher Updated', description: `${teacherForm.full_name} has been updated.` });
     } else {
       const signupEmail = teacherForm.email.trim().toLowerCase();
-      const { data: authData, error: createAuthError } = await supabase.auth.admin.createUser({
+      const { data: authData, error: createAuthError } = await supabase.auth.signUp({
         email: signupEmail,
         password: password.trim(),
-        email_confirm: true,
+        options: {
+          data: {
+            full_name: teacherForm.full_name.trim(),
+            role: account_role,
+            school_code: currentUser.schoolCode,
+          },
+        },
       });
       if (createAuthError) {
         toast({ title: 'Teacher Save Error', description: createAuthError.message, variant: 'destructive' });

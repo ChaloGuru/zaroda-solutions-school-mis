@@ -587,10 +587,16 @@ export default function HoiTeachers() {
         toast({ title: 'Teacher Updated', description: `${teacherForm.full_name} has been updated.` });
       } else {
         const signupEmail = teacherForm.email.trim().toLowerCase();
-        const { data: authData, error: createAuthError } = await supabase.auth.admin.createUser({
+        const { data: authData, error: createAuthError } = await supabase.auth.signUp({
           email: signupEmail,
           password: password.trim(),
-          email_confirm: true,
+          options: {
+            data: {
+              full_name: teacherForm.full_name.trim(),
+              role: account_role,
+              school_code: tenantSchoolCode,
+            },
+          },
         });
         if (createAuthError) throw createAuthError;
 

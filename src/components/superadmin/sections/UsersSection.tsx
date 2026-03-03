@@ -264,10 +264,16 @@ export default function UsersSection() {
 
       const schoolName = schoolRow.name || schoolCode;
 
-      const { data: authData, error: createAuthError } = await supabase.auth.admin.createUser({
+      const { data: authData, error: createAuthError } = await supabase.auth.signUp({
         email,
         password: formData.password,
-        email_confirm: true,
+        options: {
+          data: {
+            full_name: fullName,
+            role,
+            school_code: schoolCode,
+          },
+        },
       });
       if (createAuthError) throw createAuthError;
 
