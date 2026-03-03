@@ -68,10 +68,13 @@ import {
   Trash2,
   Shield,
   Upload,
+  FileSpreadsheet,
+  Info,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { CBC_SUBJECT_GROUPS, getCbcLevelForClassName } from '@/lib/cbcSubjects';
 import { useAuthContext } from '@/context/AuthContext';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 const PAGE_SIZE = 10;
 
@@ -179,6 +182,13 @@ export default function HoiTeachers() {
   const [dhoiForm, setDhoiForm] = useState({ fullName: '', email: '', password: '', phone: '', employeeId: '' });
   const [existingDhoi, setExistingDhoi] = useState<DhoiAccount | null>(null);
   const teacherCsvInputRef = useRef<HTMLInputElement>(null);
+  const [teacherBulkImportOpen, setTeacherBulkImportOpen] = useState(false);
+  const [teacherCsvRows, setTeacherCsvRows] = useState<Array<Record<string, string>>>([]);
+  const [teacherCsvPreview, setTeacherCsvPreview] = useState<string[][]>([]);
+  const [teacherImportPayload, setTeacherImportPayload] = useState<any[]>([]);
+  const [teacherImportCodes, setTeacherImportCodes] = useState<Record<string, string>>({});
+  const [teacherValidationErrors, setTeacherValidationErrors] = useState<string[]>([]);
+  const [teacherValidationWarnings, setTeacherValidationWarnings] = useState<string[]>([]);
 
   const loadData = async () => {
     setTeachers(hoiTeachersStorage.getAll());
@@ -855,17 +865,103 @@ export default function HoiTeachers() {
 
   const rosterEntries = [...duties].sort((a, b) => a.from_date.localeCompare(b.from_date));
 
+  const resetTeacherImportState = () => {
+    setTeacherCsvRows([]);
+    setTeacherCsvPreview([]);
+    setTeacherImportPayload([]);
+    setTeacherImportCodes({});
+    setTeacherValidationErrors([]);
+    setTeacherValidationWarnings([]);
+    if (teacherCsvInputRef.current) teacherCsvInputRef.current.value = '';
+  };
+
+  const prepareTeacherImport = (rows: Array<Record<string, string>>) => {
+    if (!currentUser?.schoolId) {
+      setTeacherImportPayload([]);
+      setTeacherImportCodes({});
+      setTeacherValidationErrors(['Missing school context.']);
+      setTeacherValidationWarnings([]);
+      return;
+    }
+
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    const payload: any[] = [];
+    const teacherCodesByEmail: Record<string, string> = {};
+
+    rows.forEach((mapped, idx) => {
+      const rowNumber = idx + 2;
+      const fullName = (mapped.full_name || '').trim();
+      const email = (mapped.email || '').trim().toLowerCase();
+      const phone = (mapped.phone || '').trim();
+      const employeeId = (mapped.employee_id || '').trim();
+      const teacherCode = (mapped.teacher_code || '').trim().toUpperCase();
+      const specialization = (mapped.subject_specialization || '').trim();
+      const genderRaw = (mapped.gender || '').trim();
+      const qualification = (mapped.qualification || '').trim();
+      const classNameInput = (mapped.class_name || '').trim();
+
+      const missingFields: string[] = [];
+      if (!fullName) missingFields.push('full_name');
+      if (!email) missingFields.push('email');
+      if (!employeeId) missingFields.push('employee_id');
+      if (!teacherCode) missingFields.push('teacher_code');
+
+      if (missingFields.length > 0) {
+        errors.push(`Row ${rowNumber}: Missing required fields (${missingFields.join(', ')}).`);
+        return;
+      }
+
+      if (!email.includes('@')) {
+        errors.push(`Row ${rowNumber}: Invalid email "${email}".`);
+        return;
+      }
+
+      let gender: 'Male' | 'Female' = 'Male';
+      if (genderRaw) {
+        if (genderRaw.toLowerCase() === 'male') gender = 'Male';
+        else if (genderRaw.toLowerCase() === 'female') gender = 'Female';
+        else {
+          errors.push(`Row ${rowNumber}: Invalid gender "${genderRaw}".`);
+          return;
+        }
+      }
+
+      if (classNameInput) {
+        const classMatch = classes.find((classItem) => classItem.name.toLowerCase() === classNameInput.toLowerCase());
+        if (!classMatch) {
+          warnings.push(`Row ${rowNumber}: Class "${classNameInput}" not found in this school. Import will continue.`);
+        }
+      }
+
+      payload.push({
+        full_name: fullName,
+        email,
+        phone,
+        employee_id: employeeId,
+        subject_specialization: specialization,
+        gender,
+        qualification,
+        status: 'active',
+        hired_at: new Date().toISOString().split('T')[0],
+        school_id: currentUser.schoolId,
+        school_code: currentUser.schoolCode || null,
+      });
+      teacherCodesByEmail[email] = teacherCode;
+    });
+
+    setTeacherImportPayload(payload);
+    setTeacherImportCodes(teacherCodesByEmail);
+    setTeacherValidationErrors(errors);
+    setTeacherValidationWarnings(warnings);
+  };
+
   const handleTeacherCsvUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = async (ev) => {
-      if (!currentUser?.schoolId) {
-        toast({ title: 'Import Failed', description: 'Missing school context.', variant: 'destructive' });
-        return;
-      }
-
+    reader.onload = (ev) => {
       const text = String(ev.target?.result || '');
       const rows = text
         .split('\n')
@@ -874,121 +970,113 @@ export default function HoiTeachers() {
         .map((line) => line.split(',').map((cell) => cell.trim()));
 
       if (rows.length < 2) {
+        resetTeacherImportState();
         toast({ title: 'Import Failed', description: 'CSV file has no data rows.', variant: 'destructive' });
         return;
       }
 
       const headers = rows[0].map((header) => header.toLowerCase());
-      const failures: string[] = [];
-      const teacherPayload: any[] = [];
-      const teacherCodesByEmail = new Map<string, string>();
-
-      rows.slice(1).forEach((row, idx) => {
-        const rowNumber = idx + 2;
+      const parsedRows = rows.slice(1).map((row) => {
         const mapped: Record<string, string> = {};
         headers.forEach((header, headerIndex) => {
           mapped[header] = row[headerIndex] || '';
         });
-
-        const fullName = (mapped.full_name || '').trim();
-        const email = (mapped.email || '').trim().toLowerCase();
-        const phone = (mapped.phone || '').trim();
-        const employeeId = (mapped.employee_id || '').trim();
-        const teacherCode = (mapped.teacher_code || '').trim().toUpperCase();
-        const specialization = (mapped.subject_specialization || '').trim();
-        const genderRaw = (mapped.gender || '').trim();
-        const qualification = (mapped.qualification || '').trim();
-
-        if (!fullName || !email || !employeeId || !teacherCode) {
-          failures.push(`Row ${rowNumber}: Missing required fields.`);
-          return;
-        }
-
-        if (!email.includes('@')) {
-          failures.push(`Row ${rowNumber}: Invalid email "${email}".`);
-          return;
-        }
-
-        let gender: 'Male' | 'Female' = 'Male';
-        if (genderRaw) {
-          if (genderRaw.toLowerCase() === 'male') gender = 'Male';
-          else if (genderRaw.toLowerCase() === 'female') gender = 'Female';
-          else {
-            failures.push(`Row ${rowNumber}: Invalid gender "${genderRaw}".`);
-            return;
-          }
-        }
-
-        teacherPayload.push({
-          full_name: fullName,
-          email,
-          phone,
-          employee_id: employeeId,
-          subject_specialization: specialization,
-          gender,
-          qualification,
-          status: 'active',
-          hired_at: new Date().toISOString().split('T')[0],
-          school_id: currentUser.schoolId,
-          school_code: currentUser.schoolCode || null,
-        });
-        teacherCodesByEmail.set(email, teacherCode);
+        return mapped;
       });
 
-      let importedCount = 0;
-
-      if (teacherPayload.length > 0) {
-        const { data: insertedTeachers, error: insertError } = await supabase
-          .from('hoi_teachers')
-          .insert(teacherPayload)
-          .select('id,email');
-
-        if (insertError) {
-          failures.push(`Database insert failed: ${insertError.message}`);
-        } else {
-          importedCount = teacherPayload.length;
-
-          const teacherCodeRows = (insertedTeachers || [])
-            .map((teacher: any) => {
-              const code = teacherCodesByEmail.get(String(teacher.email || '').toLowerCase());
-              if (!teacher.id || !code) return null;
-              return {
-                teacher_id: teacher.id,
-                code,
-                school_id: currentUser.schoolId,
-                school_code: currentUser.schoolCode || null,
-              };
-            })
-            .filter(Boolean);
-
-          if (teacherCodeRows.length > 0) {
-            const { error: codeError } = await supabase
-              .from('teacher_codes')
-              .upsert(teacherCodeRows as any[], { onConflict: 'teacher_id' });
-            if (codeError) {
-              failures.push(`Teacher code save failed: ${codeError.message}`);
-            }
-          }
-        }
-      }
-
-      if (importedCount > 0) {
-        toast({ title: 'Import Successful', description: `Imported ${importedCount} teacher record(s).` });
-      }
-
-      if (failures.length > 0) {
-        toast({
-          title: 'Import Errors',
-          description: failures.slice(0, 5).join(' | '),
-          variant: 'destructive',
-        });
-      }
-
-      if (teacherCsvInputRef.current) teacherCsvInputRef.current.value = '';
-      await loadData();
+      setTeacherCsvRows(parsedRows);
+      setTeacherCsvPreview([rows[0], ...rows.slice(1, 6)]);
+      prepareTeacherImport(parsedRows);
+      setTeacherBulkImportOpen(true);
     };
 
     reader.readAsText(file);
+  };
+
+  const handleTeacherBulkImport = async () => {
+    if (!currentUser?.schoolId) {
+      toast({ title: 'Import Failed', description: 'Missing school context.', variant: 'destructive' });
+      return;
+    }
+
+    if (teacherImportPayload.length === 0) {
+      toast({ title: 'Import Failed', description: 'No CSV rows are ready to import.', variant: 'destructive' });
+      return;
+    }
+
+    const failures: string[] = [];
+    let importedCount = 0;
+
+    const { data: insertedTeachers, error: insertError } = await supabase
+      .from('hoi_teachers')
+      .insert(teacherImportPayload)
+      .select('id,email,full_name,phone,employee_id,subject_specialization,gender,qualification,status,hired_at,is_class_teacher,class_teacher_class_id,class_teacher_class_name,class_teacher_stream_id,class_teacher_stream_name');
+
+    if (insertError) {
+      failures.push(`Database insert failed: ${insertError.message}`);
+    } else {
+      importedCount = teacherImportPayload.length;
+
+      (insertedTeachers || []).forEach((teacher: any) => {
+        hoiTeachersStorage.add({
+          id: teacher.id,
+          full_name: teacher.full_name || '',
+          email: teacher.email || '',
+          phone: teacher.phone || '',
+          employee_id: teacher.employee_id || '',
+          subject_specialization: teacher.subject_specialization || '',
+          gender: teacher.gender === 'Female' ? 'Female' : 'Male',
+          qualification: teacher.qualification || '',
+          status: teacher.status || 'active',
+          hired_at: teacher.hired_at || new Date().toISOString().split('T')[0],
+          is_class_teacher: !!teacher.is_class_teacher,
+          class_teacher_class_id: teacher.class_teacher_class_id || undefined,
+          class_teacher_class_name: teacher.class_teacher_class_name || undefined,
+          class_teacher_stream_id: teacher.class_teacher_stream_id || undefined,
+          class_teacher_stream_name: teacher.class_teacher_stream_name || undefined,
+        });
+      });
+
+      const teacherCodeRows = (insertedTeachers || [])
+        .map((teacher: any) => {
+          const code = teacherImportCodes[String(teacher.email || '').toLowerCase()];
+          if (!teacher.id || !code) return null;
+          return {
+            teacher_id: teacher.id,
+            code,
+            school_id: currentUser.schoolId,
+            school_code: currentUser.schoolCode || null,
+          };
+        })
+        .filter(Boolean);
+
+      if (teacherCodeRows.length > 0) {
+        const { error: codeError } = await supabase
+          .from('teacher_codes')
+          .upsert(teacherCodeRows as any[], { onConflict: 'teacher_id' });
+        if (codeError) {
+          failures.push(`Teacher code save failed: ${codeError.message}`);
+        }
+      }
+    }
+
+    if (importedCount > 0) {
+      toast({ title: 'Import Successful', description: `Imported ${importedCount} teacher record(s).` });
+    }
+
+    if (failures.length > 0) {
+      toast({
+        title: 'Import Errors',
+        description: failures.slice(0, 5).join(' | '),
+        variant: 'destructive',
+      });
+    }
+
+    if (importedCount > 0) {
+      await loadData();
+      setTeacherBulkImportOpen(false);
+      resetTeacherImportState();
+    }
   };
 
   const downloadTeacherTemplate = () => {
@@ -1071,6 +1159,16 @@ export default function HoiTeachers() {
                   <Button variant="outline" onClick={downloadTeacherTemplate} className="gap-2">
                     Download Template
                   </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="outline" size="icon" aria-label="Teacher CSV column help">
+                        <Info className="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-sm">
+                      Required columns: full_name, email, employee_id, teacher_code. Optional: phone, subject_specialization, gender, qualification, class_name.
+                    </TooltipContent>
+                  </Tooltip>
                   <Button variant="outline" onClick={() => teacherCsvInputRef.current?.click()} className="gap-2">
                     <Upload className="w-4 h-4" />Import CSV
                   </Button>
@@ -1555,6 +1653,68 @@ export default function HoiTeachers() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDhoiDialogOpen(false)}>Cancel</Button>
             <Button onClick={saveDhoiAccount}>{existingDhoi ? 'Update Account' : 'Create Account'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={teacherBulkImportOpen} onOpenChange={(open) => { setTeacherBulkImportOpen(open); if (!open) resetTeacherImportState(); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><FileSpreadsheet className="w-5 h-5" /> Bulk Import Teachers</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="text-sm">
+              <p className="font-medium">{teacherImportPayload.length} rows ready to import</p>
+              <p className="text-muted-foreground">Total rows in file: {teacherCsvRows.length}</p>
+            </div>
+
+            {teacherValidationErrors.length > 0 && (
+              <div className="border rounded-lg p-3 bg-destructive/5">
+                <h4 className="font-semibold text-sm mb-2 text-destructive">Validation errors</h4>
+                <ul className="text-sm space-y-1 list-disc pl-5">
+                  {teacherValidationErrors.slice(0, 10).map((error, index) => (
+                    <li key={index}>{error}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {teacherValidationWarnings.length > 0 && (
+              <div className="border rounded-lg p-3 bg-amber-50">
+                <h4 className="font-semibold text-sm mb-2 text-amber-700">Warnings</h4>
+                <ul className="text-sm space-y-1 list-disc pl-5 text-amber-700">
+                  {teacherValidationWarnings.slice(0, 10).map((warning, index) => (
+                    <li key={index}>{warning}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {teacherCsvPreview.length > 0 && (
+              <div>
+                <h4 className="font-semibold mb-2">Preview (first 5 rows)</h4>
+                <div className="overflow-x-auto border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        {teacherCsvPreview[0]?.map((header, index) => <TableHead key={index}>{header}</TableHead>)}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {teacherCsvPreview.slice(1).map((row, rowIndex) => (
+                        <TableRow key={rowIndex}>
+                          {row.map((cell, cellIndex) => <TableCell key={cellIndex}>{cell}</TableCell>)}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setTeacherBulkImportOpen(false); resetTeacherImportState(); }}>Cancel</Button>
+            <Button onClick={handleTeacherBulkImport} disabled={teacherImportPayload.length === 0}>Confirm Import</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

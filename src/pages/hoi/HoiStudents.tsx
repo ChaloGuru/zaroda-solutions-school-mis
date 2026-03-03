@@ -43,9 +43,11 @@ import {
   Upload,
   Eye,
   FileSpreadsheet,
+  Info,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthContext } from '@/context/AuthContext';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 const PAGE_SIZE = 10;
 
@@ -92,6 +94,9 @@ export default function HoiStudents() {
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [csvPreview, setCsvPreview] = useState<string[][]>([]);
   const [studentCsvRows, setStudentCsvRows] = useState<Array<Record<string, string>>>([]);
+  const [studentImportPayload, setStudentImportPayload] = useState<any[]>([]);
+  const [studentValidationErrors, setStudentValidationErrors] = useState<string[]>([]);
+  const [studentValidationWarnings, setStudentValidationWarnings] = useState<string[]>([]);
 
   const loadClasses = async () => {
     if (!currentUser?.schoolId) {
@@ -378,6 +383,99 @@ export default function HoiStudents() {
     setProfileDialogOpen(true);
   };
 
+  const resetStudentImportState = () => {
+    setCsvPreview([]);
+    setStudentCsvRows([]);
+    setStudentImportPayload([]);
+    setStudentValidationErrors([]);
+    setStudentValidationWarnings([]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const prepareStudentImport = (rows: Array<Record<string, string>>) => {
+    if (!currentUser?.schoolId) {
+      setStudentImportPayload([]);
+      setStudentValidationErrors(['Missing school context.']);
+      setStudentValidationWarnings([]);
+      return;
+    }
+
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    const payload: any[] = [];
+
+    rows.forEach((row, idx) => {
+      const rowNumber = idx + 2;
+      const fullName = (row.full_name || '').trim();
+      const admissionNo = (row.admission_no || '').trim();
+      const upi = (row.upi || '').trim();
+      const classNameInput = (row.class_name || '').trim();
+      const streamNameInput = (row.stream_name || '').trim();
+      const genderRaw = (row.gender || '').trim();
+      const dateOfBirth = (row.date_of_birth || '').trim();
+      const guardianName = (row.guardian_name || '').trim();
+      const guardianPhone = (row.guardian_phone || '').trim();
+      const guardianEmail = (row.guardian_email || '').trim();
+
+      const missingFields: string[] = [];
+      if (!fullName) missingFields.push('full_name');
+      if (!admissionNo) missingFields.push('admission_no');
+      if (!classNameInput) missingFields.push('class_name');
+      if (!streamNameInput) missingFields.push('stream_name');
+
+      if (missingFields.length > 0) {
+        errors.push(`Row ${rowNumber}: Missing required fields (${missingFields.join(', ')}).`);
+        return;
+      }
+
+      let gender: 'Male' | 'Female' = 'Male';
+      if (genderRaw) {
+        if (genderRaw.toLowerCase() === 'male') gender = 'Male';
+        else if (genderRaw.toLowerCase() === 'female') gender = 'Female';
+        else {
+          errors.push(`Row ${rowNumber}: Invalid gender "${genderRaw}".`);
+          return;
+        }
+      }
+
+      const matchedClass = classes.find((classItem) => classItem.name.toLowerCase() === classNameInput.toLowerCase());
+      if (!matchedClass) {
+        warnings.push(`Row ${rowNumber}: Class "${classNameInput}" not found in this school. Import will continue with class name only.`);
+      }
+
+      const matchedStream = matchedClass
+        ? allStreams.find((streamItem) => streamItem.class_id === matchedClass.id && streamItem.name.toLowerCase() === streamNameInput.toLowerCase())
+        : undefined;
+
+      if (matchedClass && !matchedStream) {
+        warnings.push(`Row ${rowNumber}: Stream "${streamNameInput}" not found under class "${matchedClass.name}". Import will continue with stream name only.`);
+      }
+
+      payload.push({
+        full_name: fullName,
+        admission_no: admissionNo,
+        upi,
+        class_id: matchedClass?.id || null,
+        class_name: matchedClass?.name || classNameInput,
+        stream_id: matchedStream?.id || null,
+        stream_name: matchedStream?.name || streamNameInput,
+        gender,
+        date_of_birth: dateOfBirth || null,
+        guardian_name: guardianName,
+        guardian_phone: guardianPhone,
+        guardian_email: guardianEmail,
+        status: 'active',
+        enrolled_at: new Date().toISOString().split('T')[0],
+        school_id: currentUser.schoolId,
+        school_code: currentUser.schoolCode || null,
+      });
+    });
+
+    setStudentImportPayload(payload);
+    setStudentValidationErrors(errors);
+    setStudentValidationWarnings(warnings);
+  };
+
   const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -386,8 +484,7 @@ export default function HoiStudents() {
       const text = ev.target?.result as string;
       const rows = text.split('\n').filter((r) => r.trim()).map((r) => r.split(',').map((c) => c.trim()));
       if (rows.length < 2) {
-        setCsvPreview([]);
-        setStudentCsvRows([]);
+        resetStudentImportState();
         return;
       }
 
@@ -401,7 +498,8 @@ export default function HoiStudents() {
       });
 
       setStudentCsvRows(parsedRows);
-      setCsvPreview(rows.slice(0, 11));
+      setCsvPreview([rows[0], ...rows.slice(1, 6)]);
+      prepareStudentImport(parsedRows);
     };
     reader.readAsText(file);
   };
@@ -412,84 +510,21 @@ export default function HoiStudents() {
       return;
     }
 
-    if (studentCsvRows.length === 0) {
+    if (studentImportPayload.length === 0) {
       toast({ title: 'Import Failed', description: 'No CSV rows found to import.', variant: 'destructive' });
       return;
     }
 
     const failures: string[] = [];
-    const payload: any[] = [];
-
-    studentCsvRows.forEach((row, idx) => {
-      const rowNumber = idx + 2;
-      const fullName = (row.full_name || '').trim();
-      const admissionNo = (row.admission_no || '').trim();
-      const upi = (row.upi || '').trim();
-      const className = (row.class_name || '').trim();
-      const streamName = (row.stream_name || '').trim();
-      const genderRaw = (row.gender || '').trim();
-      const dateOfBirth = (row.date_of_birth || '').trim();
-      const guardianName = (row.guardian_name || '').trim();
-      const guardianPhone = (row.guardian_phone || '').trim();
-      const guardianEmail = (row.guardian_email || '').trim();
-
-      if (!fullName || !admissionNo || !className || !streamName) {
-        failures.push(`Row ${rowNumber}: Missing required fields.`);
-        return;
-      }
-
-      const cls = classes.find((c) => c.name.toLowerCase() === className.toLowerCase());
-      if (!cls) {
-        failures.push(`Row ${rowNumber}: Class "${className}" not found.`);
-        return;
-      }
-
-      const stream = allStreams.find(
-        (s) => s.class_id === cls.id && s.name.toLowerCase() === streamName.toLowerCase()
-      );
-      if (!stream) {
-        failures.push(`Row ${rowNumber}: Stream "${streamName}" not found for class "${className}".`);
-        return;
-      }
-
-      let gender: 'Male' | 'Female' = 'Male';
-      if (genderRaw) {
-        if (genderRaw.toLowerCase() === 'male') gender = 'Male';
-        else if (genderRaw.toLowerCase() === 'female') gender = 'Female';
-        else {
-          failures.push(`Row ${rowNumber}: Invalid gender "${genderRaw}".`);
-          return;
-        }
-      }
-
-      payload.push({
-        full_name: fullName,
-        admission_no: admissionNo,
-        upi,
-        class_id: cls.id,
-        class_name: cls.name,
-        stream_id: stream.id,
-        stream_name: stream.name,
-        gender,
-        date_of_birth: dateOfBirth,
-        guardian_name: guardianName,
-        guardian_phone: guardianPhone,
-        guardian_email: guardianEmail,
-        status: 'active',
-        enrolled_at: new Date().toISOString().split('T')[0],
-        school_id: currentUser.schoolId,
-        school_code: currentUser.schoolCode || null,
-      });
-    });
 
     let importedCount = 0;
 
-    if (payload.length > 0) {
-      const { error } = await supabase.from('hoi_students').insert(payload);
+    if (studentImportPayload.length > 0) {
+      const { error } = await supabase.from('hoi_students').insert(studentImportPayload);
       if (error) {
         failures.push(`Database insert failed: ${error.message}`);
       } else {
-        importedCount = payload.length;
+        importedCount = studentImportPayload.length;
       }
     }
 
@@ -505,12 +540,11 @@ export default function HoiStudents() {
       });
     }
 
-    setBulkImportOpen(false);
-    setCsvPreview([]);
-    setStudentCsvRows([]);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-
-    await loadData();
+    if (importedCount > 0) {
+      await loadData();
+      setBulkImportOpen(false);
+      resetStudentImportState();
+    }
   };
 
   const downloadStudentTemplate = () => {
@@ -572,6 +606,16 @@ export default function HoiStudents() {
                 </SelectContent>
               </Select>
               <Button variant="outline" onClick={downloadStudentTemplate} className="gap-2">Download Template</Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="icon" aria-label="Student CSV column help">
+                    <Info className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-sm">
+                  Required columns: full_name, admission_no, class_name, stream_name. Optional: upi, gender, date_of_birth, guardian_name, guardian_phone, guardian_email.
+                </TooltipContent>
+              </Tooltip>
               <Button variant="outline" onClick={() => setBulkImportOpen(true)} className="gap-2"><Upload className="w-4 h-4" />Import CSV</Button>
               <Button onClick={openAddStudent} className="gap-2"><Plus className="w-4 h-4" />Add Student</Button>
             </div>
@@ -813,7 +857,7 @@ export default function HoiStudents() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={bulkImportOpen} onOpenChange={(open) => { setBulkImportOpen(open); if (!open) { setCsvPreview([]); setStudentCsvRows([]); } }}>
+      <Dialog open={bulkImportOpen} onOpenChange={(open) => { setBulkImportOpen(open); if (!open) resetStudentImportState(); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><FileSpreadsheet className="w-5 h-5" /> Bulk Import Students</DialogTitle>
@@ -822,7 +866,7 @@ export default function HoiStudents() {
             <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
               <Upload className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
               <p className="text-sm text-muted-foreground mb-3">Upload a CSV file with student data</p>
-              <p className="text-xs text-muted-foreground mb-4">Columns: full_name, admission_no, upi, class, stream, gender, date_of_birth, guardian_name, guardian_phone, guardian_email</p>
+              <p className="text-xs text-muted-foreground mb-4">Columns: full_name, admission_no, upi, class_name, stream_name, gender, date_of_birth, guardian_name, guardian_phone, guardian_email</p>
               <Input
                 ref={fileInputRef}
                 type="file"
@@ -831,9 +875,35 @@ export default function HoiStudents() {
                 className="max-w-xs mx-auto"
               />
             </div>
+            {studentCsvRows.length > 0 && (
+              <div className="text-sm">
+                <p className="font-medium">{studentImportPayload.length} rows ready to import</p>
+                <p className="text-muted-foreground">Total rows in file: {studentCsvRows.length}</p>
+              </div>
+            )}
+            {studentValidationErrors.length > 0 && (
+              <div className="border rounded-lg p-3 bg-destructive/5">
+                <h4 className="font-semibold text-sm mb-2 text-destructive">Validation errors</h4>
+                <ul className="text-sm space-y-1 list-disc pl-5">
+                  {studentValidationErrors.slice(0, 10).map((error, index) => (
+                    <li key={index}>{error}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {studentValidationWarnings.length > 0 && (
+              <div className="border rounded-lg p-3 bg-amber-50">
+                <h4 className="font-semibold text-sm mb-2 text-amber-700">Warnings</h4>
+                <ul className="text-sm space-y-1 list-disc pl-5 text-amber-700">
+                  {studentValidationWarnings.slice(0, 10).map((warning, index) => (
+                    <li key={index}>{warning}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {csvPreview.length > 0 && (
               <div>
-                <h4 className="font-semibold mb-2">Preview (first {csvPreview.length} rows)</h4>
+                <h4 className="font-semibold mb-2">Preview (first 5 rows)</h4>
                 <div className="overflow-x-auto border rounded-lg">
                   <Table>
                     <TableHeader>
@@ -854,8 +924,8 @@ export default function HoiStudents() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setBulkImportOpen(false); setCsvPreview([]); }}>Cancel</Button>
-            <Button onClick={handleBulkImport} disabled={csvPreview.length === 0}>Import Students</Button>
+            <Button variant="outline" onClick={() => { setBulkImportOpen(false); resetStudentImportState(); }}>Cancel</Button>
+            <Button onClick={handleBulkImport} disabled={studentImportPayload.length === 0}>Confirm Import</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
