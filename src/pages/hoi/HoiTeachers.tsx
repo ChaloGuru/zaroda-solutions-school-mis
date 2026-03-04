@@ -983,8 +983,8 @@ export default function HoiTeachers() {
       subject_name: assignment.subject_name,
       class_id: assignment.class_id,
       class_name: assignment.class_name,
-      stream_id: assignment.stream_id || null,
-      stream_name: assignment.stream_id ? assignment.stream_name : null,
+      stream_id: assignment.stream_id || '',
+      stream_name: assignment.stream_id ? assignment.stream_name : '',
       created_at: new Date().toISOString(),
     }));
 
