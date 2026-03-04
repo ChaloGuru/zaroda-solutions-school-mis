@@ -455,6 +455,8 @@ export default function DhoiTeachers() {
   const filteredAssignSubjects = selectedAssignCodePrefix
     ? subjects.filter((subject) => getSubjectCodePrefix(subject.code) === selectedAssignCodePrefix)
     : [];
+  const hasCurrentSelection = Boolean(assignForm.teacher_id && assignForm.class_id && assignForm.subject_id);
+  const assignAllCount = pendingAssignments.length + (hasCurrentSelection ? 1 : 0);
 
   const rosterEntries = [...duties].sort((a, b) => a.from_date.localeCompare(b.from_date));
 
@@ -825,7 +827,7 @@ export default function DhoiTeachers() {
     const pendingAssignment = buildPendingAssignment();
     if (!pendingAssignment) return;
     setPendingAssignments((prev) => [...prev, pendingAssignment]);
-    setAssignForm((prev) => ({ ...prev, class_id: '', stream_id: '', subject_id: '' }));
+    setAssignForm((prev) => ({ ...prev, stream_id: '', subject_id: '' }));
   };
 
   const removePendingAssignment = (index: number) => {
@@ -839,7 +841,6 @@ export default function DhoiTeachers() {
     }
 
     let batch = [...pendingAssignments];
-    const hasCurrentSelection = Boolean(assignForm.teacher_id || assignForm.class_id || assignForm.subject_id || assignForm.stream_id);
     if (hasCurrentSelection) {
       const pendingAssignment = buildPendingAssignment();
       if (!pendingAssignment) return;
@@ -851,7 +852,7 @@ export default function DhoiTeachers() {
       return;
     }
 
-    const payload = batch.map((assignment) => ({
+    const rowsToInsert = batch.map((assignment) => ({
       school_id: currentUser.schoolId,
       school_code: currentUser.schoolCode || null,
       teacher_id: assignment.teacher_id,
@@ -865,7 +866,12 @@ export default function DhoiTeachers() {
       created_at: new Date().toISOString(),
     }));
 
-    const { error } = await supabase.from('hoi_subject_assignments').insert(payload);
+    const { error } = await supabase
+      .from('hoi_subject_assignments')
+      .upsert(rowsToInsert, {
+        onConflict: 'school_id,teacher_id,subject_name,class_name,stream_id',
+        ignoreDuplicates: true,
+      });
 
     if (error) {
       toast({ title: 'Assignment Error', description: error.message, variant: 'destructive' });
@@ -873,10 +879,27 @@ export default function DhoiTeachers() {
     }
 
     toast({ title: 'Success', description: 'Learning areas assigned successfully.' });
+    setPendingAssignments([]);
     setAssignDialogOpen(false);
     setAssignForm(emptyAssignmentForm);
-    setPendingAssignments([]);
-    await loadAssignmentsFromSupabase(currentUser.schoolId);
+
+    const { data: refreshedAssignments } = await supabase
+      .from('hoi_subject_assignments')
+      .select('*')
+      .eq('school_id', currentUser.schoolId);
+
+    const mappedAssignments: HoiSubjectAssignment[] = (refreshedAssignments || []).map((row: any) => ({
+      id: row.id,
+      teacher_id: row.teacher_id || '',
+      teacher_name: row.teacher_name || '',
+      subject_id: row.subject_id || '',
+      subject_name: row.subject_name || '',
+      class_id: row.class_id || '',
+      class_name: row.class_name || '',
+      stream_id: row.stream_id || '',
+      stream_name: row.stream_name || '',
+    }));
+    setAssignments(mappedAssignments);
   };
 
   const deleteAssignment = () => {
@@ -1378,7 +1401,7 @@ export default function DhoiTeachers() {
             </div>
             {pendingAssignments.length > 0 && (
               <div className="space-y-2 rounded-md border p-3">
-                <Label>Assignments to save</Label>
+                <Label>Pending ({pendingAssignments.length}): {pendingAssignments.map((assignment) => `${assignment.subject_name} ${assignment.class_name}`).join(', ')}</Label>
                 <div className="space-y-2">
                   {pendingAssignments.map((assignment, index) => (
                     <div key={`${assignment.teacher_id}-${assignment.subject_id}-${assignment.class_id}-${assignment.stream_id}-${index}`} className="flex items-center justify-between text-sm">
@@ -1393,7 +1416,7 @@ export default function DhoiTeachers() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setAssignDialogOpen(false)}>Cancel</Button>
             <Button type="button" variant="outline" onClick={addAnotherAssignment}>Add Another</Button>
-            <Button onClick={saveAssignment}>Assign All</Button>
+            <Button onClick={saveAssignment}>Assign All ({assignAllCount})</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
