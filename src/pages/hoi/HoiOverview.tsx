@@ -150,7 +150,12 @@ export default function HoiOverview({ onNavigate }: HoiOverviewProps) {
       const students = hoiStudentsStorage.getAll();
       const teachers = hoiTeachersStorage.getAll();
       const classes = hoiClassesStorage.getAll();
-      const fees = hoiFeesStorage.getAll();
+      let fees = [] as ReturnType<typeof hoiFeesStorage.getAll>;
+      try {
+        fees = hoiFeesStorage.getAll();
+      } catch {
+        fees = [];
+      }
       const attendance = hoiAttendanceStorage.getAll();
       const anns = hoiAnnouncementsStorage.getAll();
 
@@ -176,22 +181,30 @@ export default function HoiOverview({ onNavigate }: HoiOverviewProps) {
       setAttendanceRate(rate);
 
       setAnnouncements(anns.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-      setAdminAnnouncements(await adminAnnouncementsStorage.getByTargetRole('hoi'));
+      try {
+        setAdminAnnouncements(await adminAnnouncementsStorage.getByTargetRole('hoi'));
+      } catch {
+        setAdminAnnouncements([]);
+      }
 
-      const { data: rollRows } = await supabase
-        .from('hoi_students')
-        .select('class_name, gender')
-        .eq('school_id', currentUser?.schoolId || '');
-
-      if (rollRows && Array.isArray(rollRows)) {
-        setRollStudents(
-          rollRows.map((row) => ({
-            class_name: String(row.class_name || ''),
-            gender: row.gender === 'Male' || row.gender === 'Female' ? row.gender : null,
-          }))
-        );
-      } else {
+      if (!currentUser?.schoolId) {
         setRollStudents([]);
+      } else {
+        const { data: rollRows } = await supabase
+          .from('hoi_students')
+          .select('class_name, gender')
+          .eq('school_id', currentUser.schoolId);
+
+        if (rollRows && Array.isArray(rollRows)) {
+          setRollStudents(
+            rollRows.map((row) => ({
+              class_name: String(row.class_name || ''),
+              gender: row.gender === 'Male' || row.gender === 'Female' ? row.gender : null,
+            }))
+          );
+        } else {
+          setRollStudents([]);
+        }
       }
 
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -204,7 +217,11 @@ export default function HoiOverview({ onNavigate }: HoiOverviewProps) {
       });
       setChartData(cData);
 
-      setReadAdminAnnouncementIds(await adminAnnouncementReadStorage.getReadIds(adminAnnouncementUserKey));
+      try {
+        setReadAdminAnnouncementIds(await adminAnnouncementReadStorage.getReadIds(adminAnnouncementUserKey));
+      } catch {
+        setReadAdminAnnouncementIds([]);
+      }
     };
 
     void loadOverviewData();

@@ -83,7 +83,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     const loadTeacherData = async () => {
-      if (!currentUser) {
+      if (!currentUser?.schoolId) {
         setTeacherAssignments([]);
         setTeacherCode('');
         setMyTimetable([]);
@@ -91,40 +91,57 @@ const Dashboard = () => {
       }
 
       try {
-        const [{ data: assignmentRows }, { data: codeRow }, { data: timetableRows }] = await Promise.all([
+        const [{ data: assignmentRows, error: assignmentError }, { data: codeRow, error: codeError }] = await Promise.all([
           supabase
             .from('hoi_subject_assignments')
             .select('teacher_id,subject_name,class_name,stream_name')
-            .eq('school_id', currentUser.schoolId || '')
+            .eq('school_id', currentUser.schoolId)
             .eq('teacher_name', currentUser.fullName),
           supabase
             .from('teacher_codes')
             .select('code')
             .eq('teacher_id', currentUser.id)
             .maybeSingle(),
-          supabase
-            .from('master_timetable_slots')
-            .select('id,teacher_id,teacher_code,day,is_locked,period_index,time_start,time_end,subject_name,class_name,stream_name')
-            .or(`teacher_id.eq.${currentUser.id},teacher_code.eq.${currentUser.id}`),
         ]);
 
-        setTeacherAssignments((assignmentRows || []) as SubjectAssignmentRecord[]);
-        setTeacherCode(codeRow?.code || '');
+        if (assignmentError) {
+          setTeacherAssignments([]);
+        } else {
+          setTeacherAssignments((assignmentRows || []) as SubjectAssignmentRecord[]);
+        }
+        if (codeError) {
+          setTeacherCode('');
+        } else {
+          setTeacherCode(codeRow?.code || '');
+        }
 
-        const mappedSlots: TeacherTimetableSlot[] = (timetableRows || []).map((slot: any) => ({
-          id: slot.id,
-          teacherId: slot.teacher_id,
-          teacherCode: slot.teacher_code,
-          day: slot.day,
-          isLocked: slot.is_locked,
-          periodIndex: slot.period_index,
-          timeStart: slot.time_start,
-          timeEnd: slot.time_end,
-          subjectName: slot.subject_name,
-          className: slot.class_name,
-          streamName: slot.stream_name,
-        }));
-        setMyTimetable(mappedSlots);
+        try {
+          const { data: timetableRows, error: timetableError } = await supabase
+            .from('master_timetable_slots')
+            .select('id,teacher_id,teacher_code,day,is_locked,period_index,time_start,time_end,subject_name,class_name,stream_name')
+            .or(`teacher_id.eq.${currentUser.id},teacher_code.eq.${currentUser.id}`);
+
+          if (timetableError) {
+            setMyTimetable([]);
+          } else {
+            const mappedSlots: TeacherTimetableSlot[] = (timetableRows || []).map((slot: any) => ({
+              id: slot.id,
+              teacherId: slot.teacher_id,
+              teacherCode: slot.teacher_code,
+              day: slot.day,
+              isLocked: slot.is_locked,
+              periodIndex: slot.period_index,
+              timeStart: slot.time_start,
+              timeEnd: slot.time_end,
+              subjectName: slot.subject_name,
+              className: slot.class_name,
+              streamName: slot.stream_name,
+            }));
+            setMyTimetable(mappedSlots);
+          }
+        } catch {
+          setMyTimetable([]);
+        }
       } catch {
         setTeacherAssignments([]);
         setTeacherCode('');
@@ -267,12 +284,21 @@ const Dashboard = () => {
   }, [isClassTeacher]);
 
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser?.schoolId) {
+      setAdminAnnouncements([]);
+      setReadAdminAnnouncementIds([]);
+      return;
+    }
     const loadAdminAnnouncements = async () => {
-      const scoped = await adminAnnouncementsStorage.getByTargetRole('teacher');
-      const readIds = await adminAnnouncementReadStorage.getReadIds(adminAnnouncementUserKey);
-      setAdminAnnouncements(scoped);
-      setReadAdminAnnouncementIds(readIds);
+      try {
+        const scoped = await adminAnnouncementsStorage.getByTargetRole('teacher');
+        const readIds = await adminAnnouncementReadStorage.getReadIds(adminAnnouncementUserKey);
+        setAdminAnnouncements(scoped);
+        setReadAdminAnnouncementIds(readIds);
+      } catch {
+        setAdminAnnouncements([]);
+        setReadAdminAnnouncementIds([]);
+      }
     };
     void loadAdminAnnouncements();
   }, [currentUser, activeTab, adminAnnouncementUserKey]);
@@ -362,6 +388,7 @@ const Dashboard = () => {
           grade={effectiveGrade}
           subject={effectiveSubject}
           schoolCode={currentUser.schoolCode}
+          schoolId={currentUser.schoolId || ''}
         />
       )}
 

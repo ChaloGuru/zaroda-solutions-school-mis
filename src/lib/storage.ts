@@ -273,6 +273,38 @@ const mapError = (error: unknown): never => {
   throw error instanceof Error ? error : new Error(String(error));
 };
 
+const errorMessage = (error: unknown): string => {
+  if (!error) return '';
+  if (typeof error === 'string') return error;
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object') {
+    const maybe = error as { message?: string; details?: string; hint?: string; code?: string; status?: number; statusCode?: number };
+    return [maybe.message, maybe.details, maybe.hint, maybe.code, String(maybe.status || maybe.statusCode || '')]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+  }
+  return String(error).toLowerCase();
+};
+
+const isMissingOrUnauthorizedTableError = (error: unknown, table: string): boolean => {
+  const msg = errorMessage(error);
+  if (!msg) return false;
+  const tableMentioned = msg.includes(table.toLowerCase()) || msg.includes(`public.${table.toLowerCase()}`);
+  const missing =
+    msg.includes('does not exist') ||
+    msg.includes('could not find the table') ||
+    msg.includes('42p01') ||
+    msg.includes('404');
+  const unauthorized = msg.includes('401') || msg.includes('unauthorized') || msg.includes('permission denied');
+  return tableMentioned && (missing || unauthorized);
+};
+
+const isMissingAssessmentColumnError = (error: unknown, columnName: string): boolean => {
+  const msg = errorMessage(error);
+  return msg.includes(columnName.toLowerCase()) && (msg.includes('column') || msg.includes('does not exist'));
+};
+
 const SCHOOL_TYPES = ['ECDE', 'Primary', 'Junior Secondary'] as const;
 const isSchoolType = (value: unknown): value is School['school_type'][number] =>
   typeof value === 'string' && SCHOOL_TYPES.includes(value as School['school_type'][number]);
@@ -412,29 +444,31 @@ export const invoicesStorage = {
   },
 };
 
+const mapAssessmentRecord = (row: any): AssessmentRecord => ({
+  id: row.id,
+  teacherId: row.teacher_id,
+  teacherName: row.teacher_name,
+  studentId: row.student_id,
+  studentName: row.student_name,
+  admissionNo: row.admission_no,
+  grade: row.class_name || row.grade,
+  subject: row.subject_name || row.subject,
+  term: row.term,
+  schoolCode: row.school_code,
+  activityType: row.activity_type || undefined,
+  performanceLevel: row.performance_level || undefined,
+  competencyAchieved: typeof row.competency_achieved === 'boolean' ? row.competency_achieved : undefined,
+  teacherComment: row.teacher_comment || undefined,
+  scores: row.scores || [],
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+});
+
 export const assessmentStorage = {
   getAll: async (): Promise<AssessmentRecord[]> => {
     const { data, error } = await supabase.from('assessments').select('*');
     if (error) mapError(error);
-    return (data || []).map((row: any) => ({
-      id: row.id,
-      teacherId: row.teacher_id,
-      teacherName: row.teacher_name,
-      studentId: row.student_id,
-      studentName: row.student_name,
-      admissionNo: row.admission_no,
-      grade: row.grade,
-      subject: row.subject,
-      term: row.term,
-      schoolCode: row.school_code,
-      activityType: row.activity_type || undefined,
-      performanceLevel: row.performance_level || undefined,
-      competencyAchieved: typeof row.competency_achieved === 'boolean' ? row.competency_achieved : undefined,
-      teacherComment: row.teacher_comment || undefined,
-      scores: row.scores || [],
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    }));
+    return (data || []).map((row: any) => mapAssessmentRecord(row));
   },
   save: async (records: AssessmentRecord[]) => {
     const payload = records.map((row) => ({
@@ -444,8 +478,8 @@ export const assessmentStorage = {
       student_id: row.studentId,
       student_name: row.studentName,
       admission_no: row.admissionNo,
-      grade: row.grade,
-      subject: row.subject,
+      class_name: row.grade,
+      subject_name: row.subject,
       term: row.term,
       school_code: row.schoolCode,
       activity_type: row.activityType,
@@ -456,54 +490,45 @@ export const assessmentStorage = {
       created_at: row.createdAt,
       updated_at: row.updatedAt,
     }));
+
     const { error } = await supabase.from('assessments').upsert(payload, { onConflict: 'id' });
+    if (error && (isMissingAssessmentColumnError(error, 'class_name') || isMissingAssessmentColumnError(error, 'subject_name'))) {
+      const legacyPayload = records.map((row) => ({
+        id: row.id,
+        teacher_id: row.teacherId,
+        teacher_name: row.teacherName,
+        student_id: row.studentId,
+        student_name: row.studentName,
+        admission_no: row.admissionNo,
+        grade: row.grade,
+        subject: row.subject,
+        term: row.term,
+        school_code: row.schoolCode,
+        activity_type: row.activityType,
+        performance_level: row.performanceLevel,
+        competency_achieved: row.competencyAchieved,
+        teacher_comment: row.teacherComment,
+        scores: row.scores,
+        created_at: row.createdAt,
+        updated_at: row.updatedAt,
+      }));
+
+      const { error: legacyError } = await supabase.from('assessments').upsert(legacyPayload, { onConflict: 'id' });
+      if (legacyError) mapError(legacyError);
+      return;
+    }
+
     if (error) mapError(error);
   },
   getByTeacher: async (teacherId: string): Promise<AssessmentRecord[]> => {
     const { data, error } = await supabase.from('assessments').select('*').eq('teacher_id', teacherId);
     if (error) mapError(error);
-    return (data || []).map((row: any) => ({
-      id: row.id,
-      teacherId: row.teacher_id,
-      teacherName: row.teacher_name,
-      studentId: row.student_id,
-      studentName: row.student_name,
-      admissionNo: row.admission_no,
-      grade: row.grade,
-      subject: row.subject,
-      term: row.term,
-      schoolCode: row.school_code,
-      activityType: row.activity_type || undefined,
-      performanceLevel: row.performance_level || undefined,
-      competencyAchieved: typeof row.competency_achieved === 'boolean' ? row.competency_achieved : undefined,
-      teacherComment: row.teacher_comment || undefined,
-      scores: row.scores || [],
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    }));
+    return (data || []).map((row: any) => mapAssessmentRecord(row));
   },
   getByStudent: async (studentId: string): Promise<AssessmentRecord[]> => {
     const { data, error } = await supabase.from('assessments').select('*').eq('student_id', studentId);
     if (error) mapError(error);
-    return (data || []).map((row: any) => ({
-      id: row.id,
-      teacherId: row.teacher_id,
-      teacherName: row.teacher_name,
-      studentId: row.student_id,
-      studentName: row.student_name,
-      admissionNo: row.admission_no,
-      grade: row.grade,
-      subject: row.subject,
-      term: row.term,
-      schoolCode: row.school_code,
-      activityType: row.activity_type || undefined,
-      performanceLevel: row.performance_level || undefined,
-      competencyAchieved: typeof row.competency_achieved === 'boolean' ? row.competency_achieved : undefined,
-      teacherComment: row.teacher_comment || undefined,
-      scores: row.scores || [],
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    }));
+    return (data || []).map((row: any) => mapAssessmentRecord(row));
   },
   find: async (teacherId: string, studentId: string, grade: string, subject: string, term: number): Promise<AssessmentRecord | undefined> => {
     const { data, error } = await supabase
@@ -511,31 +536,30 @@ export const assessmentStorage = {
       .select('*')
       .eq('teacher_id', teacherId)
       .eq('student_id', studentId)
-      .eq('grade', grade)
-      .eq('subject', subject)
+      .eq('class_name', grade)
+      .eq('subject_name', subject)
       .eq('term', term)
       .maybeSingle();
+
+    if (error && (isMissingAssessmentColumnError(error, 'class_name') || isMissingAssessmentColumnError(error, 'subject_name'))) {
+      const { data: legacyData, error: legacyError } = await supabase
+        .from('assessments')
+        .select('*')
+        .eq('teacher_id', teacherId)
+        .eq('student_id', studentId)
+        .eq('grade', grade)
+        .eq('subject', subject)
+        .eq('term', term)
+        .maybeSingle();
+
+      if (legacyError) mapError(legacyError);
+      if (!legacyData) return undefined;
+      return mapAssessmentRecord(legacyData);
+    }
+
     if (error) mapError(error);
     if (!data) return undefined;
-    return {
-      id: data.id,
-      teacherId: data.teacher_id,
-      teacherName: data.teacher_name,
-      studentId: data.student_id,
-      studentName: data.student_name,
-      admissionNo: data.admission_no,
-      grade: data.grade,
-      subject: data.subject,
-      term: data.term,
-      schoolCode: data.school_code,
-      activityType: data.activity_type || undefined,
-      performanceLevel: data.performance_level || undefined,
-      competencyAchieved: typeof data.competency_achieved === 'boolean' ? data.competency_achieved : undefined,
-      teacherComment: data.teacher_comment || undefined,
-      scores: data.scores || [],
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
-    };
+    return mapAssessmentRecord(data);
   },
   upsert: async (record: Omit<AssessmentRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<AssessmentRecord> => {
     const existing = await assessmentStorage.find(record.teacherId, record.studentId, record.grade, record.subject, record.term);
@@ -546,8 +570,8 @@ export const assessmentStorage = {
       student_id: record.studentId,
       student_name: record.studentName,
       admission_no: record.admissionNo,
-      grade: record.grade,
-      subject: record.subject,
+      class_name: record.grade,
+      subject_name: record.subject,
       term: record.term,
       school_code: record.schoolCode,
       activity_type: record.activityType,
@@ -558,27 +582,37 @@ export const assessmentStorage = {
       created_at: existing?.createdAt || new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    const { data, error } = await supabase.from('assessments').upsert(payload).select().single();
+
+    let { data, error } = await supabase.from('assessments').upsert(payload).select().single();
+
+    if (error && (isMissingAssessmentColumnError(error, 'class_name') || isMissingAssessmentColumnError(error, 'subject_name'))) {
+      const legacyPayload = {
+        id: existing?.id,
+        teacher_id: record.teacherId,
+        teacher_name: record.teacherName,
+        student_id: record.studentId,
+        student_name: record.studentName,
+        admission_no: record.admissionNo,
+        grade: record.grade,
+        subject: record.subject,
+        term: record.term,
+        school_code: record.schoolCode,
+        activity_type: record.activityType,
+        performance_level: record.performanceLevel,
+        competency_achieved: record.competencyAchieved,
+        teacher_comment: record.teacherComment,
+        scores: record.scores,
+        created_at: existing?.createdAt || new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      const fallback = await supabase.from('assessments').upsert(legacyPayload).select().single();
+      data = fallback.data;
+      error = fallback.error;
+    }
+
     if (error) mapError(error);
-    return {
-      id: data.id,
-      teacherId: data.teacher_id,
-      teacherName: data.teacher_name,
-      studentId: data.student_id,
-      studentName: data.student_name,
-      admissionNo: data.admission_no,
-      grade: data.grade,
-      subject: data.subject,
-      term: data.term,
-      schoolCode: data.school_code,
-      activityType: data.activity_type || undefined,
-      performanceLevel: data.performance_level || undefined,
-      competencyAchieved: typeof data.competency_achieved === 'boolean' ? data.competency_achieved : undefined,
-      teacherComment: data.teacher_comment || undefined,
-      scores: data.scores || [],
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
-    };
+    return mapAssessmentRecord(data);
   },
   remove: async (id: string) => {
     const { error } = await supabase.from('assessments').delete().eq('id', id);
@@ -589,9 +623,23 @@ export const assessmentStorage = {
       .from('assessments')
       .select('student_id,student_name,admission_no')
       .eq('teacher_id', teacherId)
-      .eq('grade', grade)
-      .eq('subject', subject)
+      .eq('class_name', grade)
+      .eq('subject_name', subject)
       .eq('term', term);
+
+    if (error && (isMissingAssessmentColumnError(error, 'class_name') || isMissingAssessmentColumnError(error, 'subject_name'))) {
+      const fallback = await supabase
+        .from('assessments')
+        .select('student_id,student_name,admission_no')
+        .eq('teacher_id', teacherId)
+        .eq('grade', grade)
+        .eq('subject', subject)
+        .eq('term', term);
+
+      if (fallback.error) mapError(fallback.error);
+      return (fallback.data || []).map((row: any) => ({ studentId: row.student_id, studentName: row.student_name, admissionNo: row.admission_no }));
+    }
+
     if (error) mapError(error);
     return (data || []).map((row: any) => ({ studentId: row.student_id, studentName: row.student_name, admissionNo: row.admission_no }));
   },
@@ -830,7 +878,10 @@ export const platformUsersStorage = {
 export const activityStorage = {
   getAll: async (): Promise<LoginActivity[]> => {
     const { data, error } = await supabase.from('login_activities').select('*').order('created_at', { ascending: false });
-    if (error) mapError(error);
+    if (error) {
+      if (isMissingOrUnauthorizedTableError(error, 'login_activities')) return [];
+      mapError(error);
+    }
     return (data || []).map((row: any) => ({
       id: row.id,
       userId: row.user_id,
@@ -854,7 +905,10 @@ export const activityStorage = {
       created_at: row.timestamp,
     }));
     const { error } = await supabase.from('login_activities').upsert(payload, { onConflict: 'id' });
-    if (error) mapError(error);
+    if (error) {
+      if (isMissingOrUnauthorizedTableError(error, 'login_activities')) return;
+      mapError(error);
+    }
   },
   add: async (log: Omit<LoginActivity, 'id' | 'timestamp'>): Promise<LoginActivity> => {
     const { data, error } = await supabase
@@ -862,7 +916,21 @@ export const activityStorage = {
       .insert({ user_id: log.userId, email: log.email, full_name: log.fullName, role: log.role, action: log.action, details: log.details })
       .select()
       .single();
-    if (error) mapError(error);
+    if (error) {
+      if (isMissingOrUnauthorizedTableError(error, 'login_activities')) {
+        return {
+          id: crypto.randomUUID(),
+          userId: log.userId,
+          email: log.email,
+          fullName: log.fullName,
+          role: log.role,
+          action: log.action,
+          timestamp: new Date().toISOString(),
+          details: log.details,
+        };
+      }
+      mapError(error);
+    }
     return {
       id: data.id,
       userId: data.user_id,
@@ -876,7 +944,10 @@ export const activityStorage = {
   },
   getByUser: async (userId: string): Promise<LoginActivity[]> => {
     const { data, error } = await supabase.from('login_activities').select('*').eq('user_id', userId).order('created_at', { ascending: false });
-    if (error) mapError(error);
+    if (error) {
+      if (isMissingOrUnauthorizedTableError(error, 'login_activities')) return [];
+      mapError(error);
+    }
     return (data || []).map((row: any) => ({
       id: row.id,
       userId: row.user_id,
@@ -890,7 +961,10 @@ export const activityStorage = {
   },
   getRecent: async (limit = 50): Promise<LoginActivity[]> => {
     const { data, error } = await supabase.from('login_activities').select('*').order('created_at', { ascending: false }).limit(limit);
-    if (error) mapError(error);
+    if (error) {
+      if (isMissingOrUnauthorizedTableError(error, 'login_activities')) return [];
+      mapError(error);
+    }
     return (data || []).map((row: any) => ({
       id: row.id,
       userId: row.user_id,
@@ -1692,7 +1766,10 @@ export const departmentAnnouncementsStorage = {
 export const adminAnnouncementsStorage = {
   getAll: async (): Promise<AdminAnnouncement[]> => {
     const { data, error } = await supabase.from('admin_announcements').select('*').order('created_at', { ascending: false });
-    if (error) mapError(error);
+    if (error) {
+      if (isMissingOrUnauthorizedTableError(error, 'admin_announcements')) return [];
+      mapError(error);
+    }
     return (data || []).map((row: any) => ({
       id: row.id,
       title: row.title,
@@ -1712,7 +1789,10 @@ export const adminAnnouncementsStorage = {
       created_at: row.createdAt,
     }));
     const { error } = await supabase.from('admin_announcements').upsert(payload, { onConflict: 'id' });
-    if (error) mapError(error);
+    if (error) {
+      if (isMissingOrUnauthorizedTableError(error, 'admin_announcements')) return;
+      mapError(error);
+    }
   },
   add: async (data: Omit<AdminAnnouncement, 'id' | 'createdAt'>): Promise<AdminAnnouncement> => {
     const { data: inserted, error } = await supabase.from('admin_announcements').insert({
@@ -1721,7 +1801,19 @@ export const adminAnnouncementsStorage = {
       target_role: data.targetRole,
       author: data.author,
     }).select().single();
-    if (error) mapError(error);
+    if (error) {
+      if (isMissingOrUnauthorizedTableError(error, 'admin_announcements')) {
+        return {
+          id: crypto.randomUUID(),
+          title: data.title,
+          message: data.message,
+          targetRole: data.targetRole,
+          author: data.author,
+          createdAt: new Date().toISOString(),
+        };
+      }
+      mapError(error);
+    }
     return {
       id: inserted.id,
       title: inserted.title,
@@ -1733,7 +1825,10 @@ export const adminAnnouncementsStorage = {
   },
   getByTargetRole: async (role: Exclude<AdminAnnouncementTargetRole, 'all'>): Promise<AdminAnnouncement[]> => {
     const { data, error } = await supabase.from('admin_announcements').select('*').or(`target_role.eq.all,target_role.eq.${role}`);
-    if (error) mapError(error);
+    if (error) {
+      if (isMissingOrUnauthorizedTableError(error, 'admin_announcements')) return [];
+      mapError(error);
+    }
     return (data || []).map((row: any) => ({
       id: row.id,
       title: row.title,

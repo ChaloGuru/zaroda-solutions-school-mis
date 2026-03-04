@@ -83,7 +83,15 @@ const PIE_COLORS = ['#f59e0b', '#3b82f6', '#f97316', '#ef4444', '#22c55e', '#6b7
 export default function HoiFinances() {
   const { toast } = useToast();
 
-  const [fees, setFees] = useState<HoiFeePayment[]>(() => hoiFeesStorage.getAll());
+  const safeGetFees = () => {
+    try {
+      return hoiFeesStorage.getAll();
+    } catch {
+      return [] as HoiFeePayment[];
+    }
+  };
+
+  const [fees, setFees] = useState<HoiFeePayment[]>(() => safeGetFees());
   const [expenses, setExpenses] = useState<HoiExpense[]>(() => hoiExpensesStorage.getAll());
 
   const [feeSearch, setFeeSearch] = useState('');
@@ -190,7 +198,7 @@ export default function HoiFinances() {
       receipt_no: feeForm.receipt_no.trim(),
       recorded_by: 'Bursar',
     });
-    setFees(hoiFeesStorage.getAll());
+    setFees(safeGetFees());
     setFeeDialogOpen(false);
     resetFeeForm();
     toast({ title: 'Success', description: 'Fee payment recorded successfully.' });

@@ -45,6 +45,7 @@ interface AssessmentBookProps {
   grade: string;
   subject: string;
   schoolCode: string;
+  schoolId: string;
 }
 
 interface LocalStudent {
@@ -100,6 +101,8 @@ const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
 
 const LEVELS: ScoreLevel[] = ['EE', 'ME', 'AE', 'BE'];
 
+const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
 const normalizeLevel = (value?: string): ScoreLevel | undefined => {
   if (!value) return undefined;
   const upper = value.toUpperCase();
@@ -142,7 +145,7 @@ const booleanToCompetencyChoice = (value?: boolean): CompetencyChoice => {
   return 'not_yet';
 };
 
-const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: AssessmentBookProps) => {
+const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode, schoolId }: AssessmentBookProps) => {
   const { toast } = useToast();
   const [selectedTerm, setSelectedTerm] = useState<number>(1);
   const [activeTab, setActiveTab] = useState<string>('assess');
@@ -168,12 +171,46 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
 
   const availableSubjects = useMemo(() => getSubjectsForGrade(grade), [grade]);
   const subjectMatch = !!assessment;
-  const classStudentsMetaKey = useMemo(() => `class_students_${teacherId}_${grade}`, [teacherId, grade]);
+  const resolveStudentFromSchool = useCallback(async (admissionNo: string): Promise<LocalStudent | null> => {
+    if (!schoolId) return null;
+
+    try {
+      const { data, error } = await supabase
+        .from('hoi_students')
+        .select('id,full_name,admission_no,class_name')
+        .eq('school_id', schoolId)
+        .eq('class_name', grade)
+        .eq('admission_no', admissionNo)
+        .maybeSingle();
+
+      if (error || !data?.id) return null;
+
+      return {
+        id: String(data.id),
+        name: String(data.full_name || ''),
+        admissionNo: String(data.admission_no || ''),
+      };
+    } catch {
+      return null;
+    }
+  }, [grade, schoolId]);
 
   const loadData = useCallback(async () => {
-    const [records, userRes] = await Promise.all([
+    if (!schoolId) {
+      setAssessmentRecords([]);
+      setAssessedStudents([]);
+      setStudents([]);
+      return;
+    }
+
+    const [records, studentsRes] = await Promise.all([
       assessmentStorage.getByTeacher(teacherId),
-      supabase.auth.getUser(),
+      supabase
+        .from('hoi_students')
+        .select('id,full_name,admission_no,class_name')
+        .eq('school_id', schoolId)
+        .eq('class_name', grade)
+        .order('full_name', { ascending: true }),
     ]);
 
     const filteredRecords = records.filter(
@@ -190,22 +227,29 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
       new Map(recordStudents.map((student) => [student.studentId, student])).values()
     );
 
-    let metadataStudents: LocalStudent[] = [];
-    try {
-      const raw = userRes.data.user?.user_metadata?.[classStudentsMetaKey];
-      if (Array.isArray(raw)) {
-        metadataStudents = raw as LocalStudent[];
-      }
-    } catch {
-      metadataStudents = [];
-    }
+    const schoolStudents: LocalStudent[] = studentsRes.error
+      ? []
+      : ((studentsRes.data || []).map((row: any) => ({
+          id: String(row.id),
+          name: String(row.full_name || ''),
+          admissionNo: String(row.admission_no || ''),
+        })) as LocalStudent[]);
 
     const merged = new Map<string, LocalStudent>();
-    metadataStudents.forEach((student) => merged.set(student.id, student));
+    const schoolStudentsByAdmission = new Map<string, LocalStudent>();
+    schoolStudents.forEach((student) => {
+      merged.set(student.id, student);
+      schoolStudentsByAdmission.set(student.admissionNo, student);
+    });
+
     uniqueAssessed.forEach((student) => {
-      merged.set(student.studentId, {
-        id: student.studentId,
-        name: student.studentName,
+      const matchedSchoolStudent = schoolStudentsByAdmission.get(student.admissionNo);
+      const resolvedId = matchedSchoolStudent?.id || student.studentId;
+      if (!resolvedId) return;
+
+      merged.set(resolvedId, {
+        id: resolvedId,
+        name: matchedSchoolStudent?.name || student.studentName,
         admissionNo: student.admissionNo,
       });
     });
@@ -213,7 +257,7 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
     setAssessmentRecords(filteredRecords);
     setAssessedStudents(uniqueAssessed);
     setStudents(Array.from(merged.values()));
-  }, [teacherId, grade, subject, selectedTerm, classStudentsMetaKey]);
+  }, [teacherId, grade, subject, selectedTerm, schoolId]);
 
   useEffect(() => {
     void loadData();
@@ -242,26 +286,12 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
     setCompetencyChoice(booleanToCompetencyChoice(record.competencyAchieved));
   }, [selectedStudent, assessmentRecords]);
 
-  const saveStudents = async (list: LocalStudent[]) => {
-    try {
-      const { data } = await supabase.auth.getUser();
-      const metadata = data.user?.user_metadata || {};
-      const { error } = await supabase.auth.updateUser({
-        data: {
-          ...metadata,
-          [classStudentsMetaKey]: list,
-        },
-      });
-      if (error) {
-        toast({ title: 'Error', description: error.message || 'Failed to persist class list', variant: 'destructive' });
-      }
-    } catch {
-      toast({ title: 'Error', description: 'Failed to persist class list', variant: 'destructive' });
+  const addStudent = async () => {
+    if (!schoolId) {
+      toast({ title: 'Missing School', description: 'Unable to load students without school context.', variant: 'destructive' });
+      return;
     }
-    setStudents(list);
-  };
 
-  const addStudent = () => {
     const name = studentName.trim();
     const admNo = studentAdmNo.trim();
     if (!name || !admNo) {
@@ -272,16 +302,17 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
       toast({ title: 'Duplicate', description: 'A student with this admission number already exists.', variant: 'destructive' });
       return;
     }
-    const newStudent: LocalStudent = {
-      id: `stu-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      name,
-      admissionNo: admNo,
-    };
-    const updated = [...students, newStudent];
-    void saveStudents(updated);
+
+    const existingStudent = await resolveStudentFromSchool(admNo);
+    if (!existingStudent) {
+      toast({ title: 'Not Found', description: `No student with admission number ${admNo} found in ${grade}.`, variant: 'destructive' });
+      return;
+    }
+
+    setStudents((prev) => [...prev, existingStudent]);
     setStudentName('');
     setStudentAdmNo('');
-    toast({ title: 'Student Added', description: `${name} has been added to your class list.` });
+    toast({ title: 'Student Added', description: `${existingStudent.name} has been added to your class list.` });
   };
 
   const selectStudent = (student: LocalStudent) => {
@@ -323,8 +354,22 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
 
   const saveAssessment = async () => {
     if (!selectedStudent || !assessment) return;
+    if (!schoolId) {
+      toast({ title: 'Missing School', description: 'Unable to save without school context.', variant: 'destructive' });
+      return;
+    }
+
     setSaving(true);
     try {
+      const resolvedStudent = isUuid(selectedStudent.id)
+        ? selectedStudent
+        : await resolveStudentFromSchool(selectedStudent.admissionNo);
+
+      if (!resolvedStudent || !isUuid(resolvedStudent.id)) {
+        toast({ title: 'Student Error', description: 'Please select a valid student from the school list before saving.', variant: 'destructive' });
+        return;
+      }
+
       const scoreList: AssessmentScore[] = Object.values(scores).filter(
         (score) => score.strandNumber !== undefined && score.subStrandName
       );
@@ -334,9 +379,9 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
       await assessmentStorage.upsert({
         teacherId,
         teacherName,
-        studentId: selectedStudent.id,
-        studentName: selectedStudent.name,
-        admissionNo: selectedStudent.admissionNo,
+        studentId: resolvedStudent.id,
+        studentName: resolvedStudent.name,
+        admissionNo: resolvedStudent.admissionNo,
         grade,
         subject,
         term: selectedTerm,
@@ -348,7 +393,7 @@ const AssessmentBook = ({ teacherId, teacherName, grade, subject, schoolCode }: 
         scores: scoreList,
       });
 
-      toast({ title: 'Saved!', description: `Assessment for ${selectedStudent.name} has been saved successfully.` });
+      toast({ title: 'Saved!', description: `Assessment for ${resolvedStudent.name} has been saved successfully.` });
       setRefreshKey((prev) => prev + 1);
     } catch {
       toast({ title: 'Error', description: 'Failed to save assessment. Please try again.', variant: 'destructive' });

@@ -60,7 +60,11 @@ export default function HoiReports() {
 
   useEffect(() => {
     setAttendance(hoiAttendanceStorage.getAll());
-    setFees(hoiFeesStorage.getAll());
+    try {
+      setFees(hoiFeesStorage.getAll());
+    } catch {
+      setFees([]);
+    }
     setExpenses(hoiExpensesStorage.getAll());
     setDuties(hoiTeacherDutiesStorage.getAll());
     setStudents(hoiStudentsStorage.getAll());
