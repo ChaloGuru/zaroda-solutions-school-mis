@@ -272,7 +272,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     if (!school) {
-      return { success: false, error: 'School code not found. Please contact administrator.' };
+      return { success: false, error: 'School KNEC Code not found. Please contact administrator.' };
     }
 
     const { data: signUpData, error } = await supabase.auth.signUp({

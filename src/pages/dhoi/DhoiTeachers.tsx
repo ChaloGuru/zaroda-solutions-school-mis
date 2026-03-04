@@ -683,12 +683,12 @@ export default function DhoiTeachers() {
       if (profileRole === 'teacher') {
         toast({
           title: 'Success',
-          description: `Teacher created! They can login with school code ${currentUser.schoolCode} and their email`,
+          description: `Teacher created! They can login with School KNEC Code ${currentUser.schoolCode} and their email`,
         });
       } else {
         toast({
           title: 'Success',
-          description: `HOD created successfully. They can login with school code ${currentUser.schoolCode} and their email`,
+          description: `HOD created successfully. They can login with School KNEC Code ${currentUser.schoolCode} and their email`,
         });
       }
     }

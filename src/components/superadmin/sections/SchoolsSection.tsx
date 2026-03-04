@@ -212,8 +212,8 @@ export default function SchoolsSection() {
 
       if (existing) {
         toast({
-          title: 'Duplicate School Code',
-          description: 'A school with this code already exists. School codes must be unique.',
+          title: 'Duplicate School KNEC Code',
+          description: 'A school with this School KNEC Code already exists. School KNEC Codes must be unique.',
           variant: 'destructive',
         });
         return;

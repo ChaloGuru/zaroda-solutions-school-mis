@@ -236,7 +236,7 @@ export default function UsersSection() {
       if (!schoolRow) {
         toast({
           title: 'Invalid School',
-          description: 'Selected school code was not found. Please select a valid school.',
+          description: 'Selected School KNEC Code was not found. Please select a valid school.',
           variant: 'destructive',
         });
         return;

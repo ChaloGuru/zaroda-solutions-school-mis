@@ -842,12 +842,12 @@ export default function HoiTeachers() {
         if (profileRole === 'teacher') {
           toast({
             title: 'Success',
-            description: `Teacher created! They can login with school code ${tenantSchoolCode} and their email`,
+            description: `Teacher created! They can login with School KNEC Code ${tenantSchoolCode} and their email`,
           });
         } else {
           toast({
             title: 'Success',
-            description: `HOD created successfully. They can login with school code ${tenantSchoolCode} and their email`,
+            description: `HOD created successfully. They can login with School KNEC Code ${tenantSchoolCode} and their email`,
           });
         }
       }
