@@ -118,15 +118,18 @@ type DhoiAccount = {
 };
 
 type StaffRow = HoiTeacher & {
-  staffRole: 'teacher' | 'dhoi';
+  staffRole: 'teacher' | 'hoi' | 'dhoi' | 'hod';
 };
 
-type AssignableStaffRole = 'teacher' | 'hoi' | 'dhoi';
+type AssignableStaffRole = 'teacher' | 'hoi' | 'dhoi' | 'hod';
 
 type AssignableStaff = {
   id: string;
   full_name: string;
   role: AssignableStaffRole;
+  email?: string;
+  phone?: string;
+  status?: HoiTeacher['status'];
 };
 
 const emptyTeacherForm = {
@@ -261,6 +264,37 @@ export default function HoiTeachers() {
   const [teacherValidationErrors, setTeacherValidationErrors] = useState<string[]>([]);
   const [teacherValidationWarnings, setTeacherValidationWarnings] = useState<string[]>([]);
 
+  const loadAssignmentsFromSupabase = async (schoolId: string) => {
+    const { data, error } = await supabase
+      .from('hoi_subject_assignments')
+      .select('*')
+      .eq('school_id', schoolId)
+      .order('teacher_name', { ascending: true });
+
+    if (error) {
+      toast({
+        title: 'Assignments Load Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+      setAssignments([]);
+      return;
+    }
+
+    const mappedAssignments: HoiSubjectAssignment[] = (data || []).map((row: any) => ({
+      id: row.id,
+      teacher_id: row.teacher_id || '',
+      teacher_name: row.teacher_name || '',
+      subject_id: row.subject_id || '',
+      subject_name: row.subject_name || '',
+      class_id: row.class_id || '',
+      class_name: row.class_name || '',
+      stream_id: row.stream_id || '',
+      stream_name: row.stream_name || '',
+    }));
+    setAssignments(mappedAssignments);
+  };
+
   const loadData = async () => {
     setTeachers(hoiTeachersStorage.getAll());
     setSubjects(hoiSubjectsStorage.getAll());
@@ -305,7 +339,7 @@ export default function HoiTeachers() {
     }
 
     if (currentUser?.schoolId) {
-      const [classResult, streamResult, subjectResult] = await Promise.all([
+      const [classResult, streamResult, subjectResult, teacherResult] = await Promise.all([
         supabase
           .from('hoi_classes')
           .select('id,name,level,created_at')
@@ -320,7 +354,33 @@ export default function HoiTeachers() {
           .select('id,name,code,category,description,school_id')
           .eq('school_id', currentUser.schoolId)
           .order('name', { ascending: true }),
+        supabase
+          .from('hoi_teachers')
+          .select('*')
+          .eq('school_id', currentUser.schoolId)
+          .order('full_name', { ascending: true }),
       ]);
+
+      if (!teacherResult.error) {
+        const loadedTeachers: HoiTeacher[] = (teacherResult.data || []).map((row: any) => ({
+          id: row.id,
+          full_name: row.full_name || '',
+          email: row.email || '',
+          phone: row.phone || '',
+          employee_id: row.employee_id || '',
+          subject_specialization: row.subject_specialization || '',
+          gender: row.gender === 'Female' ? 'Female' : 'Male',
+          qualification: row.qualification || '',
+          status: row.status || 'active',
+          hired_at: row.hired_at || '',
+          is_class_teacher: Boolean(row.is_class_teacher),
+          class_teacher_class_id: row.class_teacher_class_id || undefined,
+          class_teacher_class_name: row.class_teacher_class_name || undefined,
+          class_teacher_stream_id: row.class_teacher_stream_id || undefined,
+          class_teacher_stream_name: row.class_teacher_stream_name || undefined,
+        }));
+        setTeachers(loadedTeachers);
+      }
 
       if (!classResult.error) {
         const loadedClasses: HoiClass[] = (classResult.data || []).map((row: any) => ({
@@ -360,39 +420,13 @@ export default function HoiTeachers() {
         setSubjects(Array.from(byName.values()));
       }
 
-      const { data: assignmentRows, error: assignmentError } = await supabase
-        .from('hoi_subject_assignments')
-        .select('*')
-        .eq('school_id', currentUser.schoolId)
-        .order('teacher_name', { ascending: true });
-
-      if (assignmentError) {
-        toast({
-          title: 'Assignments Load Error',
-          description: assignmentError.message,
-          variant: 'destructive',
-        });
-        setAssignments([]);
-      } else {
-        const mappedAssignments: HoiSubjectAssignment[] = (assignmentRows || []).map((row: any) => ({
-          id: row.id,
-          teacher_id: row.teacher_id || '',
-          teacher_name: row.teacher_name || '',
-          subject_id: row.subject_id || '',
-          subject_name: row.subject_name || '',
-          class_id: row.class_id || '',
-          class_name: row.class_name || '',
-          stream_id: row.stream_id || '',
-          stream_name: row.stream_name || '',
-        }));
-        setAssignments(mappedAssignments);
-      }
+      await loadAssignmentsFromSupabase(currentUser.schoolId);
 
       const { data: leadershipRows } = await supabase
         .from('profiles')
-        .select('id, full_name, role, school_id, status')
+        .select('id, full_name, role, school_id, status, email, phone')
         .eq('school_id', currentUser.schoolId)
-        .in('role', ['hoi', 'dhoi']);
+        .in('role', ['hoi', 'dhoi', 'hod']);
 
       if (leadershipRows && Array.isArray(leadershipRows)) {
         const mapped = leadershipRows
@@ -400,7 +434,10 @@ export default function HoiTeachers() {
           .map((row) => ({
             id: String(row.id),
             full_name: String(row.full_name),
-            role: row.role === 'hoi' ? 'hoi' : 'dhoi',
+            role: (row.role === 'hoi' || row.role === 'dhoi' || row.role === 'hod' ? row.role : 'teacher') as AssignableStaffRole,
+            email: row.email ? String(row.email) : '',
+            phone: row.phone ? String(row.phone) : '',
+            status: row.status === 'deactivated' ? 'deactivated' : 'active',
           } as AssignableStaff));
         setLeadershipAssignableStaff(mapped);
       } else {
@@ -418,9 +455,11 @@ export default function HoiTeachers() {
       .filter((teacher) => teacher.status === 'active')
       .map((teacher) => ({ id: teacher.id, full_name: teacher.full_name, role: 'teacher' }));
 
+    const activeLeadership = leadershipAssignableStaff.filter((staff) => (staff.status || 'active') === 'active');
+
     const merged = new Map<string, AssignableStaff>();
     activeTeachers.forEach((staff) => merged.set(staff.id, staff));
-    leadershipAssignableStaff.forEach((staff) => {
+    activeLeadership.forEach((staff) => {
       if (!merged.has(staff.id)) merged.set(staff.id, staff);
     });
 
@@ -499,21 +538,21 @@ export default function HoiTeachers() {
 
   const staffRows: StaffRow[] = [
     ...teachers.map((teacher) => ({ ...teacher, staffRole: 'teacher' as const })),
-    ...dhoiStaff
-      .filter((user) => !teachers.some((teacher) => teacher.email.toLowerCase() === user.email.toLowerCase()))
-      .map((user) => ({
-        id: user.id,
-        full_name: user.fullName,
-        email: user.email,
-        phone: user.phone || '',
+    ...leadershipAssignableStaff
+      .filter((staff) => !teachers.some((teacher) => teacher.id === staff.id || teacher.email.toLowerCase() === (staff.email || '').toLowerCase()))
+      .map((staff) => ({
+        id: staff.id,
+        full_name: staff.full_name,
+        email: staff.email || '',
+        phone: staff.phone || '',
         employee_id: '—',
         subject_specialization: 'School Administration',
         gender: 'Male' as HoiTeacher['gender'],
         qualification: '—',
-        status: (user.status === 'active' ? 'active' : 'deactivated') as HoiTeacher['status'],
-        hired_at: user.createdAt ? user.createdAt.split('T')[0] : new Date().toISOString().split('T')[0],
+        status: (staff.status || 'active') as HoiTeacher['status'],
+        hired_at: new Date().toISOString().split('T')[0],
         is_class_teacher: false,
-        staffRole: 'dhoi' as const,
+        staffRole: staff.role,
       })),
   ];
 
@@ -528,7 +567,9 @@ export default function HoiTeachers() {
   const pagedTeachers = filteredTeachers.slice((teacherPage - 1) * PAGE_SIZE, teacherPage * PAGE_SIZE);
 
   const getTeacherRoleLabel = (teacher: StaffRow) => {
+    if (teacher.staffRole === 'hoi') return 'HOI';
     if (teacher.staffRole === 'dhoi') return 'DHOI';
+    if (teacher.staffRole === 'hod') return 'HOD';
     if (teacher.is_class_teacher) return 'Class Teacher';
     return 'Learning Area Teacher';
   };
@@ -1003,7 +1044,7 @@ export default function HoiTeachers() {
     setAssignDialogOpen(false);
     setAssignForm(emptyAssignmentForm);
     setPendingAssignments([]);
-    await loadData();
+    await loadAssignmentsFromSupabase(currentUser.schoolId);
   };
 
   const deleteAssignment = () => {
@@ -1026,7 +1067,9 @@ export default function HoiTeachers() {
 
         toast({ title: 'Success', description: 'Learning Area assignment removed successfully' });
         setDeleteAssignDialog({ open: false, id: null });
-        await loadData();
+        if (currentUser?.schoolId) {
+          await loadAssignmentsFromSupabase(currentUser.schoolId);
+        }
       })();
     }
   };
@@ -1420,7 +1463,7 @@ export default function HoiTeachers() {
                               )}
                             </>
                           ) : (
-                            <Badge variant="outline" className="bg-indigo-500/10 text-indigo-700 border-indigo-500/30">Managed in DHOI Account</Badge>
+                            <Badge variant="outline" className="bg-indigo-500/10 text-indigo-700 border-indigo-500/30">Managed in profile</Badge>
                           )}
                         </div>
                       </TableCell>

@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import {
-  hoiSubjectsStorage,
-  hoiSubjectAssignmentsStorage,
   HoiSubject,
-  HoiSubjectAssignment,
 } from '../../lib/hoiStorage';
+import { supabase } from '@/lib/supabase';
+import { useAuthContext } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -51,8 +50,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Trash2,
-  Users,
-  Layers,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -65,10 +62,19 @@ const emptyForm = {
   description: '',
 };
 
+type SubjectAssignmentSummary = {
+  subject_id: string;
+  subject_name: string;
+  teacher_name: string;
+  class_name: string;
+  stream_name: string;
+};
+
 export default function HoiSubjects() {
   const { toast } = useToast();
+  const { currentUser } = useAuthContext();
   const [subjects, setSubjects] = useState<HoiSubject[]>([]);
-  const [assignments, setAssignments] = useState<HoiSubjectAssignment[]>([]);
+  const [assignments, setAssignments] = useState<SubjectAssignmentSummary[]>([]);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -85,12 +91,55 @@ export default function HoiSubjects() {
     return 'bg-purple-500/10 text-purple-700 border-purple-500/30';
   };
 
-  const reload = () => {
-    setSubjects(hoiSubjectsStorage.getAll());
-    setAssignments(hoiSubjectAssignmentsStorage.getAll());
+  const reload = async () => {
+    if (!currentUser?.schoolId) {
+      setSubjects([]);
+      setAssignments([]);
+      return;
+    }
+
+    const [subjectsResult, assignmentResult] = await Promise.all([
+      supabase
+        .from('hoi_subjects')
+        .select('*')
+        .eq('school_id', currentUser.schoolId)
+        .order('name', { ascending: true }),
+      supabase
+        .from('hoi_subject_assignments')
+        .select('subject_id,subject_name,teacher_name,class_name,stream_name')
+        .eq('school_id', currentUser.schoolId),
+    ]);
+
+    if (subjectsResult.error) {
+      toast({ title: 'Load Error', description: subjectsResult.error.message, variant: 'destructive' });
+      setSubjects([]);
+    } else {
+      const mappedSubjects: HoiSubject[] = (subjectsResult.data || []).map((row: any) => ({
+        id: String(row.id),
+        name: String(row.name || ''),
+        code: String(row.code || ''),
+        category: (row.category || 'Junior School') as HoiSubject['category'],
+        description: row.description || '',
+      }));
+      setSubjects(mappedSubjects);
+    }
+
+    if (assignmentResult.error) {
+      toast({ title: 'Assignments Load Error', description: assignmentResult.error.message, variant: 'destructive' });
+      setAssignments([]);
+    } else {
+      const mappedAssignments: SubjectAssignmentSummary[] = (assignmentResult.data || []).map((row: any) => ({
+        subject_id: String(row.subject_id || ''),
+        subject_name: String(row.subject_name || ''),
+        teacher_name: String(row.teacher_name || ''),
+        class_name: String(row.class_name || ''),
+        stream_name: String(row.stream_name || ''),
+      }));
+      setAssignments(mappedAssignments);
+    }
   };
 
-  useEffect(() => { reload(); }, []);
+  useEffect(() => { void reload(); }, [currentUser?.schoolId]);
 
   const filtered = subjects.filter(
     (s) =>
@@ -102,15 +151,24 @@ export default function HoiSubjects() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const getTeachersForSubject = (subjectId: string) => {
-    const teacherNames = [...new Set(assignments.filter((a) => a.subject_id === subjectId).map((a) => a.teacher_name))];
+  const getTeachersForSubject = (subject: HoiSubject) => {
+    const normalizedName = subject.name.trim().toLowerCase();
+    const teacherNames = [...new Set(assignments
+      .filter((a) => a.subject_id === subject.id || a.subject_name.trim().toLowerCase() === normalizedName)
+      .map((a) => a.teacher_name)
+      .filter(Boolean))];
     return teacherNames;
   };
 
-  const getClassesForSubject = (subjectId: string) => {
+  const getClassesForSubject = (subject: HoiSubject) => {
+    const normalizedName = subject.name.trim().toLowerCase();
     const classInfo = assignments
-      .filter((a) => a.subject_id === subjectId)
-      .map((a) => `${a.class_name} ${a.stream_name}`);
+      .filter((a) => a.subject_id === subject.id || a.subject_name.trim().toLowerCase() === normalizedName)
+      .map((a) => {
+        const hasSpecificStream = a.stream_name && a.stream_name !== 'No streams (whole class)';
+        return hasSpecificStream ? `${a.class_name} ${a.stream_name}` : a.class_name;
+      })
+      .filter(Boolean);
     return [...new Set(classInfo)];
   };
 
@@ -151,37 +209,69 @@ export default function HoiSubjects() {
     setDeleteDialogOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validate()) return;
+    if (!currentUser?.schoolId) {
+      toast({ title: 'Validation Error', description: 'Missing school context.', variant: 'destructive' });
+      return;
+    }
+
+    const payload = {
+      school_id: currentUser.schoolId,
+      name: form.name.trim(),
+      code: form.code.trim().toUpperCase(),
+      category: form.category,
+      description: form.description.trim() || null,
+    };
+
     if (editingId) {
-      hoiSubjectsStorage.update(editingId, {
-        name: form.name.trim(),
-        code: form.code.trim().toUpperCase(),
-        category: form.category,
-        description: form.description.trim() || undefined,
-      });
+      const { error } = await supabase
+        .from('hoi_subjects')
+        .update(payload)
+        .eq('id', editingId)
+        .eq('school_id', currentUser.schoolId);
+
+      if (error) {
+        toast({ title: 'Update Error', description: error.message, variant: 'destructive' });
+        return;
+      }
+
       toast({ title: 'Learning Area Updated', description: `${form.name} has been updated.` });
     } else {
-      hoiSubjectsStorage.add({
-        name: form.name.trim(),
-        code: form.code.trim().toUpperCase(),
-        category: form.category,
-        description: form.description.trim() || undefined,
-      });
+      const { error } = await supabase
+        .from('hoi_subjects')
+        .insert(payload);
+
+      if (error) {
+        toast({ title: 'Create Error', description: error.message, variant: 'destructive' });
+        return;
+      }
+
       toast({ title: 'Learning Area Added', description: `${form.name} has been added.` });
     }
     setDialogOpen(false);
-    reload();
+    await reload();
   };
 
-  const handleDelete = () => {
-    if (deleteId) {
+  const handleDelete = async () => {
+    if (deleteId && currentUser?.schoolId) {
       const subj = subjects.find((s) => s.id === deleteId);
-      hoiSubjectsStorage.remove(deleteId);
+
+      const { error } = await supabase
+        .from('hoi_subjects')
+        .delete()
+        .eq('id', deleteId)
+        .eq('school_id', currentUser.schoolId);
+
+      if (error) {
+        toast({ title: 'Delete Error', description: error.message, variant: 'destructive' });
+        return;
+      }
+
       toast({ title: 'Learning Area Deleted', description: `${subj?.name || 'Learning Area'} has been removed.` });
       setDeleteDialogOpen(false);
       setDeleteId(null);
-      reload();
+      await reload();
       if (paginated.length === 1 && page > 1) setPage(page - 1);
     }
   };
@@ -243,8 +333,8 @@ export default function HoiSubjects() {
                 </TableRow>
               ) : (
                 paginated.map((subject) => {
-                  const teachers = getTeachersForSubject(subject.id);
-                  const classes = getClassesForSubject(subject.id);
+                  const teachers = getTeachersForSubject(subject);
+                  const classes = getClassesForSubject(subject);
                   return (
                     <TableRow key={subject.id}>
                       <TableCell className="font-medium">{subject.name}</TableCell>
@@ -258,12 +348,9 @@ export default function HoiSubjects() {
                       </TableCell>
                       <TableCell>
                         {teachers.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {teachers.map((t) => (
-                              <Badge key={t} variant="secondary" className="text-xs gap-1">
-                                <Users className="w-3 h-3" /> {t}
-                              </Badge>
-                            ))}
+                          <div className="text-sm">
+                            <p>{teachers.join(', ')}</p>
+                            <p className="text-xs text-muted-foreground">{teachers.length} assigned</p>
                           </div>
                         ) : (
                           <span className="text-xs text-muted-foreground">Not assigned</span>
@@ -271,13 +358,7 @@ export default function HoiSubjects() {
                       </TableCell>
                       <TableCell>
                         {classes.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {classes.map((c) => (
-                              <Badge key={c} variant="outline" className="text-xs gap-1">
-                                <Layers className="w-3 h-3" /> {c}
-                              </Badge>
-                            ))}
-                          </div>
+                          <span className="text-sm">{classes.join(', ')}</span>
                         ) : (
                           <span className="text-xs text-muted-foreground">No classes</span>
                         )}

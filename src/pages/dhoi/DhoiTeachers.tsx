@@ -142,6 +142,21 @@ type PendingAssignmentItem = {
   stream_name: string;
 };
 
+type AssignableStaffRole = 'teacher' | 'hoi' | 'dhoi' | 'hod';
+
+type AssignableStaff = {
+  id: string;
+  full_name: string;
+  role: AssignableStaffRole;
+  status?: HoiTeacher['status'];
+  email?: string;
+  phone?: string;
+};
+
+type StaffRow = HoiTeacher & {
+  staffRole: AssignableStaffRole;
+};
+
 const emptyDutyForm = {
   teacher_id: '',
   teacher_two_id: '',
@@ -194,6 +209,7 @@ export default function DhoiTeachers() {
   const [streams, setStreams] = useState<HoiStream[]>([]);
   const [duties, setDuties] = useState<HoiTeacherDuty[]>([]);
   const [teacherCodes, setTeacherCodesState] = useState<Record<string, string>>({});
+  const [leadershipAssignableStaff, setLeadershipAssignableStaff] = useState<AssignableStaff[]>([]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -217,9 +233,35 @@ export default function DhoiTeachers() {
   const [deleteAssignDialog, setDeleteAssignDialog] = useState<{ open: boolean; id: string | null }>({ open: false, id: null });
   const [deleteDutyDialog, setDeleteDutyDialog] = useState<{ open: boolean; id: string | null }>({ open: false, id: null });
 
+  const loadAssignmentsFromSupabase = async (schoolId: string) => {
+    const { data, error } = await supabase
+      .from('hoi_subject_assignments')
+      .select('*')
+      .eq('school_id', schoolId)
+      .order('teacher_name', { ascending: true });
+
+    if (error) {
+      toast({ title: 'Assignments Load Error', description: error.message, variant: 'destructive' });
+      setAssignments([]);
+      return;
+    }
+
+    const mappedAssignments: HoiSubjectAssignment[] = (data || []).map((row: any) => ({
+      id: row.id,
+      teacher_id: row.teacher_id || '',
+      teacher_name: row.teacher_name || '',
+      subject_id: row.subject_id || '',
+      subject_name: row.subject_name || '',
+      class_id: row.class_id || '',
+      class_name: row.class_name || '',
+      stream_id: row.stream_id || '',
+      stream_name: row.stream_name || '',
+    }));
+    setAssignments(mappedAssignments);
+  };
+
   const loadData = async () => {
     setTeachers(hoiTeachersStorage.getAll());
-    setAssignments(hoiSubjectAssignmentsStorage.getAll());
     setSubjects(hoiSubjectsStorage.getAll());
     setClasses(hoiClassesStorage.getAll());
     setStreams(hoiStreamsStorage.getAll());
@@ -229,7 +271,7 @@ export default function DhoiTeachers() {
       return;
     }
 
-    const [classResult, streamResult, subjectResult, assignmentResult, teacherResult] = await Promise.all([
+    const [classResult, streamResult, subjectResult, teacherResult, leadershipResult] = await Promise.all([
       supabase
         .from('hoi_classes')
         .select('id,name,level,created_at')
@@ -245,15 +287,15 @@ export default function DhoiTeachers() {
         .eq('school_id', currentUser.schoolId)
         .order('name', { ascending: true }),
       supabase
-        .from('hoi_subject_assignments')
-        .select('*')
-        .eq('school_id', currentUser.schoolId)
-        .order('teacher_name', { ascending: true }),
-      supabase
         .from('hoi_teachers')
         .select('*')
         .eq('school_id', currentUser.schoolId)
         .order('full_name', { ascending: true }),
+      supabase
+        .from('profiles')
+        .select('id, full_name, role, school_id, status, email, phone')
+        .eq('school_id', currentUser.schoolId)
+        .in('role', ['hoi', 'dhoi', 'hod']),
     ]);
 
     if (!teacherResult.error) {
@@ -315,25 +357,63 @@ export default function DhoiTeachers() {
       setSubjects(Array.from(byName.values()));
     }
 
-    if (!assignmentResult.error) {
-      const mappedAssignments: HoiSubjectAssignment[] = (assignmentResult.data || []).map((row: any) => ({
-        id: row.id,
-        teacher_id: row.teacher_id || '',
-        teacher_name: row.teacher_name || '',
-        subject_id: row.subject_id || '',
-        subject_name: row.subject_name || '',
-        class_id: row.class_id || '',
-        class_name: row.class_name || '',
-        stream_id: row.stream_id || '',
-        stream_name: row.stream_name || '',
-      }));
-      setAssignments(mappedAssignments);
+    await loadAssignmentsFromSupabase(currentUser.schoolId);
+
+    if (!leadershipResult.error && Array.isArray(leadershipResult.data)) {
+      const mappedLeadership = leadershipResult.data
+        .filter((row: any) => row.id && row.full_name)
+        .map((row: any) => ({
+          id: String(row.id),
+          full_name: String(row.full_name),
+          role: (row.role === 'hoi' || row.role === 'dhoi' || row.role === 'hod' ? row.role : 'teacher') as AssignableStaffRole,
+          status: row.status === 'deactivated' ? 'deactivated' : 'active',
+          email: row.email ? String(row.email) : '',
+          phone: row.phone ? String(row.phone) : '',
+        } as AssignableStaff));
+      setLeadershipAssignableStaff(mappedLeadership);
+    } else {
+      setLeadershipAssignableStaff([]);
     }
 
     setTeacherCodesState(await getTeacherCodes(currentUser.schoolId));
   };
 
   useEffect(() => { void loadData(); }, [currentUser?.schoolId]);
+
+  const assignableStaff: AssignableStaff[] = (() => {
+    const activeTeachers: AssignableStaff[] = teachers
+      .filter((teacher) => teacher.status === 'active')
+      .map((teacher) => ({ id: teacher.id, full_name: teacher.full_name, role: 'teacher' }));
+
+    const activeLeadership = leadershipAssignableStaff.filter((staff) => (staff.status || 'active') === 'active');
+    const merged = new Map<string, AssignableStaff>();
+    activeTeachers.forEach((staff) => merged.set(staff.id, staff));
+    activeLeadership.forEach((staff) => {
+      if (!merged.has(staff.id)) merged.set(staff.id, staff);
+    });
+
+    return Array.from(merged.values()).sort((a, b) => a.full_name.localeCompare(b.full_name));
+  })();
+
+  const staffRows: StaffRow[] = [
+    ...teachers.map((teacher) => ({ ...teacher, staffRole: 'teacher' as const })),
+    ...leadershipAssignableStaff
+      .filter((staff) => !teachers.some((teacher) => teacher.id === staff.id || teacher.email.toLowerCase() === (staff.email || '').toLowerCase()))
+      .map((staff) => ({
+        id: staff.id,
+        full_name: staff.full_name,
+        email: staff.email || '',
+        phone: staff.phone || '',
+        employee_id: '—',
+        subject_specialization: 'School Administration',
+        gender: 'Male' as HoiTeacher['gender'],
+        qualification: '—',
+        status: (staff.status || 'active') as HoiTeacher['status'],
+        hired_at: new Date().toISOString().split('T')[0],
+        is_class_teacher: false,
+        staffRole: staff.role,
+      })),
+  ];
 
   const getCode = (teacherId: string) => teacherCodes[teacherId] || '—';
 
@@ -349,7 +429,7 @@ export default function DhoiTeachers() {
     return uniqueClasses.join(', ') || '—';
   };
 
-  const filteredTeachers = teachers.filter((t) => {
+  const filteredTeachers = staffRows.filter((t) => {
     const code = (teacherCodes[t.id] || '').toLowerCase();
     const matchesSearch = t.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -385,6 +465,14 @@ export default function DhoiTeachers() {
       deactivated: 'bg-red-500/20 text-red-700 border-red-500/30',
     };
     return <Badge variant="outline" className={colors[status]}>{status.replace('_', ' ')}</Badge>;
+  };
+
+  const getTeacherRoleLabel = (teacher: StaffRow) => {
+    if (teacher.staffRole === 'hoi') return 'HOI';
+    if (teacher.staffRole === 'dhoi') return 'DHOI';
+    if (teacher.staffRole === 'hod') return 'HOD';
+    if (teacher.is_class_teacher) return 'Class Teacher';
+    return 'Teacher';
   };
 
   const openAddTeacher = () => {
@@ -687,7 +775,7 @@ export default function DhoiTeachers() {
       return null;
     }
 
-    const teacher = teachers.find((t) => t.id === assignForm.teacher_id);
+    const teacher = assignableStaff.find((t) => t.id === assignForm.teacher_id);
     const subject = subjects.find((s) => s.id === assignForm.subject_id);
     const cls = classes.find((c) => c.id === assignForm.class_id);
     const stream = resolvedStreamId ? streams.find((s) => s.id === resolvedStreamId) : null;
@@ -788,7 +876,7 @@ export default function DhoiTeachers() {
     setAssignDialogOpen(false);
     setAssignForm(emptyAssignmentForm);
     setPendingAssignments([]);
-    await loadData();
+    await loadAssignmentsFromSupabase(currentUser.schoolId);
   };
 
   const deleteAssignment = () => {
@@ -807,7 +895,9 @@ export default function DhoiTeachers() {
 
         toast({ title: 'Success', description: 'Learning area assignment removed successfully' });
         setDeleteAssignDialog({ open: false, id: null });
-        await loadData();
+        if (currentUser?.schoolId) {
+          await loadAssignmentsFromSupabase(currentUser.schoolId);
+        }
       })();
     }
   };
@@ -911,6 +1001,7 @@ export default function DhoiTeachers() {
                     <TableRow>
                       <TableHead>Code</TableHead>
                       <TableHead>Name</TableHead>
+                      <TableHead>Role</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Subjects Assigned</TableHead>
                       <TableHead>Classes Assigned</TableHead>
@@ -920,7 +1011,7 @@ export default function DhoiTeachers() {
                   </TableHeader>
                   <TableBody>
                     {pagedTeachers.length === 0 ? (
-                      <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No teachers found.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No teachers found.</TableCell></TableRow>
                     ) : pagedTeachers.map((t) => (
                       <TableRow key={t.id}>
                         <TableCell><Badge variant="secondary" className="font-mono">{getCode(t.id)}</Badge></TableCell>
@@ -933,20 +1024,31 @@ export default function DhoiTeachers() {
                             <p className="text-[10px] text-amber-600 mt-0.5">{t.class_teacher_class_name} {t.class_teacher_stream_name}</p>
                           )}
                         </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="bg-blue-500/10 text-blue-700 border-blue-500/30">
+                            {getTeacherRoleLabel(t)}
+                          </Badge>
+                        </TableCell>
                         <TableCell>{t.email}</TableCell>
                         <TableCell className="max-w-[200px] truncate">{getSubjectsForTeacher(t.id)}</TableCell>
                         <TableCell className="max-w-[200px] truncate">{getClassesForTeacher(t.id)}</TableCell>
                         <TableCell>{statusBadge(t.status)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="sm" onClick={() => openEditTeacher(t)}><Pencil className="w-4 h-4" /></Button>
-                            <Button variant="ghost" size="sm" onClick={() => setDeactivateDialog({ open: true, teacher: t })}>
-                              {t.status === 'deactivated' ? <UserCheck className="w-4 h-4 text-green-600" /> : <UserX className="w-4 h-4 text-red-600" />}
-                            </Button>
-                            {isSystemCreatedTeacher(t) && (
-                              <Button variant="ghost" size="sm" onClick={() => setDeleteTeacherDialog({ open: true, teacher: t })}>
-                                <Trash2 className="w-4 h-4 text-red-600" />
-                              </Button>
+                            {t.staffRole === 'teacher' ? (
+                              <>
+                                <Button variant="ghost" size="sm" onClick={() => openEditTeacher(t)}><Pencil className="w-4 h-4" /></Button>
+                                <Button variant="ghost" size="sm" onClick={() => setDeactivateDialog({ open: true, teacher: t })}>
+                                  {t.status === 'deactivated' ? <UserCheck className="w-4 h-4 text-green-600" /> : <UserX className="w-4 h-4 text-red-600" />}
+                                </Button>
+                                {isSystemCreatedTeacher(t) && (
+                                  <Button variant="ghost" size="sm" onClick={() => setDeleteTeacherDialog({ open: true, teacher: t })}>
+                                    <Trash2 className="w-4 h-4 text-red-600" />
+                                  </Button>
+                                )}
+                              </>
+                            ) : (
+                              <Badge variant="outline" className="bg-indigo-500/10 text-indigo-700 border-indigo-500/30">Managed in profile</Badge>
                             )}
                           </div>
                         </TableCell>
@@ -1213,8 +1315,15 @@ export default function DhoiTeachers() {
               <Select value={assignForm.teacher_id} onValueChange={(v) => setAssignForm({ ...assignForm, teacher_id: v })}>
                 <SelectTrigger><SelectValue placeholder="Select teacher" /></SelectTrigger>
                 <SelectContent>
-                  {teachers.filter((t) => t.status === 'active').map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.full_name}</SelectItem>
+                  {assignableStaff.map((staff) => (
+                    <SelectItem key={staff.id} value={staff.id}>
+                      <div className="flex items-center justify-between gap-2 w-full">
+                        <span>{staff.full_name}</span>
+                        <Badge variant="outline" className="text-[10px] capitalize">
+                          {staff.role === 'teacher' ? 'Teacher' : staff.role.toUpperCase()}
+                        </Badge>
+                      </div>
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
